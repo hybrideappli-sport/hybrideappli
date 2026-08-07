@@ -1,0 +1,25 @@
+{
+  "name": "@hybride/coach-llm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conversation d'onboarding, reformulation et rédaction des explications. Ne dépend jamais de @hybride/rules-engine et ne peut jamais l'invoquer — voir ADR-002.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hybride/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

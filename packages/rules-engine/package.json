@@ -1,0 +1,25 @@
+{
+  "name": "@hybride/rules-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Moteur à règles PUR (0 I/O, déterministe, rejouable). Aucune dépendance réseau ou base autorisée — voir ADR-002, ADR-003.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hybride/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

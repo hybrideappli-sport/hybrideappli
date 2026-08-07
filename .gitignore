@@ -1,0 +1,80 @@
+# Dépendances
+/node_modules
+**/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+/coverage
+**/coverage
+/.nyc_output
+/playwright-report
+/playwright/.cache
+/test-results
+
+# Next.js
+/.next/
+**/.next/
+/out/
+**/out/
+
+# Production builds
+/build
+/dist
+**/dist
+
+# Turborepo
+.turbo
+**/.turbo
+
+# Misc
+.DS_Store
+*.pem
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env files — JAMAIS commiter (sauf .env.example)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# Vercel
+.vercel
+**/.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Supabase
+/supabase/.branches
+/supabase/.temp
+/supabase/.env
+supabase/.env.local
+
+# Logs
+logs
+*.log
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editors
+*.swp
+*.swo
+*~
