@@ -69,26 +69,39 @@ export async function createTestUser(label: string): Promise<TestUser> {
  * `auth.users` depuis l'arbitrage `architect` du 2026-08-07 — ADR-010 §8 : le registre de
  * consentement survit à la suppression du compte, il n'est donc plus concerné par cette cascade.)
  *
- * Pour nettoyer malgré tout les données de test sans passer par `erase_account()` (qui supprime
- * bien plus que ce dont un test a besoin), on désactive les triggers **pour la durée de cette
- * transaction uniquement** via `set local session_replication_role = 'replica'` — portée
- * strictement transactionnelle (s'annule d'elle-même au COMMIT/ROLLBACK, et de toute façon à la
- * déconnexion), par opposition à `alter table ... disable trigger ...` (DDL global et persistant,
- * visible de toute connexion concurrente jusqu'au `enable trigger` correspondant — dangereux en
- * cas d'exécution concurrente ou d'interruption avant qu'il ne s'exécute). Correction du finding
- * I7, audit Lot L1.
+ * CORRECTION (finding B3, second audit `code-reviewer`, mesuré en exécution) : la version
+ * précédente désactivait TOUS les triggers via `set local session_replication_role = 'replica'`
+ * avant le `delete from auth.users`, y compris les triggers système qui portent les contraintes
+ * de clé étrangère — la suppression ne cascadait donc plus sur RIEN, laissant des lignes
+ * orphelines dans 27 tables après seulement 3 exécutions. On utilise désormais `erase_account()`
+ * (ADR-010 §8), qui déclenche un vrai `delete from auth.users` avec triggers actifs — cascade
+ * réelle, vérifiée sans résidu.
+ *
+ * `erase_account()` est `security definer` et vérifie la revendication JWT `role` de l'appelant
+ * (finding B1, ci-dessus) — inexistante sur cette connexion `pg` directe (`DATABASE_URL`, hors
+ * PostgREST). On pose donc manuellement `request.jwt.claims` pour simuler un appelant
+ * `service_role`, dans la même transaction que l'appel.
+ *
+ * `erase_account()` pseudonymise `consents` plutôt que de le supprimer (conservation légale de
+ * 5 ans, ADR-010 §8) : entre deux exécutions de test, ces lignes s'accumuleraient sans jamais être
+ * nettoyées. Le GUC `app.erasure_user_id` posé par `erase_account()` (`set local`, portée
+ * transactionnelle) reste actif pour le reste de CETTE transaction : `forbid_mutation()` autorise
+ * donc ce DELETE explicite ici, et seulement ici — motif suggéré par le reviewer.
  */
 export async function deleteTestUser(userId: string): Promise<void> {
   await withPgClient(async (client) => {
     await client.query("begin");
     try {
-      await client.query("set local session_replication_role = 'replica'");
-      // `plan_reviews.reviewer_id` est désormais `on delete set null` (arbitrage `architect` du
-      // 2026-08-07 : la revue qualité survit à l'effacement du reviewer) : cette suppression
-      // explicite n'est plus requise pour éviter une erreur de contrainte, mais elle évite de
-      // laisser traîner des lignes de revue orphelines entre exécutions de test.
+      await client.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({ role: "service_role" }),
+      ]);
+      // `plan_reviews.reviewer_id` est `on delete set null` (la revue qualité survit à
+      // l'effacement du reviewer) : cette suppression explicite n'est pas requise pour éviter une
+      // erreur de contrainte, mais elle évite de laisser traîner des lignes de revue orphelines
+      // entre exécutions de test.
       await client.query("delete from plan_reviews where reviewer_id = $1", [userId]);
-      await client.query("delete from auth.users where id = $1", [userId]);
+      await client.query("select public.erase_account($1)", [userId]);
+      await client.query("delete from public.consents where user_id = $1", [userId]);
       await client.query("commit");
     } catch (error) {
       await client.query("rollback");

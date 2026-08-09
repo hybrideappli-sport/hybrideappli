@@ -132,8 +132,15 @@ export async function updatePasswordAction(
   const supabase = await getSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data });
 
+  // Message générique, en français — ne jamais renvoyer `error.message` brut de Supabase (fuite
+  // de la mécanique GoTrue, en anglais, dans une UI en français). Même pattern que
+  // `signUpAction`/`signInAction` ci-dessus (finding I6, second audit `code-reviewer`).
   if (error) {
-    return { error: error.message };
+    console.error("[auth] updatePassword", error.message);
+    return {
+      error:
+        "Impossible de mettre à jour le mot de passe pour le moment. Réessayez dans quelques instants.",
+    };
   }
 
   redirect("/dashboard");

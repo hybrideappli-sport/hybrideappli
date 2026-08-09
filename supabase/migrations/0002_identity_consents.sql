@@ -114,7 +114,14 @@ as $$
 declare
   v_consents int;
 begin
-  if not pg_has_role(current_user, 'service_role', 'member') then
+  -- `security definer` : `current_user`/`session_user` valent ici le PROPRIÉTAIRE de la fonction
+  -- (le rôle des migrations, membre de `service_role` sur Supabase), jamais l'appelant réel — un
+  -- contrôle sur `current_user` est donc TOUJOURS vrai, quel que soit qui appelle réellement cette
+  -- fonction (finding B1, second audit `code-reviewer`, démontré en exécution). Seule la
+  -- revendication `role` du JWT effectivement présenté par l'appelant (posée par PostgREST dans
+  -- `request.jwt.claims`, ou explicitement par un appelant `service_role` en connexion directe —
+  -- voir `packages/db/src/__tests__/integration/support/test-clients.ts`) reflète l'identité réelle.
+  if coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '') <> 'service_role' then
     raise exception 'erase_account: insufficient privilege' using errcode = '42501';
   end if;
 
@@ -176,4 +183,9 @@ create index risk_flags_active on risk_flags (user_id) where is_active;
 --        écriture exclusivement `service_role`.
 --   R4 — `alter default privileges` (0001) n'accorde plus UPDATE par défaut : `profiles` reçoit
 --        un GRANT UPDATE au niveau colonne, `role` exclu.
+--
+-- 2026-08-09 — corrections `developer` suite au second audit `code-reviewer` (Lot L1) :
+--   B1 — `erase_account()` vérifie désormais la revendication `role` du JWT de l'appelant
+--        (`request.jwt.claims`), plus `current_user` (toujours `postgres` sous `security definer`,
+--        donc toujours membre de `service_role` — le contrôle précédent ne vérifiait rien).
 -- ============================================================================================

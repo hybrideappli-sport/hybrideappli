@@ -42,6 +42,15 @@ alter default privileges in schema public
 -- Fonctions : Postgres accorde EXECUTE à PUBLIC par défaut. On retire ce défaut et on accorde
 -- explicitement, fonction par fonction. Sans cela, toute fonction `security definer` créée plus
 -- tard (p. ex. `erase_account`) serait appelable par `authenticated` dès sa création.
+--
+-- IMPORTANT (finding B2, second audit `code-reviewer`, vérifié en exécution) : `alter default
+-- privileges IN SCHEMA public` déclare une politique par défaut ADDITIONNELLE, spécifique à ce
+-- schéma — elle ne retire JAMAIS la politique par défaut GLOBALE (sans clause `IN SCHEMA`), qui
+-- accorde EXECUTE à PUBLIC pour toute fonction nouvellement créée n'importe où. Sans la ligne
+-- globale ci-dessous, la ligne « in schema public » qui suit est un no-op silencieux : une
+-- fonction fraîchement créée dans `public` reste exécutable par PUBLIC (`pg_proc.proacl` porte
+-- toujours `=X/<owner>`). Les deux formes sont donc nécessaires.
+alter default privileges revoke execute on functions from public;
 alter default privileges in schema public revoke execute on functions from public;
 alter default privileges in schema public grant execute on functions to service_role;
 
