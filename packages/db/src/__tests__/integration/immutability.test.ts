@@ -5,8 +5,9 @@ import { createTestUser, deleteTestUser, serviceRoleClient, type TestUser } from
 /**
  * `plan_versions`, `decision_traces`, `consents` portent un trigger
  * `forbid_mutation()` — UPDATE et DELETE doivent échouer, **y compris pour
- * le `service_role`** (08-architecture.md §5, règle non négociable §3 du
- * plan). On vérifie donc ici avec le client le plus privilégié possible :
+ * le `service_role`** hors du contexte d'effacement RGPD dédié (`erase_account()`, ADR-010 §8,
+ * `docs/db-schema.md` §0.3 — non exercé par ce fichier), règle non négociable §3 du
+ * plan. On vérifie donc ici avec le client le plus privilégié possible, hors de ce contexte :
  * si même lui ne peut pas muter ces tables, personne ne le peut.
  */
 describe("immutability", () => {

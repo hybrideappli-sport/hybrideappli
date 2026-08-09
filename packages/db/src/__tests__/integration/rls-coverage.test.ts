@@ -5,7 +5,7 @@ import { withPgClient } from "./support/pg-client";
 /**
  * Tables intentionnellement sans policy : accès strictement réservé au
  * `service_role`, RLS activée quand même (règle non négociable §3 du plan,
- * `08-architecture.md` §5.7-§5.8). Toute autre table doit avoir ≥ 1 policy.
+ * `docs/db-schema.md` §7-§8). Toute autre table doit avoir ≥ 1 policy.
  */
 const SERVICE_ROLE_ONLY_TABLES = new Set(["stripe_events", "job_queue"]);
 
@@ -101,7 +101,7 @@ describe("rls-coverage", () => {
 
     // `plan_diffs` a volontairement un UPDATE réservé à l'acquittement (`acknowledged_at`),
     // ce n'est pas une table de sortie brute du moteur au sens de cette règle et n'est pas
-    // listée dans ENGINE_OUTPUT_TABLES — voir 08-architecture.md §5.5.
+    // listée dans ENGINE_OUTPUT_TABLES — voir docs/db-schema.md §5.
     expect(
       writePolicies,
       `Policies d'écriture inattendues sur des tables produites par le moteur : ${JSON.stringify(writePolicies)}`,

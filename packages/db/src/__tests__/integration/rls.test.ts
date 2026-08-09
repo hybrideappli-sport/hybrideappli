@@ -39,9 +39,13 @@ if (sportError || !sport) {
   );
 }
 
+// `handle_new_user()` (trigger `after insert on auth.users`, `0002_identity_consents.sql`,
+// finding I9 audit Lot L1) a déjà créé cette ligne au moment de `createTestUser()` : un simple
+// `insert` entre ici en conflit avec la clé primaire. `upsert` reste idempotent que le trigger
+// ait tourné ou non.
 const { data: profileA, error: profileAErr } = await admin
   .from("profiles")
-  .insert({ id: userA.id })
+  .upsert({ id: userA.id }, { onConflict: "id" })
   .select()
   .single();
 if (profileAErr) throw profileAErr;

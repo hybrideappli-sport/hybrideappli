@@ -1,5 +1,5 @@
 -- supabase/migrations/0005_engine_audit.sql
--- Source : 08-architecture.md §5.4 (DDL canonique)
+-- Source : docs/db-schema.md §4 (DDL canonique, arbitrage `architect` du 2026-08-07)
 
 -- ADR-007 — paramètres de sécurité versionnés, immuables
 create table rulesets (
@@ -9,7 +9,7 @@ create table rulesets (
   checksum     text not null,
   is_active    boolean not null default false,
   published_at timestamptz,
-  published_by uuid references auth.users(id),
+  published_by uuid references auth.users(id) on delete set null,  -- survit à l'effacement du publieur
   notes        text,
   created_at   timestamptz not null default now()
 );
@@ -18,6 +18,7 @@ create policy "rulesets_read" on rulesets for select to authenticated using (tru
 create unique index rulesets_single_active on rulesets ((is_active)) where is_active;
 -- NB : l'activation d'une version se fait par insertion d'une nouvelle ligne puis bascule
 -- via une fonction service_role dédiée (audit tracé), jamais par UPDATE applicatif.
+-- Aucun GRANT UPDATE à `authenticated`.
 
 create table engine_runs (
   id                  uuid primary key default gen_random_uuid(),
