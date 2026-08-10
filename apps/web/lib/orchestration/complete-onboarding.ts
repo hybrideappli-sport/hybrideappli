@@ -27,22 +27,27 @@ export async function completeOnboarding(
 ): Promise<{ objectiveId: string }> {
   const { userId, profile } = args;
 
-  const { error: profileError } = await rls.from("athlete_profiles").upsert(
-    {
-      user_id: userId,
-      birth_date: profile.birthDate,
-      sex_at_birth: profile.sexAtBirth,
-      height_cm: profile.heightCm,
-      experience_level: profile.experienceLevel,
-      training_years: profile.trainingYears,
-      declared_weekly_sessions: profile.declaredWeeklySessions,
-      declared_weekly_hours: profile.declaredWeeklyHours,
-      training_history: profile.trainingHistory as unknown as Json,
-      nutrition_habits: profile.nutritionHabits as unknown as Json,
-      dietary_constraints: profile.dietaryConstraints,
-    },
-    { onConflict: "user_id" },
-  );
+  // `insert()` plutôt qu'`upsert()` : `athlete_profiles` n'a pas de policy `UPDATE` pleine
+  // largeur (seulement les colonnes listées par le `GRANT UPDATE` colonne par colonne,
+  // `docs/db-schema.md` §2) — `ON CONFLICT ... DO UPDATE` généré par `upsert()` se heurte à
+  // « permission denied » dès qu'une seule colonne référencée dans la clause `DO UPDATE` échappe
+  // à ce GRANT, y compris des colonnes techniques implicites. `/complete` n'est de toute façon
+  // appelée qu'une fois par utilisateur dans ce lot (la session passe en `completed` juste après,
+  // §route) : une contrainte unique sur `user_id` suffit à empêcher un doublon, une éventuelle
+  // resoumission renvoie une erreur explicite plutôt qu'une réécriture silencieuse.
+  const { error: profileError } = await rls.from("athlete_profiles").insert({
+    user_id: userId,
+    birth_date: profile.birthDate,
+    sex_at_birth: profile.sexAtBirth,
+    height_cm: profile.heightCm,
+    experience_level: profile.experienceLevel,
+    training_years: profile.trainingYears,
+    declared_weekly_sessions: profile.declaredWeeklySessions,
+    declared_weekly_hours: profile.declaredWeeklyHours,
+    training_history: profile.trainingHistory as unknown as Json,
+    nutrition_habits: profile.nutritionHabits as unknown as Json,
+    dietary_constraints: profile.dietaryConstraints,
+  });
   if (profileError) throw new OnboardingPersistenceError("athlete_profiles", profileError.message);
 
   const sportIds = await Promise.all(profile.sports.map((sport) => resolveOrCreateSport(admin, sport.sportCode)));

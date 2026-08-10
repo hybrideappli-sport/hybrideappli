@@ -9,6 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test",
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
@@ -31,7 +32,9 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@tailwindcss/postcss": "^4",
+    "dotenv": "^17.4.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

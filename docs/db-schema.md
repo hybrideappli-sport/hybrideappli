@@ -458,6 +458,11 @@ create policy "onboarding_sessions_own" on onboarding_sessions for all to authen
 -- pourrait écrire ici, il le soumet de toute façon dans `confirmedProfile`.
 grant update on onboarding_sessions to authenticated;
 create trigger onboarding_sessions_touch before update on onboarding_sessions for each row execute function touch_updated_at();
+-- Une seule session `in_progress` par utilisateur (correction Lot L3, voir Journal des révisions
+-- 2026-08-10) : sans cette contrainte, deux créations concurrentes peuvent produire deux sessions
+-- « en cours », et la lecture « la session courante » (tri `started_at desc limit 1`) peut alors
+-- résoudre la mauvaise — un profil vide au récap plutôt que celui réellement rempli par le chat.
+create unique index onboarding_sessions_one_in_progress on onboarding_sessions (user_id) where status = 'in_progress';
 
 create table onboarding_messages (
   id            uuid primary key default gen_random_uuid(),
@@ -538,7 +543,10 @@ create table decision_traces (
                                          -- |'pain'|'stagnation'|'feasibility'|'risk_restriction'|'calibration'
   is_hard_guardrail boolean not null default false,
   scope            text not null,        -- 'plan'|'block'|'week'|'session'|'nutrition_day'|'objective'|'pain_zone'
-  scope_ref_id     uuid,
+  -- `text`, PAS `uuid` (correction Lot L3, `developer`, 2026-08-10 — voir Journal des révisions) :
+  -- `DecisionTrace.scopeRefId` (@hybride/domain) est un `string | null` générique, pas toujours un
+  -- UUID (ex. index de bloc macro sérialisé, `String(blockIndex)`).
+  scope_ref_id     text,
   scope_ref_date   date,
   condition_expr   text not null,
   inputs_used      jsonb not null,       -- [{source_table, source_id, field, value, observed_on}]
@@ -1100,6 +1108,13 @@ update consent_documents d
 ---
 
 ## Journal des révisions
+
+### 2026-08-10 — correctifs `developer` Lot L3 (bugs découverts en exécutant les tests E2E contre Supabase local)
+
+| # | Point | Décision |
+|---|---|---|
+| **R6** | `decision_traces.scope_ref_id` typé `uuid` alors que `DecisionTrace.scopeRefId` (`@hybride/domain`, Lot L2) est un `string \| null` générique — certaines règles y placent un index de bloc sérialisé (`String(blockIndex)`, ex. `"0"`), pas un UUID (`packages/rules-engine/src/pipeline/04-build-macro-blocks.ts`, `06-compute-weekly-load-target.ts`). Le moteur pur (Lot L2) n'ayant jamais persisté ses traces en base avant le Lot L3 (`materializePlanVersion()`, premier chemin d'écriture réel), cette incompatibilité n'avait jamais été exercée : **toute** génération de plan comportant un bloc macro — donc tout run, AC1 — échouait à l'insertion (`invalid input syntax for type uuid: "0"`), détecté en exécutant `onboarding.spec.ts` (E2E) contre une base Supabase locale réelle | Colonne repassée en `text` (aucune contrainte de format perdue : ce n'était pas une vraie FK, seulement une clé de filtrage/traçabilité). Migration `0005_engine_audit.sql` corrigée directement (base encore vierge de données de production, même liberté que l'arbitrage du 2026-08-07 — `08-architecture.md` §9). `developer` signale ce correctif à `architect`/`code-reviewer` plutôt que de le documenter seulement en commentaire de migration : voir le rapport de fin de Lot L3 |
+| **R7** | `onboarding_sessions` sans contrainte d'unicité sur « une session `in_progress` par utilisateur ». Deux `POST /api/v1/onboarding/session` concurrents (double montage d'effet React en développement, double onglet) créaient chacun une session : la conversation progressait dans l'une, mais la lecture « session courante » ailleurs (`ORDER BY started_at DESC LIMIT 1`, écrans disclaimer/consentement/récap) pouvait résoudre l'autre, restée vide — récap affichant un profil vide. Détecté en exécutant `onboarding-negotiation.spec.ts` (E2E) | Index unique partiel `onboarding_sessions_one_in_progress (user_id) where status = 'in_progress'` (migration `0004_onboarding.sql`). La route `POST /api/v1/onboarding/session` gère la violation d'unicité (`23505`) en ré-interrogeant la session déjà existante plutôt que d'échouer |
 
 ### 2026-08-09 — arbitrage `architect` post-second audit du Lot L1 (contradiction `is_current`)
 

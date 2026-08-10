@@ -242,6 +242,7 @@ export type Database = {
           ip_hash: string | null
           locale: string
           revoked_at: string | null
+          subject_erased_at: string | null
           user_agent: string | null
           user_id: string
         }
@@ -255,6 +256,7 @@ export type Database = {
           ip_hash?: string | null
           locale?: string
           revoked_at?: string | null
+          subject_erased_at?: string | null
           user_agent?: string | null
           user_id: string
         }
@@ -268,10 +270,19 @@ export type Database = {
           ip_hash?: string | null
           locale?: string
           revoked_at?: string | null
+          subject_erased_at?: string | null
           user_agent?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "consents_document_fk"
+            columns: ["document_code", "document_version", "locale"]
+            isOneToOne: false
+            referencedRelation: "consent_documents"
+            referencedColumns: ["code", "version", "locale"]
+          },
+        ]
       }
       decision_traces: {
         Row: {
@@ -1018,7 +1029,7 @@ export type Database = {
           id: string
           plan_version_id: string
           reviewed_at: string | null
-          reviewer_id: string
+          reviewer_id: string | null
           severity: string | null
           status: string
         }
@@ -1028,7 +1039,7 @@ export type Database = {
           id?: string
           plan_version_id: string
           reviewed_at?: string | null
-          reviewer_id: string
+          reviewer_id?: string | null
           severity?: string | null
           status?: string
         }
@@ -1038,7 +1049,7 @@ export type Database = {
           id?: string
           plan_version_id?: string
           reviewed_at?: string | null
-          reviewer_id?: string
+          reviewer_id?: string | null
           severity?: string | null
           status?: string
         }
@@ -1724,6 +1735,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      erase_account: { Args: { p_user: string }; Returns: Json }
       has_active_consent: {
         Args: { p_code: string; p_user: string }
         Returns: boolean

@@ -48,7 +48,39 @@ export async function POST() {
     .insert({ user_id: user.id })
     .select("*")
     .single();
-  if (createError) return apiError(500, "INTERNAL_ERROR", createError.message);
+
+  if (createError) {
+    // Violation de `onboarding_sessions_one_in_progress` (23505) : un appel concurrent (double
+    // montage d'effet React, double onglet) a créé la session en premier — on la relit plutôt que
+    // d'échouer (voir `docs/db-schema.md`, Journal des révisions 2026-08-10, R7).
+    if (createError.code === "23505") {
+      const { data: winner, error: winnerError } = await supabase
+        .from("onboarding_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "in_progress")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (winnerError) return apiError(500, "INTERNAL_ERROR", winnerError.message);
+
+      const { data: messages, error: messagesError } = await supabase
+        .from("onboarding_messages")
+        .select("*")
+        .eq("session_id", winner.id)
+        .order("created_at", { ascending: true });
+      if (messagesError) return apiError(500, "INTERNAL_ERROR", messagesError.message);
+
+      return apiJson<OnboardingSessionView>({
+        sessionId: winner.id,
+        status: winner.status,
+        step: winner.current_step,
+        profileDraft: winner.profile_draft as ProfileDraft,
+        messages: (messages ?? []).map(toMessageView),
+      });
+    }
+    return apiError(500, "INTERNAL_ERROR", createError.message);
+  }
 
   // Message d'accueil — pas de tour utilisateur préalable, l'étape `intro` bascule directement
   // vers la première vraie question (`goal`), voir `DeterministicMockLlmProvider`.

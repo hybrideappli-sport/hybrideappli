@@ -51,7 +51,14 @@ create table decision_traces (
                                          -- |'pain'|'stagnation'|'feasibility'|'risk_restriction'|'calibration'
   is_hard_guardrail boolean not null default false,
   scope            text not null,        -- 'plan'|'block'|'week'|'session'|'nutrition_day'|'objective'|'pain_zone'
-  scope_ref_id     uuid,
+  -- `text`, PAS `uuid` (correction Lot L3, `developer`, 2026-08-10) : `DecisionTrace.scopeRefId`
+  -- (@hybride/domain) est un `string | null` générique — tantôt un vrai UUID (`objective.id`),
+  -- tantôt un index de bloc sérialisé (`String(blockIndex)`, ex. "0", "1"…), jamais garanti être un
+  -- UUID. Le moteur (Lot L2) n'ayant jamais persisté ses traces avant ce lot, l'incompatibilité de
+  -- type n'avait jamais été exercée : `materializePlanVersion()` échouait systématiquement dès la
+  -- première génération de plan (`invalid input syntax for type uuid`) sur tout run comportant un
+  -- bloc macro (donc TOUT run — étape 4 du pipeline, AC1). Voir `docs/db-schema.md` (même correction).
+  scope_ref_id     text,
   scope_ref_date   date,
   condition_expr   text not null,
   inputs_used      jsonb not null,       -- [{source_table, source_id, field, value, observed_on}]

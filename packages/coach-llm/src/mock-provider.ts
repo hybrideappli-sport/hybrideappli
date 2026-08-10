@@ -64,8 +64,17 @@ interface StepOutcome {
   suggestNextStep: boolean;
 }
 
+const WEEKLY_HOURS_PATTERN = /(\d+(?:[.,]\d+)?)\s*h(?:eures?)?(?:\s*\/?\s*semaine)?/i;
+
 function handleGoal(message: string): StepOutcome {
   const dateMatch = message.match(DATE_PATTERN);
+  // AC2 (négociation d'objectif) — reconnaît un volume hebdomadaire visé explicite (ex. « 40h par
+  // semaine ») quand le message le mentionne, seul champ lu par `evaluateObjectiveFeasibility`
+  // (Lot L2, `packages/rules-engine/src/objective-feasibility.ts`). Sans lui, la fiche AC2 est
+  // structurellement indéclenchable via le chat mock — nécessaire à `onboarding-negotiation.spec.ts`.
+  const hoursMatch = message.match(WEEKLY_HOURS_PATTERN);
+  const targetWeeklyHours = hoursMatch ? Number.parseFloat(hoursMatch[1]!.replace(",", ".")) : null;
+
   return {
     reply: NEXT_QUESTION.goal!,
     extraction: {
@@ -73,7 +82,7 @@ function handleGoal(message: string): StepOutcome {
         kind: "general_fitness",
         label: message.trim().slice(0, 200) || "Objectif à préciser",
         targetDate: dateMatch ? dateMatch[0] : null,
-        targetMetric: {},
+        targetMetric: targetWeeklyHours !== null ? { targetWeeklyHours } : {},
       },
     },
     isReformulation: false,
