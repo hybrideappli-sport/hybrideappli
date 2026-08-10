@@ -17,3 +17,4 @@ export * from "./planning-context.js";
 export * from "./plan-draft.js";
 export * from "./decision-trace.js";
 export * from "./engine-contracts.js";
+export * from "./onboarding.js";

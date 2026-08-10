@@ -202,3 +202,40 @@ export type NutritionModulationReason = (typeof NUTRITION_MODULATION_REASONS)[nu
 
 export const FREE_ACCESS_WINDOW_STRATEGIES = ["fixed_week", "rolling_7d"] as const;
 export type FreeAccessWindowStrategy = (typeof FREE_ACCESS_WINDOW_STRATEGIES)[number];
+
+/** `onboarding_step` — `docs/db-schema.md` §3. Ordre imposé du parcours (Lot L3). */
+export const ONBOARDING_STEPS = [
+  "intro",
+  "goal",
+  "level",
+  "history",
+  "sports",
+  "availability",
+  "nutrition",
+  "risk_filter",
+  "disclaimer",
+  "health_consent",
+  "review",
+  "completed",
+] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+
+/**
+ * Étapes menées en conversation libre (chat). `disclaimer`, `health_consent` et `review` sont des
+ * écrans DÉDIÉS et bloquants (AC3, notes UX fiche §6, ADR-010 §3) — jamais posés comme une
+ * question de plus dans le fil de discussion.
+ */
+export const ONBOARDING_CHAT_STEPS: readonly OnboardingStep[] = [
+  "intro",
+  "goal",
+  "level",
+  "history",
+  "sports",
+  "availability",
+  "nutrition",
+  "risk_filter",
+];
+
+/** `consent_documents.code` / `consents.document_code` — ADR-010 §1. */
+export const CONSENT_CODES = ["medical_disclaimer", "health_data_processing", "terms", "privacy"] as const;
+export type ConsentCode = (typeof CONSENT_CODES)[number];

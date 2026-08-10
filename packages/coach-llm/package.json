@@ -16,7 +16,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@hybride/domain": "workspace:*"
+    "@hybride/domain": "workspace:*",
+    "@mistralai/mistralai": "^1.5.2"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
