@@ -40,6 +40,8 @@ export interface MaterializedToday {
         prescription: { warmup: string; body: string; cooldown: string } | null;
         interferenceNote: string | null;
         explanation: { short: string; explanationId: string };
+        /** AC4 — jamais de réalisé au moment même de la génération du plan (Lot L4 lit/écrit ce champ). */
+        log: null;
       }
     | null;
   nutrition:
@@ -51,6 +53,7 @@ export interface MaterializedToday {
         modulationReason: string;
         advice: { pre: string; during: string; post: string };
         explanation: { short: string; explanationId: string };
+        checkin: null;
       }
     | null;
 }
@@ -410,6 +413,7 @@ export async function materializePlanVersion(
               short: explanationIdBySessionDate.get(context.now)!.short,
               explanationId: explanationIdBySessionDate.get(context.now)!.id,
             },
+            log: null,
           }
         : null,
     nutrition:
@@ -425,6 +429,7 @@ export async function materializePlanVersion(
               short: explanationIdByNutritionDate.get(context.now)!.short,
               explanationId: explanationIdByNutritionDate.get(context.now)!.id,
             },
+            checkin: null,
           }
         : null,
   };

@@ -208,3 +208,29 @@ export type {
   CompleteOnboardingResponse,
   NegotiationResponse,
 } from "./onboarding";
+
+// ---------------------------------------------------------------------------
+// session-log.ts — uniquement des types
+// ---------------------------------------------------------------------------
+
+export type { SessionLogSummary, NutritionCheckinSummary } from "./session-log";
+
+// ---------------------------------------------------------------------------
+// today-plan.ts — boucle quotidienne (Lot L4)
+// ---------------------------------------------------------------------------
+
+export { CreateSessionLogInputSchema, NutritionCheckinInputSchema } from "./today-plan";
+export type {
+  PainNoticeView,
+  FreeAccessView,
+  EntitlementView,
+  TodayPlanResponse,
+  CreateSessionLogInput,
+  CreateSessionLogResponse,
+  NutritionCheckinInput,
+  NutritionCheckinResponse,
+  ExplanationTraceSummary,
+  ExplanationDetailView,
+  IndicatorTrend,
+  ProgressDiagnosisResponse,
+} from "./today-plan";

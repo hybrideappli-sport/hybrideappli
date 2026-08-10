@@ -29,11 +29,15 @@ export async function answerChat(page: Page, content: string): Promise<void> {
  * `evaluateObjectiveFeasibility` peut basculer en négociation — voir `onboarding-negotiation.spec.ts`
  * pour ce cas précis).
  */
-export async function completeChatSteps(page: Page, goalMessage = "Courir 10 km sans me blesser"): Promise<void> {
+export async function completeChatSteps(
+  page: Page,
+  goalMessage = "Courir 10 km sans me blesser",
+  historyMessage = "Je m'entraîne 4 fois par semaine, environ 5 heures au total",
+): Promise<void> {
   await expect(page.getByTestId("chat-bubble").first()).toBeVisible();
   await answerChat(page, goalMessage);
   await answerChat(page, "Niveau intermédiaire");
-  await answerChat(page, "Je m'entraîne 4 fois par semaine, environ 5 heures au total");
+  await answerChat(page, historyMessage);
   await answerChat(page, "Course à pied, musculation");
   await answerChat(page, "45 minutes par séance en général");
   await answerChat(page, "Pas de contrainte alimentaire particulière");

@@ -17,6 +17,7 @@
 import { z } from "zod";
 
 import { CONSENT_CODES, EXPERIENCE_LEVELS, RISK_FLAG_TYPES } from "./enums";
+import type { NutritionCheckinSummary, SessionLogSummary } from "./session-log";
 
 // ---------------------------------------------------------------------------
 // Building blocks
@@ -181,6 +182,12 @@ export interface TodaySessionView {
   prescription: { warmup: string; body: string; cooldown: string } | null;
   interferenceNote: string | null;
   explanation: ExplanationView;
+  /**
+   * AC4 — saisie déjà enregistrée pour cette séance, `null` si Thomas ne l'a pas encore renseignée.
+   * Toujours `null` juste après une génération de plan (Lot L3, `materializePlanVersion()`) : le
+   * réalisé n'existe qu'après passage par `POST /session-logs` (Lot L4).
+   */
+  log: SessionLogSummary | null;
 }
 
 export interface TodayNutritionView {
@@ -191,6 +198,8 @@ export interface TodayNutritionView {
   modulationReason: string;
   advice: { pre: string; during: string; post: string };
   explanation: ExplanationView;
+  /** AC4, AC11 — check-in déjà enregistré pour ce jour, `null` sinon (voir `log` ci-dessus). */
+  checkin: NutritionCheckinSummary | null;
 }
 
 export interface TodayPlanView {
