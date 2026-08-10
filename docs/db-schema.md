@@ -210,6 +210,8 @@ alter table consent_documents enable row level security;
 create policy "consent_documents_read" on consent_documents for select to authenticated using (true);
 create unique index consent_documents_current on consent_documents (code, locale) where is_current;
 -- Aucune policy d'écriture : référentiel `service_role`. Aucun GRANT UPDATE.
+-- `is_current` est le document EN VIGUEUR, et son activation dépend de l'environnement :
+-- voir §9.3 (elle n'est PAS posée uniformément partout — ADR-010 §9).
 
 -- Registre de preuve du consentement. Append-only.
 -- Un retrait crée une nouvelle ligne (`granted = false`), jamais une mise à jour.
@@ -1005,17 +1007,70 @@ grant update on plan_reviews to authenticated;   -- gardé par is_staff()
 
 ## 9. Seeds
 
+Deux fichiers, **deux rôles qu'il ne faut pas confondre** :
+
+| Fichier | Rejoué où | Rôle |
+|---|---|---|
+| `supabase/migrations/0010_seed_referentials.sql` | **Partout** : local, preview, production (`supabase db reset` comme `supabase db push`) | Fait **exister** le référentiel. N'**active** jamais un contenu qui n'est pas validé pour la production. |
+| `supabase/seed.sql` | **Hors production uniquement** : local (`supabase db reset` / `supabase start`, via `[db.seed]` de `config.toml`) et bases de branche *preview* | **Active** ce que la migration laisse volontairement inactif. Ne crée aucune ligne : uniquement des `UPDATE` de bascule. |
+
+> **Portée réelle de `seed.sql` — vérifiée le 2026-08-09.** Supabase exécute `seed.sql` **aussi à la création d'une branche preview**, pas seulement en local ; en revanche seules les **migrations** sont propagées vers la base de production (« Data changes in your seed files are not merged to production »). La séparation migration/seed est donc une garantie **« jamais en production »**, et non « jamais sur un environnement distant ». Les commentaires d'en-tête de `supabase/seed.sql` qui affirment « JAMAIS exécuté sur un environnement distant (preview, prod) » sont **inexacts et à corriger** : la garantie qu'ils invoquent (ADR-007 — aucun ruleset `0.x` actif **en production**) tient toujours, mais son périmètre exact est la production, pas tout environnement distant. C'est aussi ce qui rend `seed.sql` apte à débloquer les environnements de test (preview, E2E CI), et pas seulement le poste du développeur.
+
+### 9.1 `0010_seed_referentials.sql` — l'existence, partout
+
+1. **`sports`** : référentiel initial multi-disciplines, `is_documented = true` pour ce lot initial (il est documenté par cette seed). Tout sport ajouté **ultérieurement**, hors de ce référentiel, doit être inséré avec `is_documented = false` par le code applicatif ⇒ le moteur applique un profil générique prudent (question ouverte n°7).
+2. **`consent_documents`** : `medical_disclaimer`, `health_data_processing`, `terms`, `privacy` en version `1.0.0`, locale `fr` — insérés **`is_current = false`**. Contenu juridique **provisoire et non validé** (finding B3 de l'audit Lot L1) : aucune migration ne le promeut document en vigueur. Voir §9.3.
+3. **`rulesets`** : `0.1.0-dev`, inséré **`is_active = false`** (finding B1). Les paramètres non tranchés restent `null` ⇒ le schéma Zod du Lot L2 refusera l'activation en production tant que les seuils AC8 ne sont pas fixés (ADR-007).
+
+### 9.2 `supabase/seed.sql` — l'activation, hors production
+
+1. **`rulesets`** : bascule `0.1.0-dev` en `is_active = true`.
+2. **`consent_documents`** : bascule les 4 documents `1.0.0` / `fr` en `is_current = true` (voir §9.3 pour la forme exacte à écrire, qui doit être défensive).
+
+### 9.3 `is_current` : un prérequis **relatif à l'environnement**, pas un prérequis uniforme
+
+> Arbitrage `architect` du **2026-08-09**, en réponse à la contradiction relevée par le second audit `code-reviewer` du Lot L1 entre ce document et l'implémentation. Décision tracée en **ADR-010 §9**.
+
+**La contradiction.** Ce document affirmait, depuis la révision R2, que « le seed **doit** poser `is_current = true` sur la version courante de chaque `(code, locale)` », comme un prérequis dur uniforme. Le correctif B3 du premier audit a fait l'inverse : `is_current = false` partout, y compris en local, parce que le texte juridique est provisoire. Les deux affirmations ne peuvent pas être vraies en même temps, et l'implémentation avait raison sur le fond mais tort sur la portée : sans document courant, `POST /api/v1/consents` (qui résout `is_current`, ADR-012 §1) ne peut résoudre aucune version, donc aucun consentement santé n'est enregistrable, donc l'onboarding est bloqué — **y compris en local et en preview**, où aucune considération juridique ne le justifie.
+
+**Deux mécanismes distincts, à ne pas confondre.** L'échec observé n'est pas celui que décrivait la formulation précédente :
+
+| Mécanisme | Ce qu'il garantit | Ce qui se passe s'il manque |
+|---|---|---|
+| **FK composite** `consents (document_code, document_version, locale)` → `consent_documents` | Un consentement ne peut pas référencer un document **inexistant** | Rejet en base (`23503`) — c'est la garantie anti-auto-délivrance d'ADR-012 §1 |
+| **`is_current`** | Désigne **la** version **en vigueur** pour un `(code, locale)` | La **route** n'a aucune version à résoudre : elle refuse **avant** d'atteindre la base. Ce n'est pas la FK qui rejette. |
+
+La migration `0010` satisfait déjà le premier mécanisme partout : les 4 documents **existent** dans tous les environnements. Le prérequis dur qui reste est donc le second, et il est par nature **relatif à l'environnement** — « quel texte fait foi *ici* » n'a pas la même réponse sur un poste de développement et en production.
+
+**Décision.**
+
+- **Le prérequis dur se formule ainsi** : dans **tout environnement où l'onboarding doit fonctionner**, il doit exister exactement une ligne `is_current = true` par `(code, locale)` pour `medical_disclaimer`, `health_data_processing`, `terms` et `privacy`. Ce n'est pas une obligation faite à la migration, c'est une obligation faite à **l'environnement**.
+- **Hors production** (local, preview) : `supabase/seed.sql` pose `is_current = true` sur `1.0.0` / `fr`. Le développement, les tests d'intégration et les E2E du Lot L2/L3 sont débloqués.
+- **En production** : `is_current` reste `false` tant qu'une **migration dédiée** n'a pas publié une version **juridiquement validée**. Aucun `UPDATE` de confort, aucun basculement du texte provisoire. L'intention du correctif B3 est intégralement préservée : le seul environnement d'où `seed.sql` est structurellement absent est précisément celui qu'il fallait protéger.
+- **Corollaire assumé** : tant que cette migration n'est pas livrée, **l'onboarding est bloqué en production, par construction**. Ce n'est pas un défaut à contourner, c'est le verrou B3 lui-même — on ne recueille pas un consentement RGPD art. 9 sur un texte que personne n'a validé. Ce blocage doit être **explicite** (voir « Contrat de la route » ci-dessous) et figurer à la checklist de mise en production.
+
+**Forme à écrire dans `seed.sql` — l'activation doit être défensive.** Un `update … set is_current = true where version = '1.0.0'` inconditionnel est un piège à retardement : le jour où la migration d'activation juridique insère `1.0.1` avec `is_current = true`, le prochain `supabase db reset` local rejouerait le seed **après** cette migration et violerait l'index unique partiel `consent_documents_current (code, locale) where is_current` — `db reset` échouerait, en local et sur chaque branche preview. L'activation doit donc céder la place à toute version déjà en vigueur :
+
 ```sql
--- supabase/migrations/0010_seed_referentials.sql
--- 1) sports : référentiel initial multi-disciplines. is_documented = false par défaut
---    pour tout sport ajouté ultérieurement (question ouverte n°7 : plan générique prudent)
--- 2) consent_documents : medical_disclaimer v1, health_data_processing v1, terms v1, privacy v1 (fr)
---    ⚠️ PRÉREQUIS DUR depuis la révision R2 : `consents` porte une FK composite vers cette table.
---    Aucun consentement ne peut être enregistré tant que le document correspondant n'est pas seedé,
---    et le seed doit poser `is_current = true` sur la version courante de chaque (code, locale).
--- 3) rulesets : version '0.1.0-dev' avec params documentés et guardrails à null
---    ⇒ le schéma Zod refuse l'activation en production tant que les seuils AC8 ne sont pas tranchés (ADR-007)
+-- supabase/seed.sql — hors production uniquement. N'active QUE s'il n'existe pas déjà
+-- un document en vigueur pour ce (code, locale) : une migration d'activation juridique
+-- ultérieure (version validée, is_current = true) doit primer sans collision d'index.
+update consent_documents d
+   set is_current = true
+ where d.version = '1.0.0'
+   and d.locale  = 'fr'
+   and d.code in ('medical_disclaimer','health_data_processing','terms','privacy')
+   and not exists (
+     select 1 from consent_documents c
+      where c.code = d.code and c.locale = d.locale and c.is_current
+   );
 ```
+
+> **Même piège sur `rulesets`.** L'activation `update rulesets set is_active = true where version = '0.1.0-dev'` de `seed.sql` est aujourd'hui inconditionnelle et entrera en collision avec `rulesets_single_active` (index unique **global** sur `(is_active) where is_active`) dès qu'un ruleset `1.0.0` sera publié actif par migration. À rendre défensif de la même façon (`and not exists (select 1 from rulesets where is_active)`).
+
+**Contrat de la route (Lot L2/L3), pour que le blocage production soit lisible.** `POST /api/v1/consents` et `POST /api/v1/onboarding/session/:id/disclaimer` résolvent la version courante. Si aucune ligne `is_current` n'existe pour le `(code, locale)` demandé, la route ne doit **ni** planter en `500`, **ni** insérer une version arbitraire : elle répond `503` avec le code d'erreur stable **`CONSENT_DOCUMENT_UNAVAILABLE`** (convention `08-architecture.md` §6) et journalise une alerte d'exploitation. Un environnement mal préparé se diagnostique alors en une ligne de log, au lieu de se manifester par un onboarding cassé sans explication.
+
+**Ce que le contenu provisoire doit continuer de porter.** Les 4 textes conservent dans leur `body_md` la mention « *Contenu provisoire — à faire valider juridiquement avant mise en production* ». Comme l'UI affiche le corps du document lu en base, tout testeur d'une preview voit cette mention : activer le document hors production n'a jamais l'effet de faire passer un brouillon pour un texte définitif. Dette suivie en `08-architecture.md` §12, **question ouverte n°10** (et non n°8, que le commentaire actuel de `seed.sql` cite par erreur — n°8 porte sur la rétention du registre `consents`).
 
 ---
 
@@ -1038,10 +1093,22 @@ grant update on plan_reviews to authenticated;   -- gardé par is_staff()
 | T11 | Acquittement légitime : `update plan_diffs set acknowledged_at = now()` / `notifications set read_at = now()` | Accepté sur ses propres lignes, refusé sur celles d'un tiers |
 | T12 | `authenticated` tente `update objectives set feasibility = 'realistic'` | `permission denied for column` |
 | T13 | Inventaire des privilèges | Requête sur `information_schema.column_privileges` : aucune colonne hors liste blanche n'accorde `UPDATE` à `authenticated` |
+| T14 | Après `supabase db reset` **local** : état de `consent_documents` | Exactement **une** ligne `is_current = true` par `(code, locale)` pour les 4 codes ⇒ l'onboarding est jouable en local et en preview (§9.3) |
+| T15 | Migrations seules, **sans** `seed.sql` (simulation de production) | **Zéro** ligne `is_current = true` dans `consent_documents` et **zéro** ligne `is_active = true` dans `rulesets` — le texte juridique provisoire et le ruleset `0.x` ne peuvent pas atteindre la production (findings B1 / B3) |
+| T16 | Idempotence de l'activation par seed | Rejouer `seed.sql` sur une base où une version validée est déjà `is_current` **ne** bascule **pas** `1.0.0` : aucune violation de `consent_documents_current` ni de `rulesets_single_active` (§9.3) |
 
 ---
 
 ## Journal des révisions
+
+### 2026-08-09 — arbitrage `architect` post-second audit du Lot L1 (contradiction `is_current`)
+
+| # | Point | Décision |
+|---|---|---|
+| **R5** | §9 exigeait `is_current = true` au seed (« PRÉREQUIS DUR », révision R2) ; l'implémentation pose `is_current = false` partout, y compris en local (correctif B3). Conséquence : `POST /api/v1/consents` ne peut résoudre aucune version courante ⇒ onboarding bloqué en permanence, même en développement | Le prérequis dur est **relatif à l'environnement**, pas uniforme : il porte sur *l'environnement où l'onboarding doit fonctionner*, pas sur la migration. **Hors production** (local + preview), `supabase/seed.sql` active `1.0.0`/`fr` pour les 4 documents ⇒ Lot L2 débloqué. **En production**, `is_current` reste `false` jusqu'à une migration dédiée publiant une version juridiquement validée ⇒ l'intention de B3 est préservée, `seed.sql` n'étant structurellement jamais appliqué à la production. Activation à écrire de façon **défensive** (`not exists … is_current`) pour ne pas heurter l'index unique partiel `consent_documents_current` le jour de la migration d'activation. Distinction FK composite / `is_current` explicitée. Détail : §9.3, ADR-010 §9 |
+| **R5b** | Portée de `seed.sql` mal documentée | Vérification faite : Supabase applique `seed.sql` **aussi aux branches preview**, jamais à la production (seules les migrations y sont propagées). La garantie est « jamais en production », pas « jamais à distance ». Commentaires d'en-tête de `supabase/seed.sql` à corriger ; la garantie ADR-007 (aucun ruleset `0.x` actif en production) reste valide. §9 |
+| **R5c** | Activation inconditionnelle dans `seed.sql` | `rulesets` : `update … set is_active = true` entrera en collision avec `rulesets_single_active` (index unique **global**) dès la publication d'un ruleset `1.0.0` actif. Même correctif défensif attendu que pour `consent_documents`. §9.3 |
+| **R5d** | Blocage production non observable | `POST /api/v1/consents` et `.../disclaimer` doivent répondre `503 CONSENT_DOCUMENT_UNAVAILABLE` (et alerter) quand aucun document courant n'existe, plutôt que `500` ou une insertion arbitraire. Nouveaux tests T14 / T15 / T16 |
 
 ### 2026-08-07 — arbitrage `architect` post-revue du Lot L1 (4 points `code-reviewer`)
 

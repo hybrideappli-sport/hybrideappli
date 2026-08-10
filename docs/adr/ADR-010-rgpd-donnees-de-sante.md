@@ -1,7 +1,7 @@
 # ADR-010 — Données de santé : consentement versionné, minimisation LLM, hébergement UE
 
 - **Statut** : Accepté
-- **Date** : 2026-08-04 — **révisé le 2026-08-07** (§2, §7 réécrit, §8 ajouté)
+- **Date** : 2026-08-04 — **révisé le 2026-08-07** (§2, §7 réécrit, §8 ajouté) — **révisé le 2026-08-09** (§9 ajouté : activation des documents de consentement par environnement)
 - **Décideur** : `architect`
 - **Portée** : Projet — conformité
 - **Feature déclenchante** : US-01, AC3 / AC9 / AC11 et contrainte légale §5
@@ -35,6 +35,8 @@ Deux tables :
 On peut donc prouver *quelle version exacte du texte* l'utilisateur a acquittée, *quand*, et restituer ce texte. Un stockage sous forme de `profiles.consent_health = true` serait indéfendable en cas de contrôle.
 
 **Révision 2026-08-07** — une preuve de consentement que l'utilisateur peut fabriquer lui-même n'est pas une preuve. `consents` porte désormais une **FK composite** vers `consent_documents (code, version, locale)`, et **aucune policy `INSERT` n'est offerte à `authenticated`** : l'écriture passe exclusivement par `service_role`, depuis une route API qui résout la version courante (`is_current`) et calcule `ip_hash` / `user_agent` à partir de la requête. Détail et justification : ADR-012 §1.
+
+**Révision 2026-08-09** — la résolution de `is_current` par la route fait de l'existence d'un document **en vigueur** une précondition de l'onboarding. Cette précondition est **relative à l'environnement** : voir §9.
 
 ### 2. Le consentement est un verrou technique, pas une case à cocher
 
@@ -154,6 +156,36 @@ Le GUC n'est positionné que par `public.erase_account(uuid)` : `security define
 
 **Non couvert.** `stripe_events` n'a pas de `user_id` et n'est pas traitée par `erase_account()` alors que ses payloads contiennent des données personnelles : rétention et purge à cadrer avant ouverture commerciale (question ouverte n°9 de `08-architecture.md` §12).
 
+### 9. Quel texte fait foi, et où : activation des documents de consentement par environnement
+
+> Ajouté le 2026-08-09, en réponse à une contradiction remontée par le second audit `code-reviewer` du Lot L1 entre `docs/db-schema.md` §9 et l'implémentation des seeds. Mise en œuvre détaillée : `docs/db-schema.md` §9.3.
+
+**Le problème.** Deux exigences légitimes se heurtaient de front.
+
+1. Depuis §1 (révision du 2026-08-07), la route qui écrit un consentement **résout elle-même la version courante** (`consent_documents.is_current`) : le client ne choisit pas le texte qu'il acquitte. C'est ce qui rend la preuve opposable.
+2. Le contenu juridique des 4 documents (`medical_disclaimer`, `health_data_processing`, `terms`, `privacy`) livré au Lot L1 a été **rédigé faute de texte fourni**, et n'a été validé par aucun conseil juridique. Le correctif B3 du premier audit les a donc insérés `is_current = false` — partout, y compris en local.
+
+Conjuguées, ces deux exigences produisaient un blocage total : sans document courant, aucune version à résoudre, donc **aucun consentement santé enregistrable, donc aucun onboarding possible — même sur le poste d'un développeur**. Une exigence juridique qui ne concerne que la production interdisait de développer et de tester la fonctionnalité qu'elle protège.
+
+**Ce qui était mal formulé.** `docs/db-schema.md` posait « le seed **doit** poser `is_current = true` » comme un prérequis **uniforme**. Or « quel texte fait foi » n'a pas la même réponse selon l'environnement. Il faut aussi distinguer deux mécanismes que la formulation précédente amalgamait :
+
+- la **FK composite** garantit qu'un consentement ne référence pas un document **inexistant** — elle est satisfaite partout, la migration `0010` faisant exister les 4 documents dans tous les environnements ;
+- **`is_current`** désigne la version **en vigueur**. Son absence n'est pas rattrapée par la FK : elle bloque la route **en amont** de la base.
+
+**Décision.**
+
+- Le prérequis est **relatif à l'environnement** : dans tout environnement où l'onboarding doit fonctionner, il doit exister exactement une ligne `is_current = true` par `(code, locale)` pour les 4 documents. C'est une obligation faite à **l'environnement**, pas à la migration.
+- **Hors production** — local et branches *preview* — `supabase/seed.sql` active la version provisoire `1.0.0` / `fr`. Le développement, les tests d'intégration et les E2E du Lot L2/L3 sont débloqués.
+- **En production**, `is_current` reste `false` jusqu'à une **migration dédiée** publiant une version **juridiquement validée**. Le texte provisoire n'est jamais promu par un simple `UPDATE`, et la version validée est publiée comme une **nouvelle version** (`1.0.1` / `2.0.0` selon l'ampleur), jamais par réécriture d'un texte déjà servi — la table est un registre de textes, l'historique doit rester lisible.
+- **La garantie tient par construction** : Supabase applique `seed.sql` en local et à la création d'une branche preview, mais **jamais à la base de production**, où seules les migrations sont propagées. Le seul environnement d'où le mécanisme d'activation est structurellement absent est précisément celui que le correctif B3 visait à protéger. L'intention de B3 est donc intégralement conservée — elle est simplement portée par le bon mécanisme, au lieu d'être obtenue en bloquant tout le monde.
+
+**Corollaire assumé : l'onboarding est bloqué en production tant que la validation juridique n'a pas eu lieu.** Ce n'est pas une régression à contourner, c'est le verrou lui-même : on ne recueille pas un consentement au titre de l'article 9 sur un texte que personne n'a validé. Deux conséquences opérationnelles :
+
+- la route répond `503` avec le code stable `CONSENT_DOCUMENT_UNAVAILABLE` et journalise une alerte, plutôt que de planter en `500` ou d'insérer une version arbitraire — un environnement mal préparé doit se diagnostiquer, pas se deviner ;
+- « publier la migration d'activation des documents validés » devient une **entrée bloquante de la checklist de mise en production**, au même titre que la publication d'un ruleset `1.0.0` (ADR-007).
+
+**Risque résiduel accepté.** Les branches preview servent un texte juridique provisoire à leurs testeurs. Il reste porté par la mention « *Contenu provisoire — à faire valider juridiquement avant mise en production* » inscrite dans le `body_md` lui-même, et donc affichée par l'UI, qui lit le corps du document en base : activer le document hors production ne fait jamais passer un brouillon pour un texte définitif. Une preview n'est par ailleurs pas un service offert au public, et les consentements qui y sont enregistrés sont des données de test détruites avec la branche.
+
 ## Conséquences
 
 **Positives**
@@ -163,13 +195,15 @@ Le GUC n'est positionné que par `public.erase_account(uuid)` : `security define
 - Le droit à l'effacement est réellement exerçable, par une fonction unique, testable, et dont l'usage est auditable.
 - Le registre des traitements et la réponse à une demande d'exercice de droits sont produits à partir de données déjà structurées.
 - Changer de fournisseur LLM (contrainte de conformité ou de coût) est un changement d'adaptateur.
+- La validation juridique du texte est un **verrou de mise en production**, et non un blocage du développement : les deux préoccupations sont portées par deux mécanismes distincts (§9).
 
 **Négatives / à surveiller**
 
 - Les policies RLS conditionnées au consentement ajoutent un appel de fonction sur chaque insertion **et chaque mise à jour** : `has_active_consent` doit rester `stable`, `security definer`, et indexée sur `(user_id, document_code, granted_at desc)`.
 - L'immuabilité de l'audit n'est plus absolue : elle est conditionnée à un contexte. C'est le prix de la conformité, mais cela crée une surface à protéger — le test T4 (`docs/db-schema.md`) est donc un test de sécurité, pas un test de confort.
 - Le registre `consents` croît sans limite tant que sa durée de conservation n'est pas fixée juridiquement.
-- L'écriture des consentements devient serveur-seule : le seed de `consent_documents` est un prérequis dur au parcours d'onboarding (sans document `is_current`, la FK composite rejette tout consentement).
+- L'écriture des consentements devient serveur-seule, et l'existence d'un document **en vigueur** (`is_current`) est un prérequis du parcours d'onboarding — **prérequis relatif à l'environnement** (§9). En production, il n'est levé que par la migration publiant le texte juridiquement validé : **l'onboarding y est bloqué par construction jusque-là**, et c'est voulu.
+- Le comportement de production et celui des environnements de développement/preview **divergent volontairement** sur ce point précis. Cette divergence est un risque de test (un chemin actif en preview ne l'est pas en production) : elle est couverte par le test T15 de `docs/db-schema.md`, qui vérifie que les migrations seules ne produisent aucun document courant.
 - Le mode dégradé après retrait de consentement est un chemin produit à part entière, à spécifier avec `spec-writer` (non couvert par les 14 AC) — d'autant qu'il bloque désormais aussi la modification.
 - Un DPO / conseil juridique doit valider : base légale, durées de rétention, mentions, la question du mineur, et la conservation du registre de consentement.
 
@@ -186,6 +220,10 @@ Le GUC n'est positionné que par `public.erase_account(uuid)` : `security define
 | GUC de session comme seule condition de dérogation | Un GUC applicatif est positionnable par n'importe quel rôle : ce n'est pas une barrière. La condition de rôle est indispensable. |
 | Supprimer aussi le registre `consents` à l'effacement | Rend impossible de démontrer le consentement recueilli sur la période d'usage (art. 5.2, 7.1), et de se défendre sur une réclamation postérieure. |
 | Table `consent_ledger` séparée, copiée à l'effacement | Duplique le modèle et introduit un risque de divergence entre le registre vivant et le registre d'archive, pour le même résultat. |
+| **(§9)** Activer `is_current` dès la migration `0010`, partout | Un texte juridique non validé deviendrait le document **en vigueur en production**, opposable, dès le premier déploiement. C'est exactement ce que le correctif B3 interdit. |
+| **(§9)** Laisser `is_current = false` partout, y compris en local | Onboarding définitivement injouable en développement et en test : la conformité de production bloquerait la construction du produit, sans bénéfice de conformité hors production. |
+| **(§9)** Contourner `is_current` dans la route hors production (variable d'environnement, « prendre la dernière version publiée si aucune n'est courante ») | Fait diverger le **code** entre environnements sur un chemin de conformité, et fabrique un mode dégradé qui pourrait s'activer en production sur une erreur de configuration. La divergence doit vivre dans les **données** (le seed), pas dans la logique de la route. |
+| **(§9)** Promouvoir plus tard le texte provisoire à `is_current = true` par un `UPDATE` une fois validé | Le texte validé sera nécessairement différent du provisoire ; réécrire ou promouvoir la version `1.0.0` casse la correspondance entre une version et le contenu exact acquitté par les utilisateurs qui l'ont déjà vue. La validation donne lieu à une **nouvelle version**. |
 
 ## Questions ouvertes relayées au fondateur
 
@@ -194,3 +232,4 @@ Le GUC n'est positionné que par `public.erase_account(uuid)` : `security define
 > 3. ~~Fournisseur LLM retenu et DPA associé (exigence : traitement UE, pas d'entraînement sur les données).~~ **Tranché le 2026-08-06 : Mistral AI.** Entité française, infrastructure UE par défaut, DPA aligné RGPD dès la base (pas un simple avenant), pas d'entraînement sur les données API, rétention 30 jours glissants. Le DPA doit être formellement signé par `devops`/le fondateur avant tout appel en production (le port `LlmProvider` de `@hybride/coach-llm` rend un changement ultérieur peu coûteux si besoin). Sources : [Data Processing Addendum — Mistral AI](https://legal.mistral.ai/terms/data-processing-addendum), [Privacy and data controls — Mistral Docs](https://docs.mistral.ai/admin/monitor-comply/privacy-data-controls).
 > 4. ~~**(2026-08-07) Conservation du registre `consents` après suppression de compte**~~ **Tranché par le fondateur le 2026-08-07 : 5 ans** à compter du dernier événement de consentement (prescription de droit commun, art. 2224 code civil), conformément à l'hypothèse de travail de l'architecture. Le principe de conservation (et non simplement la durée) reste à faire valider par un conseil juridique avant ouverture commerciale. Un job de purge à 5 ans peut maintenant être écrit sur cette base.
 > 5. **(2026-08-07) Rétention de `stripe_events`** : les payloads Stripe bruts contiennent des données personnelles et ne sont pas couverts par l'effacement. Durée de conservation à fixer (l'idempotence webhook n'exige que quelques semaines).
+> 6. **(2026-08-09) Validation juridique des 4 textes de `consent_documents` — bloquant pour la mise en production.** Tant qu'elle n'a pas eu lieu, aucun document n'est `is_current` en production et **l'onboarding y est bloqué par construction** (§9). Livrable attendu du fondateur : les 4 textes validés (en priorité `health_data_processing`, base légale art. 9 de tout le traitement de données de santé du produit). `architect` publiera ensuite la migration d'activation. Suivi en `08-architecture.md` §12, question ouverte n°10.
