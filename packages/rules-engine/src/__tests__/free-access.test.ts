@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { evaluateFreeAccess } from "../free-access.js";
+import { evaluateFreeAccess } from "../free-access";
 
 describe("evaluateFreeAccess — AC13", () => {
   it("fixed_week : autorisé tant que le quota de la semaine (lundi-dimanche) n'est pas atteint", () => {

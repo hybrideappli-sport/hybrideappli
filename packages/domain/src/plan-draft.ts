@@ -6,7 +6,7 @@
  * intention J+8 → J+14, vue macro par blocs au-delà (AC1).
  */
 
-import type { BlockType, DetailLevel, MuscleGroup, NutritionModulationReason, SessionType } from "./enums.js";
+import type { BlockType, DetailLevel, MuscleGroup, NutritionModulationReason, SessionType } from "./enums";
 
 export interface PlanBlockDraft {
   blockIndex: number;

@@ -6,8 +6,8 @@
  */
 
 import type { AthleteSportSnapshot, DecisionTrace, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
 
 export interface SportAllocation {
   sport: AthleteSportSnapshot;

@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@hybride/domain": "workspace:*",
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.47.10",
     "server-only": "^0.0.1"
   },

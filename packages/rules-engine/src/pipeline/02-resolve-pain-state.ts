@@ -7,9 +7,9 @@
  */
 
 import type { DecisionTrace, MuscleGroup, PlanningContext, Ruleset } from "@hybride/domain";
-import { evaluatePainProtocol } from "../pain-protocol.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { PAIN_ZONE_MUSCLE_GROUPS } from "../lib/pain-zone-muscles.js";
+import { evaluatePainProtocol } from "../pain-protocol";
+import type { TraceFactory } from "../lib/trace";
+import { PAIN_ZONE_MUSCLE_GROUPS } from "../lib/pain-zone-muscles";
 
 export interface PainState {
   blockedMuscleGroups: Set<MuscleGroup>;

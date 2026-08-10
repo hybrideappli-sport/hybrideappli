@@ -8,10 +8,10 @@
  */
 
 import type { DecisionTrace, NutritionDayDraft, NutritionModulationReason, PlannedSessionDraft, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { requireNonNull } from "../lib/require-non-null.js";
-import type { RiskRestrictions } from "./01-resolve-risk-restrictions.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { requireNonNull } from "../lib/require-non-null";
+import type { RiskRestrictions } from "./01-resolve-risk-restrictions";
 
 const DEFAULT_WEIGHT_KG = 70;
 /** kcal / kg de poids corporel / jour — heuristique de maintenance documentée de `developer`. */

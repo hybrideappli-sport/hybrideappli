@@ -4,11 +4,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { evaluateObjectiveFeasibility } from "../objective-feasibility.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { addDays } from "../lib/dates.js";
-import { buildContext, buildObjective, buildProfile, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { evaluateObjectiveFeasibility } from "../objective-feasibility";
+import { createTraceFactory } from "../lib/trace";
+import { addDays } from "../lib/dates";
+import { buildContext, buildObjective, buildProfile, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 function evaluate(overridesContext: Parameters<typeof buildContext>[0]) {
   const context = buildContext(overridesContext);

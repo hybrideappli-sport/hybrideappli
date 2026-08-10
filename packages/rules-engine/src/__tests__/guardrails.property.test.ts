@@ -11,10 +11,10 @@
 
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { diffDays, startOfIsoWeek } from "../lib/dates.js";
-import { arbitraryPlanningContext, arbitraryPlanningContextWithPreviousPlan } from "../../__fixtures__/arbitraries.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { diffDays, startOfIsoWeek } from "../lib/dates";
+import { arbitraryPlanningContext, arbitraryPlanningContextWithPreviousPlan } from "../../__fixtures__/arbitraries";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 const TOLERANCE = 1e-6;
 const { guardrails } = TEST_RULESET.params;

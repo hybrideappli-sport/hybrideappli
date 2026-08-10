@@ -12,7 +12,7 @@
  * traces, sans quoi il ne peut être qu'inventé.
  */
 
-import type { LlmTraceInput } from "./types.js";
+import type { LlmTraceInput } from "./types";
 
 // Les dates ISO (`2026-08-10`) contiennent des groupes de chiffres qui ne sont pas des valeurs
 // numériques métier — on les neutralise avant extraction pour ne jamais les confondre avec un

@@ -20,7 +20,7 @@ import type {
   ExplanationOutput,
   ExplanationRequest,
   LlmProvider,
-} from "./llm-provider.js";
+} from "./llm-provider";
 
 export interface MistralLlmProviderOptions {
   apiKey: string;

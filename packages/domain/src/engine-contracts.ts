@@ -12,9 +12,9 @@ import type {
   PlanDiffItemKind,
   StagnationDiagnosis,
   StagnationStatus,
-} from "./enums.js";
-import type { DecisionTrace, GuardrailHit } from "./decision-trace.js";
-import type { PlanDraft, PlanSnapshot } from "./plan-draft.js";
+} from "./enums";
+import type { DecisionTrace, GuardrailHit } from "./decision-trace";
+import type { PlanDraft, PlanSnapshot } from "./plan-draft";
 
 // ---------------------------------------------------------------------------
 // generatePlan()

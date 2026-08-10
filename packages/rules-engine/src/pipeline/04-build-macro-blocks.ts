@@ -16,10 +16,10 @@
  */
 
 import type { BlockType, DecisionTrace, PlanBlockDraft, PlanWeekDraft, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { addDays, addWeeks, diffDays, isoWeekLabel, startOfIsoWeek } from "../lib/dates.js";
-import { requireNonNull } from "../lib/require-non-null.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { addDays, addWeeks, diffDays, isoWeekLabel, startOfIsoWeek } from "../lib/dates";
+import { requireNonNull } from "../lib/require-non-null";
 
 const MESO_BLOCK_WEEKS = 4;
 const DEFAULT_HORIZON_WEEKS_WITHOUT_TARGET_DATE = 16;

@@ -5,7 +5,7 @@
  * jamais échouer le contrôle d'intégrité numérique (`numeric-integrity.ts`).
  */
 
-import type { ExplanationSubjectType, LlmTraceInput } from "./types.js";
+import type { ExplanationSubjectType, LlmTraceInput } from "./types";
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "n/d";

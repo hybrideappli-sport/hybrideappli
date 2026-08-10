@@ -9,9 +9,9 @@
  */
 
 import type { DecisionTrace, PlanBlockDraft, PlanWeekDraft, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { requireNonNull } from "../lib/require-non-null.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { requireNonNull } from "../lib/require-non-null";
 
 export function placeMandatoryDeloads(
   blocks: PlanBlockDraft[],

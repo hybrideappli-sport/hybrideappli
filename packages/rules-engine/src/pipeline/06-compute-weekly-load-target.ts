@@ -34,10 +34,10 @@ import type {
   Ruleset,
   TraceDirection,
 } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { requireNonNull } from "../lib/require-non-null.js";
-import { hasActiveNegativeSignal, isIncreaseAllowedForTrigger } from "../lib/guardrail-helpers.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { requireNonNull } from "../lib/require-non-null";
+import { hasActiveNegativeSignal, isIncreaseAllowedForTrigger } from "../lib/guardrail-helpers";
 
 /** Réduction appliquée à la semaine courante quand le trigger EST la réaction à un signal négatif (AC4). */
 const NEGATIVE_SIGNAL_LOAD_REDUCTION_PCT = 20;

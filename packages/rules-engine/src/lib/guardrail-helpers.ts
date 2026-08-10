@@ -4,7 +4,7 @@
 
 import { INTENSE_SESSION_TYPES, TRIGGERS_ALLOWING_INCREASE } from "@hybride/domain";
 import type { PainEpisodeSnapshot, PlanTrigger, SessionLogSnapshot, SessionType } from "@hybride/domain";
-import { diffDays } from "./dates.js";
+import { diffDays } from "./dates";
 
 export function isIntenseSessionType(sessionType: SessionType): boolean {
   return INTENSE_SESSION_TYPES.includes(sessionType);

@@ -12,7 +12,7 @@
  * package n'en dépend jamais (sens unique de la dépendance, ADR-002 §4).
  */
 
-import type { ExplanationSubjectType, LlmTraceInput } from "./types.js";
+import type { ExplanationSubjectType, LlmTraceInput } from "./types";
 
 export interface ConversationHistoryEntry {
   role: "coach" | "user";

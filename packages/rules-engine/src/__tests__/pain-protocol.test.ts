@@ -8,11 +8,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { evaluatePainProtocol } from "../pain-protocol.js";
-import { generatePlan } from "../generate-plan.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { buildContext, buildPainEpisode, buildSessionLog, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { evaluatePainProtocol } from "../pain-protocol";
+import { generatePlan } from "../generate-plan";
+import { createTraceFactory } from "../lib/trace";
+import { buildContext, buildPainEpisode, buildSessionLog, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 function evaluate(overrides: Parameters<typeof buildContext>[0]) {
   const context = buildContext(overrides);

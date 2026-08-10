@@ -4,11 +4,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { evaluateStagnation } from "../stagnation.js";
-import { generatePlan } from "../generate-plan.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { evaluateStagnation } from "../stagnation";
+import { generatePlan } from "../generate-plan";
+import { createTraceFactory } from "../lib/trace";
+import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("calibration — AC7", () => {
   it("0 semaine de données ⟹ status='calibration', confidence='calibrating'", () => {

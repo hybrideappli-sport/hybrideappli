@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 
-import { CONSENT_CODES, EXPERIENCE_LEVELS, RISK_FLAG_TYPES } from "./enums.js";
+import { CONSENT_CODES, EXPERIENCE_LEVELS, RISK_FLAG_TYPES } from "./enums";
 
 // ---------------------------------------------------------------------------
 // Building blocks

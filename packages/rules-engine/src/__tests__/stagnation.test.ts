@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { evaluateStagnation } from "../stagnation.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { evaluateStagnation } from "../stagnation";
+import { createTraceFactory } from "../lib/trace";
+import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 function weeksDataset(previous: Partial<ReturnType<typeof buildWeekAggregate>>, recent: Partial<ReturnType<typeof buildWeekAggregate>>) {
   const previousWeeks = Array.from({ length: 4 }, (_, i) => buildWeekAggregate({ weekStart: `2026-06-0${i + 1}`, ...previous }));

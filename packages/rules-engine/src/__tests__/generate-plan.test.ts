@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { addDays, diffDays } from "../lib/dates.js";
-import { buildContext, buildObjective, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { addDays, diffDays } from "../lib/dates";
+import { buildContext, buildObjective, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("generatePlan — AC1", () => {
   it("découpe l'horizon en blocs macro typés", () => {

@@ -6,11 +6,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { assertEveryNumberIsTraced } from "../pipeline/12-assert-every-number-is-traced.js";
-import { buildContext, buildObjective, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { addDays } from "../lib/dates.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { assertEveryNumberIsTraced } from "../pipeline/12-assert-every-number-is-traced";
+import { buildContext, buildObjective, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { addDays } from "../lib/dates";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("traceability", () => {
   it("generatePlan ne lève pas — l'assertion interne passe sur un contexte riche", () => {

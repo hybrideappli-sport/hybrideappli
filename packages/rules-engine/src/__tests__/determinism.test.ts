@@ -4,9 +4,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { buildContext } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { buildContext } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("determinism", () => {
   it("produit une sortie strictement identique sur 100 itérations (contexte simple)", () => {

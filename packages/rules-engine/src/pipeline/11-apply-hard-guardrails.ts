@@ -19,12 +19,12 @@
  */
 
 import type { DecisionTrace, GuardrailHit, PlanWeekDraft, PlannedSessionDraft, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { requireNonNull } from "../lib/require-non-null.js";
-import { computeLoadUnits } from "../lib/load-units.js";
-import { diffDays, startOfIsoWeek } from "../lib/dates.js";
-import { isIntenseSessionType } from "../lib/guardrail-helpers.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { requireNonNull } from "../lib/require-non-null";
+import { computeLoadUnits } from "../lib/load-units";
+import { diffDays, startOfIsoWeek } from "../lib/dates";
+import { isIntenseSessionType } from "../lib/guardrail-helpers";
 
 export function applyHardGuardrails(
   weeks: PlanWeekDraft[],

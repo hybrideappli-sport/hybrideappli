@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { addDays } from "../lib/dates.js";
-import { buildContext, buildSessionLog, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { addDays } from "../lib/dates";
+import { buildContext, buildSessionLog, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("no-backlog — AC4", () => {
   it("3 séances non réalisées la semaine passée ne gonflent pas le volume de la semaine à venir (régime froid)", () => {

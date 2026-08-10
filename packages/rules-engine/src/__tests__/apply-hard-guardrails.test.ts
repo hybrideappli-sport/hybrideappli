@@ -9,11 +9,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { applyHardGuardrails } from "../pipeline/11-apply-hard-guardrails.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { addDays } from "../lib/dates.js";
+import { applyHardGuardrails } from "../pipeline/11-apply-hard-guardrails";
+import { createTraceFactory } from "../lib/trace";
+import { addDays } from "../lib/dates";
 import type { PlanWeekDraft, PlannedSessionDraft } from "@hybride/domain";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 const traceFactory = createTraceFactory(TEST_RULESET.version);
 

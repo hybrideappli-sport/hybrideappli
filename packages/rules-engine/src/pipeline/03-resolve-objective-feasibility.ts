@@ -9,8 +9,8 @@
  */
 
 import type { DecisionTrace, FeasibilityStatus, PlanningContext, Ruleset } from "@hybride/domain";
-import { evaluateObjectiveFeasibility } from "../objective-feasibility.js";
-import type { TraceFactory } from "../lib/trace.js";
+import { evaluateObjectiveFeasibility } from "../objective-feasibility";
+import type { TraceFactory } from "../lib/trace";
 
 export function resolveObjectiveFeasibility(
   context: PlanningContext,

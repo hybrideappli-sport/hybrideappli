@@ -7,15 +7,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { evaluateObjectiveFeasibility } from "../objective-feasibility.js";
-import { evaluateStagnation } from "../stagnation.js";
-import { evaluatePainProtocol } from "../pain-protocol.js";
-import { diffPlanVersions } from "../diff-plan-versions.js";
-import { evaluateFreeAccess } from "../free-access.js";
-import { createTraceFactory } from "../lib/trace.js";
-import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { evaluateObjectiveFeasibility } from "../objective-feasibility";
+import { evaluateStagnation } from "../stagnation";
+import { evaluatePainProtocol } from "../pain-protocol";
+import { diffPlanVersions } from "../diff-plan-versions";
+import { evaluateFreeAccess } from "../free-access";
+import { createTraceFactory } from "../lib/trace";
+import { buildContext, buildWeekAggregate } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 const originalFetch = globalThis.fetch;
 const originalDateNow = Date.now;

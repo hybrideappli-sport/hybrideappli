@@ -15,9 +15,9 @@
  */
 
 import type { BodyZone, PainEpisodeSnapshot, PainProtocolResult, PainZoneState, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "./rule-ids.js";
-import type { TraceFactory } from "./lib/trace.js";
-import { diffDays } from "./lib/dates.js";
+import { RULE_IDS, RULE_VERSION } from "./rule-ids";
+import type { TraceFactory } from "./lib/trace";
+import { diffDays } from "./lib/dates";
 
 function requireNonNull(value: number | null, path: string): number {
   if (value === null) {

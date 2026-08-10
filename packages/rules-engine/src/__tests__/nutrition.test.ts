@@ -5,9 +5,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { buildContext, buildProfile } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { buildContext, buildProfile } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("nutrition — AC11", () => {
   it("kcal_target >= kcal_safety_floor pour TOUTE journée nutrition, quel que soit le contexte", () => {

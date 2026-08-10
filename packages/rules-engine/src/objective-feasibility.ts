@@ -25,9 +25,9 @@
  */
 
 import type { FeasibilityProposal, FeasibilityResult, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "./rule-ids.js";
-import type { TraceFactory } from "./lib/trace.js";
-import { addWeeks, diffDays } from "./lib/dates.js";
+import { RULE_IDS, RULE_VERSION } from "./rule-ids";
+import type { TraceFactory } from "./lib/trace";
+import { addWeeks, diffDays } from "./lib/dates";
 
 const STRETCH_MULTIPLIER = 1.5;
 const MIN_BASELINE_WEEKLY_HOURS = 1;

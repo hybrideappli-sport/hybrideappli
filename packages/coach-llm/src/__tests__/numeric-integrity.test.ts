@@ -5,10 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { renderExplanation } from "../explain.js";
-import { checkNumericIntegrity, extractNumericLiterals } from "../numeric-integrity.js";
-import type { ExplanationOutput, ExplanationRequest, LlmProvider } from "../llm-provider.js";
-import type { LlmTraceInput } from "../types.js";
+import { renderExplanation } from "../explain";
+import { checkNumericIntegrity, extractNumericLiterals } from "../numeric-integrity";
+import type { ExplanationOutput, ExplanationRequest, LlmProvider } from "../llm-provider";
+import type { LlmTraceInput } from "../types";
 
 function buildTrace(overrides: Partial<LlmTraceInput> = {}): LlmTraceInput {
   return {

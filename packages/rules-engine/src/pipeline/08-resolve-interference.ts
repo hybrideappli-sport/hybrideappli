@@ -9,8 +9,8 @@
  */
 
 import type { DecisionTrace, PlanningContext, Ruleset } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
 
 /**
  * Valeur de repli documentée : le paramètre `interference.min_hours_between_

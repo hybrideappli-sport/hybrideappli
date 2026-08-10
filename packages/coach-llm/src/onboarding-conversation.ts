@@ -11,7 +11,7 @@
 
 import { ProfileDraftPatchSchema, type ProfileDraftPatch } from "@hybride/domain";
 
-import type { ConversationHistoryEntry, LlmProvider } from "./llm-provider.js";
+import type { ConversationHistoryEntry, LlmProvider } from "./llm-provider";
 
 /** R6 du plan (`plans/US-01-...md` §5) — borne de tours avant repli sur une question fermée. */
 export const MAX_REFORMULATIONS_BEFORE_CLOSED_QUESTION = 2;

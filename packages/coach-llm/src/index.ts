@@ -20,27 +20,27 @@ export type {
   ExplanationOutput,
   ExplanationRequest,
   LlmProvider,
-} from "./llm-provider.js";
-export type { ExplanationSubjectType, LlmTraceInput, LlmTraceInputField, LlmTraceOutput } from "./types.js";
+} from "./llm-provider";
+export type { ExplanationSubjectType, LlmTraceInput, LlmTraceInputField, LlmTraceOutput } from "./types";
 
-export { DeterministicMockLlmProvider } from "./mock-provider.js";
-export { MistralLlmProvider, type MistralLlmProviderOptions } from "./mistral-provider.js";
+export { DeterministicMockLlmProvider } from "./mock-provider";
+export { MistralLlmProvider, type MistralLlmProviderOptions } from "./mistral-provider";
 
 export {
   renderTemplateExplanation,
   type TemplateExplanationInput,
   type TemplateExplanationOutput,
-} from "./template-explanation.js";
+} from "./template-explanation";
 export {
   checkNumericIntegrity,
   collectGroundedNumbers,
   extractNumericLiterals,
   type NumericIntegrityResult,
-} from "./numeric-integrity.js";
-export { renderExplanation, type RenderExplanationInput, type RenderExplanationOutput } from "./explain.js";
+} from "./numeric-integrity";
+export { renderExplanation, type RenderExplanationInput, type RenderExplanationOutput } from "./explain";
 export {
   runOnboardingTurn,
   MAX_REFORMULATIONS_BEFORE_CLOSED_QUESTION,
   type OnboardingTurnRequest,
   type OnboardingTurnResult,
-} from "./onboarding-conversation.js";
+} from "./onboarding-conversation";

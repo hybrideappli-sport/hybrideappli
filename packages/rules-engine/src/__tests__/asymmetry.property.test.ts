@@ -13,9 +13,9 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { TRIGGERS_ALLOWING_INCREASE } from "@hybride/domain";
 import type { PlanTrigger } from "@hybride/domain";
-import { generatePlan } from "../generate-plan.js";
-import { arbitraryPlanningContext, arbitraryPlanningContextWithPreviousPlan } from "../../__fixtures__/arbitraries.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { arbitraryPlanningContext, arbitraryPlanningContextWithPreviousPlan } from "../../__fixtures__/arbitraries";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 const DISALLOWED_TRIGGERS: PlanTrigger[] = [
   "onboarding",

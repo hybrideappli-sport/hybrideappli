@@ -7,8 +7,8 @@
  */
 
 import type { PlanningContext, Ruleset, StagnationEvidenceItem, StagnationRecommendedAction, StagnationResult, WeekAggregateSnapshot } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "./rule-ids.js";
-import type { TraceFactory } from "./lib/trace.js";
+import { RULE_IDS, RULE_VERSION } from "./rule-ids";
+import type { TraceFactory } from "./lib/trace";
 
 const NO_PROGRESSION_EPSILON = 0.02; // 2% — variation en deçà de ce seuil = stagnation
 

@@ -28,13 +28,13 @@ import type {
   Ruleset,
   SessionType,
 } from "@hybride/domain";
-import { RULE_IDS, RULE_VERSION } from "../rule-ids.js";
-import type { TraceFactory } from "../lib/trace.js";
-import { addDays, diffDays } from "../lib/dates.js";
-import { DISCIPLINE_FACTOR_BY_FAMILY, INTENSITY_FACTOR_BY_SESSION_TYPE, computeLoadUnits } from "../lib/load-units.js";
-import { isIntenseSessionType } from "../lib/guardrail-helpers.js";
-import type { SportAllocation } from "./07-distribute-across-sports.js";
-import type { PainState } from "./02-resolve-pain-state.js";
+import { RULE_IDS, RULE_VERSION } from "../rule-ids";
+import type { TraceFactory } from "../lib/trace";
+import { addDays, diffDays } from "../lib/dates";
+import { DISCIPLINE_FACTOR_BY_FAMILY, INTENSITY_FACTOR_BY_SESSION_TYPE, computeLoadUnits } from "../lib/load-units";
+import { isIntenseSessionType } from "../lib/guardrail-helpers";
+import type { SportAllocation } from "./07-distribute-across-sports";
+import type { PainState } from "./02-resolve-pain-state";
 
 const SESSION_TYPE_CYCLES: Record<AthleteSportSnapshot["family"], SessionType[]> = {
   endurance: ["endurance", "endurance", "tempo", "endurance", "interval", "long", "endurance"],

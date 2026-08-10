@@ -22,8 +22,8 @@ import type {
   PainProtocolLevel,
   PlanTrigger,
   RiskFlagType,
-} from "./enums.js";
-import type { PlanSnapshot } from "./plan-draft.js";
+} from "./enums";
+import type { PlanSnapshot } from "./plan-draft";
 
 export interface AthleteProfileSnapshot {
   userId: string;

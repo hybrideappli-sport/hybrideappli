@@ -8,21 +8,21 @@
  */
 
 import type { DecisionTrace, EngineResult, PlanDraft, PlanningContext, Ruleset } from "@hybride/domain";
-import { createTraceFactory } from "./lib/trace.js";
-import { addDays } from "./lib/dates.js";
+import { createTraceFactory } from "./lib/trace";
+import { addDays } from "./lib/dates";
 
-import { resolveRiskRestrictions } from "./pipeline/01-resolve-risk-restrictions.js";
-import { resolvePainState } from "./pipeline/02-resolve-pain-state.js";
-import { resolveObjectiveFeasibility } from "./pipeline/03-resolve-objective-feasibility.js";
-import { buildMacroBlocks } from "./pipeline/04-build-macro-blocks.js";
-import { placeMandatoryDeloads } from "./pipeline/05-place-mandatory-deloads.js";
-import { aggregateBlockTargets, computeWeeklyLoadTarget } from "./pipeline/06-compute-weekly-load-target.js";
-import { distributeAcrossSports } from "./pipeline/07-distribute-across-sports.js";
-import { resolveInterference } from "./pipeline/08-resolve-interference.js";
-import { buildSessions } from "./pipeline/09-build-sessions.js";
-import { buildNutritionDays } from "./pipeline/10-build-nutrition-days.js";
-import { applyHardGuardrails } from "./pipeline/11-apply-hard-guardrails.js";
-import { assertEveryNumberIsTraced } from "./pipeline/12-assert-every-number-is-traced.js";
+import { resolveRiskRestrictions } from "./pipeline/01-resolve-risk-restrictions";
+import { resolvePainState } from "./pipeline/02-resolve-pain-state";
+import { resolveObjectiveFeasibility } from "./pipeline/03-resolve-objective-feasibility";
+import { buildMacroBlocks } from "./pipeline/04-build-macro-blocks";
+import { placeMandatoryDeloads } from "./pipeline/05-place-mandatory-deloads";
+import { aggregateBlockTargets, computeWeeklyLoadTarget } from "./pipeline/06-compute-weekly-load-target";
+import { distributeAcrossSports } from "./pipeline/07-distribute-across-sports";
+import { resolveInterference } from "./pipeline/08-resolve-interference";
+import { buildSessions } from "./pipeline/09-build-sessions";
+import { buildNutritionDays } from "./pipeline/10-build-nutrition-days";
+import { applyHardGuardrails } from "./pipeline/11-apply-hard-guardrails";
+import { assertEveryNumberIsTraced } from "./pipeline/12-assert-every-number-is-traced";
 
 export function generatePlan(context: PlanningContext, ruleset: Ruleset): EngineResult {
   const traceFactory = createTraceFactory(ruleset.version);

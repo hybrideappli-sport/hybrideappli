@@ -18,8 +18,8 @@ import type {
   ExplanationOutput,
   ExplanationRequest,
   LlmProvider,
-} from "./llm-provider.js";
-import { renderTemplateExplanation } from "./template-explanation.js";
+} from "./llm-provider";
+import { renderTemplateExplanation } from "./template-explanation";
 
 const QUESTIONS: Record<string, string> = {
   intro: "Bonjour, je suis ton coach. Quel est ton objectif principal, et pour quelle date si tu en as une en tête ?",

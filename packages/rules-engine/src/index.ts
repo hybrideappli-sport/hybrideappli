@@ -17,13 +17,13 @@
 
 export const RULES_ENGINE_PACKAGE_NAME = "@hybride/rules-engine" as const;
 
-export { generatePlan } from "./generate-plan.js";
-export { evaluateObjectiveFeasibility } from "./objective-feasibility.js";
-export { evaluateStagnation } from "./stagnation.js";
-export { evaluatePainProtocol } from "./pain-protocol.js";
-export { diffPlanVersions } from "./diff-plan-versions.js";
-export { evaluateFreeAccess } from "./free-access.js";
+export { generatePlan } from "./generate-plan";
+export { evaluateObjectiveFeasibility } from "./objective-feasibility";
+export { evaluateStagnation } from "./stagnation";
+export { evaluatePainProtocol } from "./pain-protocol";
+export { diffPlanVersions } from "./diff-plan-versions";
+export { evaluateFreeAccess } from "./free-access";
 
-export { createTraceFactory } from "./lib/trace.js";
-export type { TraceFactory } from "./lib/trace.js";
-export { computeLoadUnits } from "./lib/load-units.js";
+export { createTraceFactory } from "./lib/trace";
+export type { TraceFactory } from "./lib/trace";
+export { computeLoadUnits } from "./lib/load-units";

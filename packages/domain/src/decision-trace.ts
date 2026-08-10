@@ -11,7 +11,7 @@
  * UUID aléatoire, ce qui casserait le déterminisme exigé par ADR-002.
  */
 
-import type { DecisionTraceCategory, DecisionTraceScope, TraceDirection, TraceSeverity } from "./enums.js";
+import type { DecisionTraceCategory, DecisionTraceScope, TraceDirection, TraceSeverity } from "./enums";
 
 export interface TraceInput {
   source: string; // nom de table source, p. ex. 'session_logs'

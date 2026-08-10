@@ -5,10 +5,10 @@
  * ne peut jamais afficher un chiffre que le moteur n'a pas calculé.
  */
 
-import type { LlmProvider } from "./llm-provider.js";
-import { checkNumericIntegrity } from "./numeric-integrity.js";
-import { renderTemplateExplanation } from "./template-explanation.js";
-import type { ExplanationSubjectType, LlmTraceInput } from "./types.js";
+import type { LlmProvider } from "./llm-provider";
+import { checkNumericIntegrity } from "./numeric-integrity";
+import { renderTemplateExplanation } from "./template-explanation";
+import type { ExplanationSubjectType, LlmTraceInput } from "./types";
 
 export interface RenderExplanationInput {
   subjectType: ExplanationSubjectType;

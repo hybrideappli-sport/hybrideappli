@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { DeterministicMockLlmProvider } from "../mock-provider.js";
+import { DeterministicMockLlmProvider } from "../mock-provider";
 import { ProfileDraftPatchSchema } from "@hybride/domain";
 
 describe("DeterministicMockLlmProvider — conversation d'onboarding", () => {

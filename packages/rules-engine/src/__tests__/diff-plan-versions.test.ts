@@ -5,11 +5,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { diffPlanVersions } from "../diff-plan-versions.js";
-import { addDays } from "../lib/dates.js";
-import { buildContext, FIXED_NOW } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { generatePlan } from "../generate-plan";
+import { diffPlanVersions } from "../diff-plan-versions";
+import { addDays } from "../lib/dates";
+import { buildContext, FIXED_NOW } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 describe("diffPlanVersions — AC5", () => {
   it("from = null ⟹ première semaine, aucun item, jamais une erreur", () => {

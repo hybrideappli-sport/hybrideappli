@@ -5,10 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { renderExplanation } from "../explain.js";
-import { renderTemplateExplanation } from "../template-explanation.js";
-import type { ExplanationOutput, ExplanationRequest, LlmProvider } from "../llm-provider.js";
-import type { LlmTraceInput } from "../types.js";
+import { renderExplanation } from "../explain";
+import { renderTemplateExplanation } from "../template-explanation";
+import type { ExplanationOutput, ExplanationRequest, LlmProvider } from "../llm-provider";
+import type { LlmTraceInput } from "../types";
 
 const TRACE: LlmTraceInput = {
   ruleId: "nutrition.kcal_target",

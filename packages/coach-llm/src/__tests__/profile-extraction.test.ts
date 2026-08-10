@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { runOnboardingTurn, MAX_REFORMULATIONS_BEFORE_CLOSED_QUESTION } from "../onboarding-conversation.js";
-import type { ConversationTurnInput, ConversationTurnOutput, LlmProvider } from "../llm-provider.js";
+import { runOnboardingTurn, MAX_REFORMULATIONS_BEFORE_CLOSED_QUESTION } from "../onboarding-conversation";
+import type { ConversationTurnInput, ConversationTurnOutput, LlmProvider } from "../llm-provider";
 
 function providerReturning(output: ConversationTurnOutput): LlmProvider {
   return {

@@ -7,7 +7,7 @@
  */
 
 import type { FreeAccessEvent, FreeAccessParamsInput, FreeAccessResult } from "@hybride/domain";
-import { addDays, startOfIsoWeek } from "./lib/dates.js";
+import { addDays, startOfIsoWeek } from "./lib/dates";
 
 function computePeriod(now: string, strategy: FreeAccessParamsInput["windowStrategy"]) {
   if (strategy === "fixed_week") {

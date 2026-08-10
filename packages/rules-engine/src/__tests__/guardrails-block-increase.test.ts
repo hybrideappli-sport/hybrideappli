@@ -5,11 +5,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { generatePlan } from "../generate-plan.js";
-import { startOfIsoWeek } from "../lib/dates.js";
+import { generatePlan } from "../generate-plan";
+import { startOfIsoWeek } from "../lib/dates";
 import type { PlanSnapshot } from "@hybride/domain";
-import { FIXED_NOW, buildContext, buildPainEpisode, buildProfile, buildSessionLog } from "../../__fixtures__/planning-context.js";
-import { TEST_RULESET } from "../../__fixtures__/ruleset.js";
+import { FIXED_NOW, buildContext, buildPainEpisode, buildProfile, buildSessionLog } from "../../__fixtures__/planning-context";
+import { TEST_RULESET } from "../../__fixtures__/ruleset";
 
 function fakePreviousPlan(lowTargetLoadUnits: number): PlanSnapshot {
   const weekStart = startOfIsoWeek(FIXED_NOW);
