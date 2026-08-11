@@ -241,6 +241,12 @@ export type {
 } from "./today-plan";
 
 // ---------------------------------------------------------------------------
+// plan-week-macro.ts — GET /plan/week, GET /plan/macro (AC1, AC13, finding B4)
+// ---------------------------------------------------------------------------
+
+export type { WeekPlanDayView, WeekPlanResponse, MacroPlanBlockView, MacroPlanResponse } from "./plan-week-macro";
+
+// ---------------------------------------------------------------------------
 // weekly-review.ts — révision hebdomadaire (Lot L5, AC5)
 // ---------------------------------------------------------------------------
 

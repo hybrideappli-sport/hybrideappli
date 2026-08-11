@@ -103,7 +103,7 @@ export async function materializePlanVersion(
   // 1) `plans` — un seul plan actif par utilisateur (index `plans_one_active_per_user`).
   const { data: existingPlan, error: existingPlanError } = await admin
     .from("plans")
-    .select("id, current_version_id")
+    .select("id, current_version_id, objective_id")
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
@@ -112,6 +112,16 @@ export async function materializePlanVersion(
   let planId: string;
   if (existingPlan) {
     planId = existingPlan.id;
+    // Correction post-revue (finding I8, 2/2) : AC14 (« définir un nouvel objectif ») réutilise le
+    // plan actif existant plutôt que d'en créer un second (un seul plan actif par utilisateur,
+    // `plans_one_active_per_user`) — sans cette mise à jour, le plan restait rattaché à
+    // `objective_id` de l'ANCIEN objectif indéfiniment, alors que chaque séance/jour nutrition
+    // matérialisé plus bas appartient bien au nouveau. Sans effet (no-op) tant que l'objectif ne
+    // change pas (`weekly_review`, `negative_signal`, `pain_protocol`, …).
+    if (existingPlan.objective_id !== objectiveId) {
+      const { error: objectiveLinkError } = await admin.from("plans").update({ objective_id: objectiveId }).eq("id", planId);
+      if (objectiveLinkError) throw new Error(`materializePlanVersion: plans (objective_id) — ${objectiveLinkError.message}`);
+    }
   } else {
     const { data: insertedPlan, error: insertPlanError } = await admin
       .from("plans")

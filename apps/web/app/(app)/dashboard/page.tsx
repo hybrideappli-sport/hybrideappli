@@ -10,15 +10,17 @@ import { CoachPlanCard } from "@/components/dashboard/coach-plan-card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { FreeAccessMeter } from "@/components/dashboard/free-access-meter";
 import { UpsellBanner } from "@/components/dashboard/upsell-banner";
-import { WeeklyPreviewCard, WeeklyPreviewLocked } from "@/components/dashboard/weekly-preview-card";
+import { macroFocusForToday, WeeklyPreviewCard, WeeklyPreviewLocked } from "@/components/dashboard/weekly-preview-card";
 import { WeeklyReviewBadge } from "@/components/dashboard/weekly-review-badge";
 import { PaywallGate } from "@/components/paywall/paywall-gate";
 import { DailyLogForm } from "@/components/today/daily-log-form";
 import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { Button } from "@/components/ui/button";
+import { startOfIsoWeekIso } from "@/lib/dates";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
+import { fetchMacroPlan, fetchWeekPlan } from "@/lib/orchestration/read-plan-week-macro";
 import {
   fetchActiveMedicalClearanceNotice,
   fetchActivePainNotice,
@@ -124,6 +126,17 @@ export default async function DashboardPage() {
       ])
     : [null, null];
 
+  // AC13, finding B4 — contenu RÉEL de `WeeklyPreviewCard` (`plan_weeks`/`plan_blocks`, déjà
+  // matérialisés), pas un texte annonçant une fonctionnalité qui n'existait pas encore. Chargé
+  // uniquement pour les abonnés : un utilisateur `free` voit `WeeklyPreviewLocked`, jamais ce fetch.
+  const [weekPlan, macroPlan] = entitlement.canViewWeek && planVersionId
+    ? await Promise.all([
+        fetchWeekPlan(admin, { userId: user.id, planVersionId, weekStart: startOfIsoWeekIso(now) }),
+        fetchMacroPlan(admin, { planVersionId }),
+      ])
+    : [null, null];
+  const macroFocus = macroPlan ? macroFocusForToday(macroPlan, now) : null;
+
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
       {header}
@@ -134,7 +147,7 @@ export default async function DashboardPage() {
       {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
 
       <PaywallGate entitled={entitlement.canViewWeek} fallback={<WeeklyPreviewLocked />}>
-        <WeeklyPreviewCard />
+        <WeeklyPreviewCard week={weekPlan} macroFocus={macroFocus} />
       </PaywallGate>
 
       <WeeklyReviewBadge userId={user.id} />
