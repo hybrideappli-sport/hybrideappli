@@ -57,8 +57,8 @@ export const HISTORY_MESSAGE_NO_TRAINING = "0 séance par semaine, 0 heure en ce
  * Golden path complet jusqu'au Dashboard (AC1, AC3) — mêmes étapes que `onboarding.spec.ts`,
  * factorisées ici pour les scénarios de boucle quotidienne qui partent tous d'un plan déjà généré.
  */
-export async function completeOnboardingToDashboard(page: Page, label: string, historyMessage?: string): Promise<void> {
-  await signInAsNewTestUser(page, label);
+export async function completeOnboardingToDashboard(page: Page, label: string, historyMessage?: string): Promise<{ email: string; userId: string }> {
+  const identity = await signInAsNewTestUser(page, label);
   await page.goto("/onboarding/chat");
   await completeChatSteps(page, "Courir 10 km sans me blesser", historyMessage);
   await acknowledgeDisclaimer(page);
@@ -67,4 +67,5 @@ export async function completeOnboardingToDashboard(page: Page, label: string, h
   await expect(page).toHaveURL(/\/onboarding\/recap$/);
   await page.getByRole("button", { name: /valider mon profil et générer mon plan/i }).click();
   await page.waitForURL("**/dashboard", { timeout: 20_000 });
+  return identity;
 }

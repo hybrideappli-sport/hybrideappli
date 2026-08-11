@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/v1/cron/enqueue-weekly-reviews", "schedule": "0 * * * *" },
+    { "path": "/api/v1/cron/enqueue-objective-checks", "schedule": "0 6 * * *" },
+    { "path": "/api/v1/cron/drain-jobs", "schedule": "*/5 * * * *" }
+  ]
+}

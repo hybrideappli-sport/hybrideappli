@@ -4,13 +4,14 @@ import { expect } from "@playwright/test";
 import { createConfirmedTestUser } from "./test-user";
 
 /** Inscription/connexion via le VRAI formulaire (`(auth)/connexion`) — cookies `@supabase/ssr` authentiques. */
-export async function signInAsNewTestUser(page: Page, label: string): Promise<void> {
-  const { email, password } = await createConfirmedTestUser(label);
+export async function signInAsNewTestUser(page: Page, label: string): Promise<{ email: string; userId: string }> {
+  const { email, password, userId } = await createConfirmedTestUser(label);
   await page.goto("/connexion");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Mot de passe", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Se connecter" }).click();
   await page.waitForURL("**/dashboard");
+  return { email, userId };
 }
 
 /** Envoie une réponse dans le chat et attend la réplique du coach avant de continuer. */

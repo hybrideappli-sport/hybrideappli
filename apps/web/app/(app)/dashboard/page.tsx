@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import type { EntitlementView } from "@hybride/domain";
@@ -80,8 +81,11 @@ export default async function DashboardPage() {
         <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
           <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
           <p className="mt-1">
-            Reviens le {entitlement.freeAccess.resetsAt} pour un nouvel accès gratuit, ou passe en illimité pour continuer dès maintenant —
-            ton coach reste disponible 24/7 avec une adaptation continue.
+            Reviens le {entitlement.freeAccess.resetsAt} pour un nouvel accès gratuit, ou{" "}
+            <Link href="/abonnement" className="font-medium text-orange-500 underline underline-offset-2" data-testid="paywall-upgrade-link">
+              passe en illimité
+            </Link>{" "}
+            pour continuer dès maintenant — ton coach reste disponible 24/7 avec une adaptation continue.
           </p>
         </div>
         <FreeAccessMeter freeAccess={entitlement.freeAccess} />
@@ -109,7 +113,7 @@ export default async function DashboardPage() {
         <WeeklyPreviewCard />
       </PaywallGate>
 
-      <WeeklyReviewBadge />
+      <WeeklyReviewBadge userId={user.id} />
       {entitlement.tier === "free" ? <FreeAccessMeter freeAccess={entitlement.freeAccess} /> : null}
       <UpsellBanner tier={entitlement.tier} />
     </main>

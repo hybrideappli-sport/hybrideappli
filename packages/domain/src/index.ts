@@ -234,3 +234,48 @@ export type {
   IndicatorTrend,
   ProgressDiagnosisResponse,
 } from "./today-plan";
+
+// ---------------------------------------------------------------------------
+// weekly-review.ts — révision hebdomadaire (Lot L5, AC5)
+// ---------------------------------------------------------------------------
+
+export type {
+  StoredPlanDiffItem,
+  PlanDiffItemView,
+  PlanDiffView,
+  AcknowledgeReviewResponse,
+} from "./weekly-review";
+
+// ---------------------------------------------------------------------------
+// notifications.ts (Lot L5, AC5 R8)
+// ---------------------------------------------------------------------------
+
+export type {
+  NotificationView,
+  NotificationsListResponse,
+  MarkNotificationReadResponse,
+} from "./notifications";
+
+// ---------------------------------------------------------------------------
+// billing.ts — Stripe (Lot L5, AC13, ADR-009)
+// ---------------------------------------------------------------------------
+
+export type {
+  BillingOfferResponse,
+  SubscriptionIntentResponse,
+  InvoiceView,
+  InvoicesResponse,
+} from "./billing";
+
+// ---------------------------------------------------------------------------
+// objective-end.ts (Lot L5, AC14)
+// ---------------------------------------------------------------------------
+
+export type { ObjectiveEndProposalView, ObjectiveEndResponse } from "./objective-end";
+
+// ---------------------------------------------------------------------------
+// push.ts (Lot L5, ADR-011 §5)
+// ---------------------------------------------------------------------------
+
+export { PushSubscriptionInputSchema } from "./push";
+export type { PushSubscriptionInput, PushSubscriptionResponse } from "./push";

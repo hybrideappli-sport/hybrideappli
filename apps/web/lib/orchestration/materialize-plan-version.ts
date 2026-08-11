@@ -62,6 +62,14 @@ export interface MaterializePlanVersionResult {
   planId: string;
   planVersionId: string;
   today: MaterializedToday;
+  /**
+   * `DecisionTrace.id` LOCAL (au run, `trace-N` — voir `packages/rules-engine/src/lib/trace.ts`)
+   * → `decision_traces.id` réellement persisté par CE run. Nécessaire à `runWeeklyReview()`
+   * (Lot L5) pour traduire les `PlanDiffItem.decisionTraceIds` de `diffPlanVersions()` (locaux à
+   * `engineResult`) en identifiants de base référençables depuis `plan_diffs.items` — cette table
+   * survit AU-DELÀ du run qui l'a produite, contrairement aux identifiants locaux.
+   */
+  traceIdMap: Map<string, string>;
 }
 
 function diffDays(a: string, b: string): number {
@@ -79,9 +87,17 @@ export async function materializePlanVersion(
     contextHash: string;
     engineResult: EngineResult;
     llmProvider: LlmProvider;
+    /**
+     * AC5, ADR-005 §3 — marque cette version comme la version de RÉFÉRENCE de la semaine (le
+     * repère utilisé par `diffPlanVersions()` : « toujours calculé entre la version de référence
+     * de la semaine N-1 et celle de la semaine N »). `false` par défaut : seul `runWeeklyReview()`
+     * (Lot L5) le pose à `true` — un ajustement immédiat (`negative_signal`/`pain_protocol`) ne
+     * redéfinit JAMAIS la ligne de base, même s'il crée une nouvelle version.
+     */
+    isWeeklyBaseline?: boolean;
   },
 ): Promise<MaterializePlanVersionResult> {
-  const { userId, objectiveId, trigger, ruleset, context, contextHash, engineResult, llmProvider } = args;
+  const { userId, objectiveId, trigger, ruleset, context, contextHash, engineResult, llmProvider, isWeeklyBaseline = false } = args;
   const { plan, traces } = engineResult;
 
   // 1) `plans` — un seul plan actif par utilisateur (index `plans_one_active_per_user`).
@@ -138,7 +154,7 @@ export async function materializePlanVersion(
     version_number: versionNumber,
     trigger,
     supersedes_version_id: existingPlan?.current_version_id ?? null,
-    is_weekly_baseline: false,
+    is_weekly_baseline: isWeeklyBaseline,
     ruleset_version: ruleset.version,
     engine_run_id: engineRunId,
     input_snapshot: context as unknown as Json,
@@ -434,5 +450,5 @@ export async function materializePlanVersion(
         : null,
   };
 
-  return { planId, planVersionId, today };
+  return { planId, planVersionId, today, traceIdMap: dbTraceIdByLocalId };
 }

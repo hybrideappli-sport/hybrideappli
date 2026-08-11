@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
+import type { Database } from "@hybride/db";
 import type { Json } from "@hybride/db/types";
 import { createTraceFactory, evaluateStagnation } from "@hybride/rules-engine";
-import type { ExplanationDetailView, ProgressDiagnosisResponse } from "@hybride/domain";
+import type { ExplanationDetailView, ProgressDiagnosisResponse, Ruleset } from "@hybride/domain";
 
 import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
+import { diffDaysIso } from "@/lib/dates";
 import { getLlmProvider } from "@/lib/coach-llm-provider";
 import { aggregateCompletedWeeks } from "@/lib/orchestration/aggregate-completed-weeks";
 import { buildPlanningContext } from "@/lib/orchestration/build-planning-context";
@@ -16,19 +19,23 @@ import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 
 export const dynamic = "force-dynamic";
 
+/** Fraîcheur maximale d'un diagnostic persisté (`stagnation_diagnoses`) pour être servi tel quel — un
+ * peu plus qu'une semaine (le rituel dominical, ADR-011), pour couvrir un léger retard du job. */
+const PERSISTED_DIAGNOSIS_MAX_AGE_DAYS = 9;
+
 /**
  * `GET /api/v1/progress/diagnosis` — AC6, AC7 (`08-architecture.md` §6.5).
  *
- * Arbitrage explicite du Lot L4 (le job de révision hebdomadaire qui alimenterait
- * `stagnation_diagnoses` n'existe pas encore — c'est le Lot L5) : cette route ne LIT PAS
- * `stagnation_diagnoses` et n'en dépend pas. Elle calcule un diagnostic « à la volée », à chaque
- * appel, à partir des données déjà disponibles (`session_logs`/`nutrition_checkins`/`body_metrics`
- * des 70 derniers jours, agrégées en semaines par `aggregateCompletedWeeks()` — voir son en-tête
- * pour les approximations assumées faute d'agrégation canonique). C'est un choix DÉLIBÉRÉMENT
- * simple : AUCUNE écriture (contrairement à `applyDailyLog`/`regeneratePlan`), sortie recalculée
- * systématiquement plutôt que mise en cache. Le Lot L5 pourra soit remplacer ce calcul par une
- * lecture de `stagnation_diagnoses` (rempli par le job dominical), soit le conserver comme repli
- * pour un appel hors cycle hebdomadaire — à trancher à ce moment-là.
+ * Lot L5 : sert D'ABORD le diagnostic PERSISTÉ le plus récent (`stagnation_diagnoses`, écrit par
+ * `runWeeklyReview()` chaque dimanche, ADR-011 §"Décision") s'il est encore frais
+ * (`PERSISTED_DIAGNOSIS_MAX_AGE_DAYS`) — c'est la même valeur que celle affichée sur `/revision`
+ * (AC5), jamais recalculée à la volée avec un risque de diverger de ce que le rituel hebdomadaire a
+ * déjà montré à l'utilisateur (même rationale de stabilité qu'ADR-005 §4 pour `plan_diffs`).
+ *
+ * Repli sur le calcul « à la volée » du Lot L4 (inchangé, voir son en-tête) quand aucun diagnostic
+ * persisté n'est encore disponible : premier accès avant le premier dimanche, utilisateur trop
+ * récent, ou job pas encore passé. Ce repli reste volontairement en LECTURE SEULE (aucune
+ * écriture) — seul `runWeeklyReview()` écrit dans `stagnation_diagnoses`.
  */
 export async function GET() {
   const { supabase, user } = await requireUser();
@@ -51,6 +58,10 @@ export async function GET() {
   }
 
   const ruleset = await getActiveRuleset(admin);
+
+  const persisted = await readPersistedDiagnosis(admin, { userId: user.id, now, ruleset });
+  if (persisted) return apiJson<ProgressDiagnosisResponse>(persisted, { headers: { "Cache-Control": "no-store" } });
+
   const { context } = await buildPlanningContext(admin, {
     userId: user.id,
     now,
@@ -173,4 +184,72 @@ export async function GET() {
     explanation,
   };
   return apiJson<ProgressDiagnosisResponse>(body, { headers: { "Cache-Control": "no-store" } });
+}
+
+/**
+ * Lit le diagnostic `stagnation_diagnoses` le plus récent (écrit par `runWeeklyReview()`,
+ * `apps/web/lib/orchestration/run-weekly-review.ts`) et le traduit en `ProgressDiagnosisResponse`.
+ * `null` si aucun diagnostic n'existe encore, ou si le plus récent est trop ancien
+ * (`PERSISTED_DIAGNOSIS_MAX_AGE_DAYS`) — l'appelant retombe alors sur le calcul à la volée.
+ */
+async function readPersistedDiagnosis(
+  admin: SupabaseClient<Database>,
+  args: { userId: string; now: string; ruleset: Ruleset },
+): Promise<ProgressDiagnosisResponse | null> {
+  const { userId, now, ruleset } = args;
+
+  const { data: row, error } = await admin
+    .from("stagnation_diagnoses")
+    .select("evaluated_on, weeks_available, status, indicator, diagnosis, evidence, recommended_action, explanation_id, plan_version_id")
+    .eq("user_id", userId)
+    .order("evaluated_on", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`readPersistedDiagnosis: stagnation_diagnoses — ${error.message}`);
+  if (!row) return null;
+  if (diffDaysIso(row.evaluated_on, now) > PERSISTED_DIAGNOSIS_MAX_AGE_DAYS) return null;
+
+  const weeksRequired = ruleset.params.stagnation.calibration_min_weeks;
+
+  if (row.status === "calibration") {
+    return {
+      status: "calibration",
+      weeksAvailable: row.weeks_available,
+      weeksRequired,
+      message: `Le coach a besoin d'au moins ${weeksRequired} semaines de données comparables avant de pouvoir se prononcer sur ta progression — il ne peut pas encore conclure (phase de calibration).`,
+      confidence: "calibrating",
+    };
+  }
+
+  let explanation: ExplanationDetailView = { short: "", long: null, confidence: row.status === "stagnation" ? "high" : "high" };
+  if (row.explanation_id) {
+    const { data: explanationRow, error: explanationError } = await admin
+      .from("explanations")
+      .select("short_text, long_text, confidence")
+      .eq("id", row.explanation_id)
+      .maybeSingle();
+    if (explanationError) throw new Error(`readPersistedDiagnosis: explanations — ${explanationError.message}`);
+    if (explanationRow) {
+      explanation = { short: explanationRow.short_text, long: explanationRow.long_text, confidence: explanationRow.confidence };
+    }
+  }
+
+  const evidence = ((row.evidence as unknown as Array<{ label: string; current: number; previous: number }>) ?? []).map((e) => ({
+    label: e.label,
+    current: e.current,
+    previous: e.previous,
+  }));
+
+  if (row.status === "no_stagnation") {
+    return { status: "no_stagnation", indicators: evidence, explanation };
+  }
+
+  return {
+    status: "stagnation",
+    indicator: row.indicator ?? "unknown",
+    diagnosis: row.diagnosis ?? "inconclusive",
+    evidence,
+    proposedAdaptation: { summary: row.recommended_action ?? "none", planVersionId: row.plan_version_id },
+    explanation,
+  };
 }

@@ -1735,12 +1735,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_job_queue: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          finished_at: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          last_error: string | null
+          locked_at: string | null
+          payload: Json
+          scheduled_for: string
+          status: Database["public"]["Enums"]["job_status"]
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       erase_account: { Args: { p_user: string }; Returns: Json }
       has_active_consent: {
         Args: { p_code: string; p_user: string }
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
+      requeue_stuck_job_queue: {
+        Args: { p_stuck_after_seconds?: number }
+        Returns: number
+      }
     }
     Enums: {
       adherence_level: "low" | "partial" | "high"
