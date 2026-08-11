@@ -71,7 +71,8 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
     if (session?.current_step === "health_consent") {
-      await supabase.from("onboarding_sessions").update({ current_step: "review" }).eq("id", session.id);
+      // `current_step` réservé au `service_role` depuis la migration 0012 (finding B5).
+      await admin.from("onboarding_sessions").update({ current_step: "review" }).eq("id", session.id);
     }
   }
 

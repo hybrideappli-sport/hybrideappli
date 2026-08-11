@@ -1,5 +1,6 @@
 import { runOnboardingTurn } from "@hybride/coach-llm";
 import { ONBOARDING_CHAT_STEPS, OnboardingMessageInputSchema, type OnboardingStep } from "@hybride/domain";
+import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import type { Json } from "@hybride/db/types";
 
 import { getLlmProvider } from "@/lib/coach-llm-provider";
@@ -119,7 +120,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single();
   if (coachMessageError) return apiError(500, "INTERNAL_ERROR", coachMessageError.message);
 
-  const { error: updateError } = await supabase
+  // `current_step`/`turn_count` sont réservés au `service_role` depuis la migration 0012
+  // (finding B5 — `turn_count` est le compteur de sécurité qui plafonne le coût LLM par session,
+  // pas une donnée déclarative). `profile_draft` transite dans le même appel : `service_role`
+  // écrit sans restriction de colonne, pas besoin de le séparer en deux requêtes.
+  const admin = createSupabaseServiceRoleClient();
+  const { error: updateError } = await admin
     .from("onboarding_sessions")
     .update({
       current_step: nextStep,

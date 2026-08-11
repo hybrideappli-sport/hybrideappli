@@ -5,7 +5,7 @@ import type { Database } from "@hybride/db";
 import type { Json } from "@hybride/db/types";
 import type { ConfirmedProfile } from "@hybride/domain";
 
-import { resolveOrCreateSport } from "./resolve-sport";
+import { InvalidSportCodeError, resolveOrCreateSport } from "./resolve-sport";
 
 /**
  * Persiste le profil DÉCLARATIF confirmé par l'utilisateur (AC1 : « il valide son profil
@@ -50,7 +50,17 @@ export async function completeOnboarding(
   });
   if (profileError) throw new OnboardingPersistenceError("athlete_profiles", profileError.message);
 
-  const sportIds = await Promise.all(profile.sports.map((sport) => resolveOrCreateSport(admin, sport.sportCode)));
+  // `SportCodeSchema` (`@hybride/domain`) a déjà validé `sportCode` en amont (route `/complete`) —
+  // `InvalidSportCodeError` ne devrait donc jamais se produire ici en usage normal. Rattrapée quand
+  // même (défense en profondeur, finding I10) et traduite dans le même format d'erreur que le reste
+  // de cette fonction plutôt que de remonter comme une exception non gérée (500 opaque).
+  let sportIds: string[];
+  try {
+    sportIds = await Promise.all(profile.sports.map((sport) => resolveOrCreateSport(admin, sport.sportCode)));
+  } catch (error) {
+    if (error instanceof InvalidSportCodeError) throw new OnboardingPersistenceError("athlete_sports", error.message);
+    throw error;
+  }
   const { error: sportsError } = await rls.from("athlete_sports").insert(
     profile.sports.map((sport, index) => ({
       user_id: userId,
@@ -77,7 +87,15 @@ export async function completeOnboarding(
     if (availabilityError) throw new OnboardingPersistenceError("availability_slots", availabilityError.message);
   }
 
-  const objectiveSportId = profile.objective.sportCode ? await resolveOrCreateSport(admin, profile.objective.sportCode) : null;
+  let objectiveSportId: string | null = null;
+  if (profile.objective.sportCode) {
+    try {
+      objectiveSportId = await resolveOrCreateSport(admin, profile.objective.sportCode);
+    } catch (error) {
+      if (error instanceof InvalidSportCodeError) throw new OnboardingPersistenceError("objectives", error.message);
+      throw error;
+    }
+  }
   const { data: objectiveRow, error: objectiveError } = await rls
     .from("objectives")
     .insert({

@@ -69,7 +69,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
   if (consentError) return apiError(500, "INTERNAL_ERROR", consentError.message);
 
-  const { error: stepError } = await supabase
+  // `current_step` réservé au `service_role` depuis la migration 0012 (finding B5).
+  const { error: stepError } = await admin
     .from("onboarding_sessions")
     .update({ current_step: "health_consent" })
     .eq("id", sessionId);

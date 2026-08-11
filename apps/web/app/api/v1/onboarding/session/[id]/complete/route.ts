@@ -74,7 +74,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const result = await regeneratePlan(admin, { userId: user.id, objectiveId, trigger: "onboarding", now });
 
-  const { error: sessionCompleteError } = await supabase
+  // `status`/`current_step` réservés au `service_role` depuis la migration 0012 (finding B5).
+  const { error: sessionCompleteError } = await admin
     .from("onboarding_sessions")
     .update({ status: "completed", current_step: "completed", completed_at: new Date().toISOString() })
     .eq("id", sessionId);

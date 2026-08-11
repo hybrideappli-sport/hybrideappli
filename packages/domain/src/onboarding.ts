@@ -25,8 +25,29 @@ import type { NutritionCheckinSummary, SessionLogSummary } from "./session-log";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date ISO attendue (YYYY-MM-DD).");
 
+/**
+ * `sports.code` — référentiel PARTAGÉ entre tous les utilisateurs (`sports_read … using (true)`,
+ * `docs/db-schema.md` §2). `resolveOrCreateSport()` (`apps/web/lib/orchestration/resolve-sport.ts`)
+ * y insère un sport non documenté (`is_documented = false`) dès que le code déclaré n'existe pas
+ * encore — sans borne, un client pouvait y faire créer un nombre non borné de lignes de contenu
+ * arbitraire visibles par tous (finding I10, revue post-Lot L5). Bornage aligné sur les codes
+ * existants (`0010_seed_referentials.sql` : `running`, `trail_running`, `strength_training`, …) :
+ * minuscules, chiffres, tiret et underscore, 40 caractères maximum. `resolveOrCreateSport()`
+ * applique la MÊME contrainte indépendamment de ce schéma (défense en profondeur, ADR-012).
+ */
+export const SPORT_CODE_PATTERN = /^[a-z0-9_-]+$/;
+export const SportCodeSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .transform((value) => value.toLowerCase())
+  .refine((value) => SPORT_CODE_PATTERN.test(value), {
+    message: "Code de sport invalide — attendu : minuscules, chiffres, '-' ou '_' uniquement (max 40 caractères).",
+  });
+
 export const ConfirmedSportSchema = z.object({
-  sportCode: z.string().min(1),
+  sportCode: SportCodeSchema,
   level: z.enum(EXPERIENCE_LEVELS),
   weeklySessionsDeclared: z.number().int().min(0).max(21).nullable().default(null),
   yearsPractice: z.number().min(0).max(80).nullable().default(null),
@@ -57,7 +78,7 @@ export type ConfirmedRiskFlag = z.infer<typeof ConfirmedRiskFlagSchema>;
 export const ObjectiveKindSchema = z.enum(["race", "performance", "body_composition", "general_fitness"]);
 
 export const ConfirmedObjectiveSchema = z.object({
-  sportCode: z.string().min(1).nullable().default(null),
+  sportCode: SportCodeSchema.nullable().default(null),
   kind: ObjectiveKindSchema,
   label: z.string().min(1).max(200),
   targetDate: isoDate.nullable().default(null),

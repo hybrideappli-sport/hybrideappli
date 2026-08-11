@@ -1,3 +1,4 @@
+import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import type { OnboardingMessageView, OnboardingSessionView, ProfileDraft } from "@hybride/domain";
 
 import { getLlmProvider } from "@/lib/coach-llm-provider";
@@ -102,7 +103,10 @@ export async function POST() {
     .single();
   if (welcomeError) return apiError(500, "INTERNAL_ERROR", welcomeError.message);
 
-  const { error: stepError } = await supabase.from("onboarding_sessions").update({ current_step: "goal" }).eq("id", created.id);
+  // `current_step` est réservé au `service_role` depuis la migration 0012 (finding B5) : c'est un
+  // état de PROGRESSION, pas un brouillon — seul `profile_draft` reste écrit par le client RLS.
+  const admin = createSupabaseServiceRoleClient();
+  const { error: stepError } = await admin.from("onboarding_sessions").update({ current_step: "goal" }).eq("id", created.id);
   if (stepError) return apiError(500, "INTERNAL_ERROR", stepError.message);
 
   return apiJson<OnboardingSessionView>({

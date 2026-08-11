@@ -173,6 +173,8 @@ export type {
 // ---------------------------------------------------------------------------
 
 export {
+  SPORT_CODE_PATTERN,
+  SportCodeSchema,
   ConfirmedSportSchema,
   ConfirmedAvailabilitySlotSchema,
   ConfirmedRiskFlagSchema,
