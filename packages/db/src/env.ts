@@ -1,10 +1,12 @@
 /**
  * Lecture centralisée des variables d'environnement Supabase.
  *
- * Aucun secret en dur : tout passe par `process.env` (voir CLAUDE.md
- * §Sécurité, `08-architecture.md` §8). `SUPABASE_SERVICE_ROLE_KEY` ne doit
- * jamais être exposé au bundle client — seules les fonctions serveur de ce
- * package y accèdent.
+ * Aucun secret en dur : tout passe par `process.env` (voir `08-architecture.md` §8 « Sécurité,
+ * RGPD, RLS » et `docs/db-schema.md` pour le détail du schéma). `SUPABASE_SERVICE_ROLE_KEY` ne
+ * doit jamais être exposé au bundle client — seules les fonctions serveur de ce package y
+ * accèdent (voir `./client/service-role.ts`, importé exclusivement via `@hybride/db/server`).
+ * Correction du finding M8 (audit Lot L1) : cette référence pointait vers un `CLAUDE.md`
+ * §Sécurité inexistant à la racine du repo.
  */
 
 function requireEnv(name: string): string {

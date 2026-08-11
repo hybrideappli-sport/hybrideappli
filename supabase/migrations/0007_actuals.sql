@@ -1,6 +1,6 @@
 -- supabase/migrations/0007_actuals.sql
 -- Le réalisé n'est JAMAIS versionné et survit à toute régénération — ADR-004 §1
--- Source : 08-architecture.md §5.6 (DDL canonique)
+-- Source : docs/db-schema.md §6 (DDL canonique, arbitrage `architect` du 2026-08-07)
 
 create table session_logs (                                -- AC4. DONNÉES DE SANTÉ.
   id                 uuid primary key default gen_random_uuid(),
@@ -25,8 +25,14 @@ alter table session_logs enable row level security;
 create policy "session_logs_select_own" on session_logs for select to authenticated using (user_id = (select auth.uid()));
 create policy "session_logs_insert_own" on session_logs for insert to authenticated
   with check (user_id = (select auth.uid()) and has_active_consent((select auth.uid()), 'health_data_processing'));
+-- Consentement exigé à l'UPDATE aussi (ADR-010 §2, ADR-012 §2).
 create policy "session_logs_update_own" on session_logs for update to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid())
+              and has_active_consent((select auth.uid()), 'health_data_processing'));
+grant update (planned_session_id, logged_date, sport_id, completion, not_done_reason,
+              actual_duration_min, rpe, freshness, pain, pain_zone, pain_at_rest, comment)
+  on session_logs to authenticated;   -- `source` exclu : un client ne se déclare pas 'connected'
 create index session_logs_window on session_logs (user_id, logged_date desc);
 create index session_logs_pain   on session_logs (user_id, pain_zone, logged_date desc) where pain <> 'none';
 
@@ -42,8 +48,18 @@ create table nutrition_checkins (                          -- AC4, AC11 — sais
   unique (user_id, date)
 );
 alter table nutrition_checkins enable row level security;
-create policy "nutrition_checkins_own" on nutrition_checkins for all to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+-- `energy` est un indicateur de fatigue exploité par le diagnostic de surcharge (AC6) :
+-- traité comme donnée de santé, au même titre que `session_logs`. ADR-012 §2.
+create policy "nutrition_checkins_select_own" on nutrition_checkins for select to authenticated
+  using (user_id = (select auth.uid()));
+create policy "nutrition_checkins_insert_own" on nutrition_checkins for insert to authenticated
+  with check (user_id = (select auth.uid()) and has_active_consent((select auth.uid()), 'health_data_processing'));
+create policy "nutrition_checkins_update_own" on nutrition_checkins for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid())
+              and has_active_consent((select auth.uid()), 'health_data_processing'));
+-- DELETE volontairement non couvert : le réalisé ne se supprime pas (ADR-004 §1).
+grant update (adherence, energy, comment, nutrition_day_id) on nutrition_checkins to authenticated;
 
 create table body_metrics (                                -- DONNÉES DE SANTÉ. Prêt pour F2.
   id           uuid primary key default gen_random_uuid(),
@@ -61,6 +77,7 @@ alter table body_metrics enable row level security;
 create policy "body_metrics_select_own" on body_metrics for select to authenticated using (user_id = (select auth.uid()));
 create policy "body_metrics_insert_own" on body_metrics for insert to authenticated
   with check (user_id = (select auth.uid()) and has_active_consent((select auth.uid()), 'health_data_processing'));
+-- Aucune policy UPDATE, aucun GRANT UPDATE : une mesure se corrige par une nouvelle ligne.
 
 create table pain_episodes (                               -- AC9 — machine à états, écrite par le moteur
   id                 uuid primary key default gen_random_uuid(),

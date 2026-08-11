@@ -1,5 +1,5 @@
 -- supabase/migrations/0006_plans.sql — ADR-004, ADR-005
--- Source : 08-architecture.md §5.5 (DDL canonique)
+-- Source : docs/db-schema.md §5 (DDL canonique, arbitrage `architect` du 2026-08-07)
 
 create table plans (
   id                 uuid primary key default gen_random_uuid(),
@@ -143,4 +143,8 @@ alter table plan_diffs enable row level security;
 create policy "plan_diffs_select_own" on plan_diffs for select to authenticated using (user_id = (select auth.uid()));
 create policy "plan_diffs_ack_own"    on plan_diffs for update to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+-- `acknowledged_at` est la SEULE colonne acquittable. Une policy RLS ne sait pas le dire :
+-- c'est le GRANT colonne qui protège `items` (contenu produit par le moteur, `decisionTraceId`
+-- inclus) contre une réécriture par l'utilisateur. ADR-012 §3.
+grant update (acknowledged_at) on plan_diffs to authenticated;
 create index plan_diffs_recent on plan_diffs (user_id, created_at desc);

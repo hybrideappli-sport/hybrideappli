@@ -1,5 +1,6 @@
 -- supabase/migrations/0008_billing_paywall.sql — ADR-008, ADR-009
--- Source : 08-architecture.md §5.7 (DDL canonique)
+-- Source : docs/db-schema.md §7 (DDL canonique). Aucun changement de fond lors de l'arbitrage
+-- `architect` du 2026-08-07 (les 4 points de l'audit Lot L1 ne concernaient pas ce fichier).
 
 create table subscriptions (
   user_id                uuid primary key references auth.users(id) on delete cascade,
@@ -15,7 +16,7 @@ create table subscriptions (
 );
 alter table subscriptions enable row level security;
 create policy "subscriptions_select_own" on subscriptions for select to authenticated using (user_id = (select auth.uid()));
--- Aucune policy d'écriture : seul le webhook (service_role) écrit ici.
+-- Aucune policy d'écriture, aucun GRANT UPDATE : seul le webhook (service_role) écrit ici.
 create trigger subscriptions_touch before update on subscriptions for each row execute function touch_updated_at();
 
 create table stripe_events (                               -- idempotence webhook — ADR-009 §2

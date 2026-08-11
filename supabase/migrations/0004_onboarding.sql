@@ -1,5 +1,6 @@
 -- supabase/migrations/0004_onboarding.sql
--- Source : 08-architecture.md §5.3 (DDL canonique)
+-- Source : docs/db-schema.md §3 (DDL canonique, arbitrage `architect` du 2026-08-07 — R4 :
+-- `alter default privileges` (0001) n'accorde plus UPDATE par défaut, GRANTs explicites ci-dessous)
 
 create table onboarding_sessions (
   id             uuid primary key default gen_random_uuid(),
@@ -16,6 +17,19 @@ create table onboarding_sessions (
 alter table onboarding_sessions enable row level security;
 create policy "onboarding_sessions_own" on onboarding_sessions for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+-- Correction Lot L3 (`developer`, 2026-08-10) : sans cette contrainte, deux `POST
+-- /api/v1/onboarding/session` concurrents pour le même utilisateur (double montage d'effet React
+-- en dev, double onglet, double clic réseau lent) créent chacun une session `in_progress` — la
+-- conversation progresse dans l'une, mais `GET`/lecture « la session en cours » ailleurs
+-- (disclaimer, consentement, récap — tri `started_at desc limit 1`) peut résoudre l'AUTRE, restée
+-- vide, et présenter un profil vide au récap. Détecté en exécutant `onboarding-negotiation.spec.ts`
+-- (E2E) en conditions réelles. La route gère la violation d'unicité en ré-interrogeant la session
+-- existante plutôt que d'échouer (`apps/web/app/api/v1/onboarding/session/route.ts`).
+create unique index onboarding_sessions_one_in_progress on onboarding_sessions (user_id) where status = 'in_progress';
+-- UPDATE pleine largeur assumé : `profile_draft` est un BROUILLON sans autorité. L'AC1 impose
+-- que l'utilisateur valide explicitement son profil à l'étape `complete` — ce que le client
+-- pourrait écrire ici, il le soumet de toute façon dans `confirmedProfile`.
+grant update on onboarding_sessions to authenticated;
 create trigger onboarding_sessions_touch before update on onboarding_sessions for each row execute function touch_updated_at();
 
 create table onboarding_messages (
@@ -32,6 +46,9 @@ create table onboarding_messages (
   created_at    timestamptz not null default now()
 );
 alter table onboarding_messages enable row level security;
-create policy "onboarding_messages_own" on onboarding_messages for all to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+-- Journal conversationnel : append-only de fait. SELECT + INSERT, pas d'UPDATE ni de GRANT UPDATE.
+create policy "onboarding_messages_select_own" on onboarding_messages for select to authenticated
+  using (user_id = (select auth.uid()));
+create policy "onboarding_messages_insert_own" on onboarding_messages for insert to authenticated
+  with check (user_id = (select auth.uid()));
 create index onboarding_messages_session on onboarding_messages (session_id, created_at);

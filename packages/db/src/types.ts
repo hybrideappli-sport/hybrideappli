@@ -242,6 +242,7 @@ export type Database = {
           ip_hash: string | null
           locale: string
           revoked_at: string | null
+          subject_erased_at: string | null
           user_agent: string | null
           user_id: string
         }
@@ -255,6 +256,7 @@ export type Database = {
           ip_hash?: string | null
           locale?: string
           revoked_at?: string | null
+          subject_erased_at?: string | null
           user_agent?: string | null
           user_id: string
         }
@@ -268,10 +270,19 @@ export type Database = {
           ip_hash?: string | null
           locale?: string
           revoked_at?: string | null
+          subject_erased_at?: string | null
           user_agent?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "consents_document_fk"
+            columns: ["document_code", "document_version", "locale"]
+            isOneToOne: false
+            referencedRelation: "consent_documents"
+            referencedColumns: ["code", "version", "locale"]
+          },
+        ]
       }
       decision_traces: {
         Row: {
@@ -1018,7 +1029,7 @@ export type Database = {
           id: string
           plan_version_id: string
           reviewed_at: string | null
-          reviewer_id: string
+          reviewer_id: string | null
           severity: string | null
           status: string
         }
@@ -1028,7 +1039,7 @@ export type Database = {
           id?: string
           plan_version_id: string
           reviewed_at?: string | null
-          reviewer_id: string
+          reviewer_id?: string | null
           severity?: string | null
           status?: string
         }
@@ -1038,7 +1049,7 @@ export type Database = {
           id?: string
           plan_version_id?: string
           reviewed_at?: string | null
-          reviewer_id?: string
+          reviewer_id?: string | null
           severity?: string | null
           status?: string
         }
@@ -1685,6 +1696,7 @@ export type Database = {
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
+          last_event_created: string | null
           price_id: string | null
           status: string | null
           stripe_customer_id: string | null
@@ -1697,6 +1709,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_event_created?: string | null
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
@@ -1709,6 +1722,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_event_created?: string | null
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
@@ -1724,11 +1738,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_job_queue: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          finished_at: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          last_error: string | null
+          locked_at: string | null
+          payload: Json
+          scheduled_for: string
+          status: Database["public"]["Enums"]["job_status"]
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "job_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      erase_account: { Args: { p_user: string }; Returns: Json }
       has_active_consent: {
         Args: { p_code: string; p_user: string }
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
+      purge_stale_stripe_events: {
+        Args: { p_retention_days?: number }
+        Returns: number
+      }
+      requeue_stuck_job_queue: {
+        Args: { p_stuck_after_seconds?: number }
+        Returns: number
+      }
     }
     Enums: {
       adherence_level: "low" | "partial" | "high"

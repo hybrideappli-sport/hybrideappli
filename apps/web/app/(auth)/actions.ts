@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveSafeRedirect } from "@/lib/safe-redirect";
 
 // Mutations d'authentification — Server Actions réservées aux mutations
 // locales à l'UI (ADR-001). Aucune logique métier du coach ici : Supabase
@@ -49,8 +50,16 @@ export async function signUpAction(
     },
   });
 
+  // Message générique, indépendant du fait que l'adresse existe déjà ou non — ne jamais
+  // renvoyer `error.message` brut de Supabase (ex. "User already registered"), qui permettrait
+  // d'énumérer les comptes existants. Même pattern que `signInAction` ci-dessous (finding I4,
+  // audit Lot L1).
   if (error) {
-    return { error: error.message };
+    console.error("[auth] signUp", error.message);
+    return {
+      error:
+        "Impossible de créer ce compte pour le moment. Vérifiez vos informations ou réessayez dans quelques instants.",
+    };
   }
 
   return { error: null, success: true };
@@ -78,7 +87,12 @@ export async function signInAction(
     return { error: "Identifiants incorrects." };
   }
 
-  redirect("/dashboard");
+  // `redirectTo` est déposé par `proxy.ts` sur l'URL de connexion quand une route protégée
+  // redirige un visiteur non authentifié (`?redirectTo=/aujourdhui`), transmis par un champ
+  // caché du formulaire (`LoginForm`) jusqu'ici — sans ce fil, l'utilisateur atterrissait
+  // toujours sur `/dashboard` après connexion, quelle que soit la page d'origine (finding M2,
+  // audit Lot L1). Validé via `resolveSafeRedirect` : valeur non fiable côté client.
+  redirect(resolveSafeRedirect(formData.get("redirectTo")?.toString(), "/dashboard"));
 }
 
 export async function requestPasswordResetAction(
@@ -118,8 +132,15 @@ export async function updatePasswordAction(
   const supabase = await getSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data });
 
+  // Message générique, en français — ne jamais renvoyer `error.message` brut de Supabase (fuite
+  // de la mécanique GoTrue, en anglais, dans une UI en français). Même pattern que
+  // `signUpAction`/`signInAction` ci-dessus (finding I6, second audit `code-reviewer`).
   if (error) {
-    return { error: error.message };
+    console.error("[auth] updatePassword", error.message);
+    return {
+      error:
+        "Impossible de mettre à jour le mot de passe pour le moment. Réessayez dans quelques instants.",
+    };
   }
 
   redirect("/dashboard");

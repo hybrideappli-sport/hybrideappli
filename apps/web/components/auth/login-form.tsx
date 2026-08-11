@@ -10,11 +10,17 @@ import { Label } from "@/components/ui/label";
 
 const initialState: AuthActionState = { error: null };
 
-export function LoginForm() {
+type LoginFormProps = {
+  /** Destination post-connexion d'origine, déposée par `proxy.ts` (finding M2, audit Lot L1). */
+  redirectTo?: string;
+};
+
+export function LoginForm({ redirectTo }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(signInAction, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
+      {redirectTo ? <input type="hidden" name="redirectTo" value={redirectTo} /> : null}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">E-mail</Label>
         <Input id="email" name="email" type="email" autoComplete="email" required />

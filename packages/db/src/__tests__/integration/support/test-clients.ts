@@ -7,23 +7,6 @@ import type { Database } from "../../../types";
 import { withPgClient } from "./pg-client";
 
 /**
- * Tables portant un trigger `forbid_mutation()` — voir `08-architecture.md` §5 : le trigger
- * bloque UPDATE/DELETE « y compris pour `service_role` ». Or `consents`, `plan_versions` et
- * `decision_traces` référencent `auth.users(id) on delete cascade` : supprimer un utilisateur de
- * test déclenche donc une tentative de DELETE en cascade sur ces tables, que le trigger rejette
- * systématiquement — y compris via `auth.admin.deleteUser()`. C'est cohérent avec l'intention
- * produit (`08-architecture.md` §6.7 : suppression RGPD = « cascade + anonymisation des traces
- * statistiques », jamais une suppression physique brute des traces). Le nettoyage de fin de test
- * ci-dessous désactive donc ponctuellement ces triggers via une connexion Postgres superuser
- * (réservée aux tests locaux) plutôt que de les contourner en production.
- */
-const IMMUTABLE_TRIGGERS = [
-  { table: "consents", trigger: "consents_immutable" },
-  { table: "plan_versions", trigger: "plan_versions_immutable" },
-  { table: "decision_traces", trigger: "decision_traces_immutable" },
-];
-
-/**
  * Client `service_role` — contourne RLS. Utilisé dans les tests pour seeder
  * des fixtures et pour l'introspection (jamais pour vérifier une isolation).
  */
@@ -76,21 +59,53 @@ export async function createTestUser(label: string): Promise<TestUser> {
   return { id: data.user.id, email, client };
 }
 
+/**
+ * Nettoyage de fin de test. `plan_versions` et `decision_traces` portent un trigger
+ * `forbid_mutation()` (voir `docs/db-schema.md` §0.3) qui bloque UPDATE/DELETE « y compris pour
+ * `service_role », hors contexte d'effacement RGPD dédié (`erase_account()`, ADR-010 §8). Ces
+ * deux tables référencent `auth.users(id) on delete cascade` : supprimer un utilisateur de test
+ * déclenche donc une tentative de DELETE en cascade, que le trigger rejette systématiquement en
+ * dehors de ce contexte — y compris via `auth.admin.deleteUser()`. (`consents` n'a plus de FK vers
+ * `auth.users` depuis l'arbitrage `architect` du 2026-08-07 — ADR-010 §8 : le registre de
+ * consentement survit à la suppression du compte, il n'est donc plus concerné par cette cascade.)
+ *
+ * CORRECTION (finding B3, second audit `code-reviewer`, mesuré en exécution) : la version
+ * précédente désactivait TOUS les triggers via `set local session_replication_role = 'replica'`
+ * avant le `delete from auth.users`, y compris les triggers système qui portent les contraintes
+ * de clé étrangère — la suppression ne cascadait donc plus sur RIEN, laissant des lignes
+ * orphelines dans 27 tables après seulement 3 exécutions. On utilise désormais `erase_account()`
+ * (ADR-010 §8), qui déclenche un vrai `delete from auth.users` avec triggers actifs — cascade
+ * réelle, vérifiée sans résidu.
+ *
+ * `erase_account()` est `security definer` et vérifie la revendication JWT `role` de l'appelant
+ * (finding B1, ci-dessus) — inexistante sur cette connexion `pg` directe (`DATABASE_URL`, hors
+ * PostgREST). On pose donc manuellement `request.jwt.claims` pour simuler un appelant
+ * `service_role`, dans la même transaction que l'appel.
+ *
+ * `erase_account()` pseudonymise `consents` plutôt que de le supprimer (conservation légale de
+ * 5 ans, ADR-010 §8) : entre deux exécutions de test, ces lignes s'accumuleraient sans jamais être
+ * nettoyées. Le GUC `app.erasure_user_id` posé par `erase_account()` (`set local`, portée
+ * transactionnelle) reste actif pour le reste de CETTE transaction : `forbid_mutation()` autorise
+ * donc ce DELETE explicite ici, et seulement ici — motif suggéré par le reviewer.
+ */
 export async function deleteTestUser(userId: string): Promise<void> {
   await withPgClient(async (client) => {
+    await client.query("begin");
     try {
-      for (const { table, trigger } of IMMUTABLE_TRIGGERS) {
-        await client.query(`alter table ${table} disable trigger ${trigger}`);
-      }
-      // `plan_reviews.reviewer_id` référence `auth.users(id)` SANS `on delete cascade`
-      // (08-architecture.md §5.8) : à la différence des autres FK de ce schéma, une
-      // suppression d'utilisateur échoue tant qu'une ligne le référence comme reviewer.
+      await client.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({ role: "service_role" }),
+      ]);
+      // `plan_reviews.reviewer_id` est `on delete set null` (la revue qualité survit à
+      // l'effacement du reviewer) : cette suppression explicite n'est pas requise pour éviter une
+      // erreur de contrainte, mais elle évite de laisser traîner des lignes de revue orphelines
+      // entre exécutions de test.
       await client.query("delete from plan_reviews where reviewer_id = $1", [userId]);
-      await client.query("delete from auth.users where id = $1", [userId]);
-    } finally {
-      for (const { table, trigger } of IMMUTABLE_TRIGGERS) {
-        await client.query(`alter table ${table} enable trigger ${trigger}`);
-      }
+      await client.query("select public.erase_account($1)", [userId]);
+      await client.query("delete from public.consents where user_id = $1", [userId]);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
     }
   });
 }

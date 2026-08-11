@@ -12,13 +12,15 @@
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@hybride/domain": "workspace:*"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "fast-check": "^3.23.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }
