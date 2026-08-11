@@ -221,7 +221,7 @@ export type { SessionLogSummary, NutritionCheckinSummary } from "./session-log";
 // today-plan.ts — boucle quotidienne (Lot L4)
 // ---------------------------------------------------------------------------
 
-export { CreateSessionLogInputSchema, NutritionCheckinInputSchema } from "./today-plan";
+export { CreateSessionLogInputSchema, NutritionCheckinInputSchema, BodyMetricInputSchema } from "./today-plan";
 export type {
   PainNoticeView,
   MedicalClearanceNoticeView,
@@ -232,6 +232,8 @@ export type {
   CreateSessionLogResponse,
   NutritionCheckinInput,
   NutritionCheckinResponse,
+  BodyMetricInput,
+  BodyMetricResponse,
   ExplanationTraceSummary,
   ExplanationDetailView,
   IndicatorTrend,

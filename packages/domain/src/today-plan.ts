@@ -135,6 +135,31 @@ export interface NutritionCheckinResponse {
 }
 
 // ---------------------------------------------------------------------------
+// POST /body-metrics (AC11) — poids / sommeil / FC repos. `08-architecture.md` §6.4 : « Une
+// correction est une nouvelle ligne, pas une modification » (`body_metrics` n'a aucun GRANT
+// UPDATE, `docs/db-schema.md` §6). Finding I7 (revue post-Lot L5) : cette route n'existait pas —
+// `latestWeightKg()` (`packages/rules-engine/src/pipeline/10-build-nutrition-days.ts`) retombait
+// donc systématiquement sur un poids fictif de 70 kg (100 % des utilisateurs, AC11 non satisfait).
+// ---------------------------------------------------------------------------
+
+export const BodyMetricInputSchema = z
+  .object({
+    measuredOn: isoDate,
+    weightKg: z.number().min(20).max(400).optional(),
+    restingHr: z.number().int().min(20).max(250).optional(),
+    sleepHours: z.number().min(0).max(24).optional(),
+    hrvMs: z.number().int().min(0).max(300).optional(),
+  })
+  .refine((value) => value.weightKg !== undefined || value.restingHr !== undefined || value.sleepHours !== undefined || value.hrvMs !== undefined, {
+    message: "Au moins une mesure (poids, FC repos, sommeil, HRV) est requise.",
+  });
+export type BodyMetricInput = z.infer<typeof BodyMetricInputSchema>;
+
+export interface BodyMetricResponse {
+  metricId: string;
+}
+
+// ---------------------------------------------------------------------------
 // GET /explanations/:id (AC1, AC5) — lecture seule, jamais de génération à la volée.
 // ---------------------------------------------------------------------------
 
