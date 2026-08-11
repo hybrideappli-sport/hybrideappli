@@ -24,6 +24,7 @@ export const RULE_IDS = {
 
   weeklyLoadTarget: "progression.weekly_load_target",
   weeklyLoadCapApplied: "guardrails.weekly_progression_cap",
+  weeklyLoadCapAppliedAcrossVersions: "guardrails.weekly_load_progression_cap_across_versions",
   coldStart: "guardrails.cold_start_volume_ratio",
   noIncreaseAsymmetry: "guardrails.no_increase_outside_review",
   noIncreaseActiveSignal: "guardrails.no_increase_active_signal",

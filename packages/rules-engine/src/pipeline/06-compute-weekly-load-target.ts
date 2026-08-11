@@ -4,15 +4,23 @@
  * Le cœur de la sécurité anti-blessure et de l'asymétrie AC4 : c'est ICI que
  * sont appliqués, semaine par semaine :
  *  - le volume de démarrage prudent en régime froid (AC1, AC12) ;
- *  - le plafond de progression hebdomadaire (AC8) ;
+ *  - le plafond de progression hebdomadaire (AC8), à la fois INTRA-draft
+ *    (`runningTarget`, semaine `i` vs semaine `i-1` du même brouillon) et
+ *    INTER-version (`before` vs `context.previousPlan`, même `weekStart`,
+ *    finding B2) — le second n'est PAS redondant avec le premier : la
+ *    semaine `i = 0` n'a aucun antécédent intra-draft, et une baseline
+ *    fraîchement recalculée (`computeBaselineWeeklyLoad`) n'est jamais,
+ *    seule, bornée par rapport à ce que l'utilisateur a déjà vu ;
  *  - la réduction de décharge sur les semaines marquées à l'étape 5 (AC8) ;
  *  - l'asymétrie hausse/baisse (AC4, ADR-005 §5) : AUCUNE hausse au-delà de
- *    ce que la version de plan précédente montrait déjà à l'utilisateur,
- *    sauf trigger `weekly_review`/`objective_renegotiation` ET absence de
- *    signal négatif actif (AC8, 2ᵉ alinéa) ;
+ *    `weekly_load_progression_cap_pct` par rapport à ce que la version de
+ *    plan précédente montrait déjà à l'utilisateur pour cette semaine, et
+ *    même cette hausse bornée reste interdite hors trigger
+ *    `weekly_review`/`objective_renegotiation` ou en présence d'un signal
+ *    négatif actif (AC8, 2ᵉ alinéa) ;
  *  - la baisse immédiate explicite sur signal négatif (AC4) : réduction
  *    proactive de la semaine courante quand `trigger ∈ {negative_signal,
- *    pain_protocol}`.
+ *    pain_protocol}`, jamais plafonnée (seule la HAUSSE l'est).
  *
  * Décision structurante : `direction` d'une trace de progression est
  * TOUJOURS calculée par rapport à `context.previousPlan` (avant = valeur déjà
@@ -133,14 +141,38 @@ export function computeWeeklyLoadTarget(
     let after = proposedAfter;
     let direction: TraceDirection = before === null ? "neutral" : directionOf(before, after);
 
-    if (before !== null && direction === "increase" && !allowIncrease) {
-      after = before;
-      direction = "neutral";
-      ruleId = hasActiveNegativeSignal(context.now, context.history.sessionLogs, context.painEpisodes)
-        ? RULE_IDS.noIncreaseActiveSignal
-        : RULE_IDS.noIncreaseAsymmetry;
-      isHardGuardrail = true;
-      conditionExpr = `proposed(${proposedAfter}) > previousPlan(${before}) but trigger='${context.trigger}' does not allow increase`;
+    if (before !== null && direction === "increase") {
+      if (!allowIncrease) {
+        after = before;
+        direction = "neutral";
+        ruleId = hasActiveNegativeSignal(context.now, context.history.sessionLogs, context.painEpisodes)
+          ? RULE_IDS.noIncreaseActiveSignal
+          : RULE_IDS.noIncreaseAsymmetry;
+        isHardGuardrail = true;
+        conditionExpr = `proposed(${proposedAfter}) > previousPlan(${before}) but trigger='${context.trigger}' does not allow increase`;
+      } else {
+        // Correction post-contre-revue (finding B2) : le trigger autorise une hausse (AC4), mais
+        // cette hausse reste bornée par `weekly_load_progression_cap_pct` par rapport à la valeur
+        // DÉJÀ MONTRÉE à l'utilisateur pour cette semaine dans la version PRÉCÉDENTE du plan
+        // (`before` = `context.previousPlan`), et pas seulement par rapport à la semaine `i-1` du
+        // même brouillon (`runningTarget`, déjà borné ci-dessus pour `i >= 1`). Sans ce plafond
+        // INTER-version, la semaine 0 d'une révision hebdomadaire — recalculée depuis une baseline
+        // fraîche (`computeBaselineWeeklyLoad`, moyenne des 4 dernières semaines réalisées ou
+        // volume déclaré), jamais comparée à `before` — pouvait sauter de +43 % à +165 % d'un coup
+        // : le seul frein restant était `isIncreaseAllowedForTrigger`, qui autorise la hausse sans
+        // borner son AMPLEUR. Cette borne s'applique symétriquement à toutes les branches
+        // ci-dessus (démarrage `i === 0`, décharge, progression normale) : elle ne réintroduit pas
+        // le bug d'origine (plan figé) puisqu'elle plafonne SANS jamais empêcher toute
+        // progression — seule la baisse (branche non exécutée ici) reste non plafonnée (AC4).
+        const capped = Math.round(before * (1 + capPct / 100));
+        if (proposedAfter > capped) {
+          after = capped;
+          direction = directionOf(before, after);
+          ruleId = RULE_IDS.weeklyLoadCapAppliedAcrossVersions;
+          isHardGuardrail = true;
+          conditionExpr = `proposed(${proposedAfter}) > previousPlan(${before}) × (1 + weekly_load_progression_cap_pct(${capPct}%)) ⇒ capped at ${capped}`;
+        }
+      }
     }
 
     runningTarget = after;
