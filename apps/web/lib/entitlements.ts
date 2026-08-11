@@ -126,6 +126,16 @@ export async function requireEntitlement(
     .upsert({ user_id: userId, accessed_on: now, surface }, { onConflict: "user_id,accessed_on", ignoreDuplicates: true });
   if (error) throw new Error(`requireEntitlement: free_access_events (écriture) — ${error.message}`);
 
-  const after = evaluateFreeAccess([...events, { accessedOn: now }], now, params);
+  // Correction post-contre-revue (finding N1) : `events` a été lu AVANT l'upsert ci-dessus. Si
+  // `now` a DÉJÀ un événement en base (rappel le même jour calendaire), `events` contient déjà
+  // cette entrée — ajouter systématiquement `{ accessedOn: now }` comptait alors ce jour DEUX fois
+  // (`evaluateFreeAccess()` ne déduplique pas, `used = inPeriod.length`, voir
+  // `packages/rules-engine/src/free-access.ts`), et `used`/`remaining` s'incrémentaient
+  // artificiellement à chaque rafraîchissement de page le même jour. Pur artefact d'AFFICHAGE
+  // (jamais de faux blocage : `free_access_events` réel reste unique, `ignoreDuplicates: true`),
+  // mais trompeur ("2 accès utilisés" pour 1 jour réellement consommé) — corrigé en n'ajoutant `now`
+  // que s'il n'y figure pas déjà.
+  const alreadyLoggedToday = events.some((e) => e.accessedOn === now);
+  const after = evaluateFreeAccess(alreadyLoggedToday ? events : [...events, { accessedOn: now }], now, params);
   return buildEntitlement(tier, after);
 }

@@ -16,18 +16,12 @@ import { createTestUser, deleteTestUser, serviceRoleClient } from "./support/tes
  * sur `free_access_events` (vérité base) et sur `getEntitlement()` (lecture SEULE, recalculée
  * intégralement depuis la base à chaque appel — jamais de dérive possible).
  *
- * Note de découverte (à consigner au rapport, PAS corrigée ici — hors périmètre `tester`) :
- * `requireEntitlement()` calcule son `freeAccess` de retour ainsi :
- *   `evaluateFreeAccess([...events, { accessedOn: now }], now, params)`
- * où `events` est déjà lu AVANT l'écriture du jour courant. Si `now` a DÉJÀ un événement en base
- * (rappel le même jour), `events` contient déjà cette entrée : le tableau passé à
- * `evaluateFreeAccess()` compte alors DEUX fois le même jour (`used = inPeriod.length`, pas dédupliqué
- * par `accessedOn`, voir `packages/rules-engine/src/free-access.ts`). Le `used`/`remaining` RENVOYÉS
- * s'incrémentent donc artificiellement à chaque rappel le même jour (1, 2, 3, … au lieu de rester à
- * 1) — un pur artefact d'affichage : la ligne `free_access_events` réelle, elle, reste unique
- * (`ignoreDuplicates: true`), et `canViewToday`/`allowed` restent corrects (`alreadyAccessedToday`
- * les court-circuite). `getEntitlement()` n'a pas ce défaut : il ne fait qu'une lecture pure,
- * toujours recalculée depuis `free_access_events`, jamais un `[...events, now]` en mémoire.
+ * Correction post-contre-revue (finding N1) : `requireEntitlement()` déduplique désormais `now`
+ * avant de calculer son `freeAccess` de retour (voir son en-tête) — un rafraîchissement répété le
+ * même jour calendaire n'incrémente plus artificiellement `used`/`remaining` dans la vue RENVOYÉE
+ * (`free_access_events` en base restait, lui, déjà correct : `ignoreDuplicates: true`). Vérifié
+ * directement ci-dessous sur la valeur de retour de `requireEntitlement()`, plus seulement sur
+ * `getEntitlement()`.
  */
 const admin = serviceRoleClient();
 
@@ -46,6 +40,10 @@ describe("free-access-idempotency — AC13", () => {
       const entitlement = await requireEntitlement(admin, { userId: user.id, now: MONDAY, surface: "today" });
       expect(entitlement.tier).toBe("free");
       expect(entitlement.canViewToday).toBe(true);
+      // N1 : la vue RENVOYÉE par requireEntitlement() elle-même ne dérive plus au fil des rappels
+      // du même jour — reste à 1/2 restants, jamais 2, 3, … 10.
+      expect(entitlement.freeAccess.used).toBe(1);
+      expect(entitlement.freeAccess.remaining).toBe(2);
     }
 
     const { data: events, error } = await admin.from("free_access_events").select("id, surface").eq("user_id", user.id).eq("accessed_on", MONDAY);
