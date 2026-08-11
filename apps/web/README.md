@@ -1,4 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Application web (Next.js 16, App Router) de **Hybride Club** — le coach IA personnalisé
+(entraînement + nutrition) de la feature US-01. Documentation de référence, dans l'ordre où la lire :
+
+- `/07-spec-feature1-coach-ia.md` — fonctionnel, fait foi (14 critères d'acceptation).
+- `/08-architecture.md` — stack, moteur à règles, contrats d'API, schéma, RGPD/RLS, déploiement.
+- `/docs/db-schema.md` — DDL canonique (34 tables).
+- `/docs/adr/` — décisions d'architecture (ADR-001 à ADR-012).
+- `/plans/US-01-coach-ia-personnalise.md` — plan d'implémentation par lot.
+
+## Structure
+
+```
+apps/web/app/
+  (marketing)/   accueil
+  (auth)/        connexion, inscription, reset
+  (app)/         dashboard, aujourd'hui, semaine, abonnement, facturation
+  onboarding/    chat coach, disclaimer, consentement
+  api/v1/**      Route Handlers (contrats : 08-architecture.md §6)
+```
+
+La logique métier critique vit hors de `apps/web`, dans les packages du monorepo :
+`@hybride/rules-engine` (moteur à règles, pur, 0 I/O), `@hybride/coach-llm` (conversation et
+rédaction), `@hybride/domain` (types + Zod partagés), `@hybride/db` (client Supabase typé).
+
+## Configuration
+
+Copier `/.env.local.example` en `.env.local` et le remplir — voir ce fichier pour le détail de
+chaque variable (Supabase, Stripe, Mistral, Brevo, VAPID, `CRON_SECRET`). Aucune valeur réelle n'est
+commitée.
 
 ## Getting Started
 
