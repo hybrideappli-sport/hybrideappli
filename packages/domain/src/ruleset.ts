@@ -130,19 +130,37 @@ const GUARDRAIL_PARAM_KEYS = [
   "cold_start_volume_ratio",
 ] as const satisfies readonly (keyof GuardrailsParams)[];
 
+/** Chemins `params.pain_protocol.*` — AC9, protocole douleur (machine à états, orientation santé). */
+const PAIN_PROTOCOL_PARAM_KEYS = [
+  "persistent_signal_threshold",
+  "persistent_window_days",
+] as const satisfies readonly (keyof PainProtocolParams)[];
+
+/** Chemins scalaires `params.nutrition.*` — AC11, plancher de sécurité et plafond de déficit. */
+const NUTRITION_SCALAR_PARAM_KEYS = [
+  "max_daily_deficit_pct",
+  "absolute_kcal_floor_male",
+  "absolute_kcal_floor_female",
+] as const satisfies readonly (keyof Omit<NutritionParams, "protein_g_per_kg_range" | "carb_modulation_by_session_type">)[];
+
 /**
  * Schéma "prêt pour la production" : structurellement identique à
- * `RulesetParamsSchema`, mais chaque paramètre de `guardrails` doit être un
- * nombre fini — plus aucun `null` toléré. C'est la porte qui doit rester
- * fermée tant que le fondateur n'a pas validé une valeur (ADR-007 §4,
- * `08-architecture.md` §9 : « refus de démarrage si un garde-fou est `null` »).
+ * `RulesetParamsSchema`, mais chaque paramètre de sécurité (`guardrails.*`,
+ * `pain_protocol.*`, `nutrition.*`) doit être un nombre fini — plus aucun
+ * `null` toléré. C'est la porte qui doit rester fermée tant que le fondateur
+ * n'a pas validé une valeur (ADR-007 §4, `08-architecture.md` §9 : « refus de
+ * démarrage si un garde-fou est `null` »).
  *
- * Volontairement scopé à `guardrails` (et non à l'intégralité de `params`) :
- * c'est la formulation exacte d'ADR-007 (« un `null` sur un paramètre de
- * garde-fou »). Les autres catégories (`interference`, `pain_protocol`,
- * `nutrition`, une partie de `stagnation`) restent des questions ouvertes
- * produit distinctes (`08-architecture.md` §12) et ne bloquent pas, à elles
- * seules, l'activation d'un ruleset au sens de cette règle précise.
+ * Étendu au-delà de `guardrails` (revue post-Lot L5, finding B3) : un `null`
+ * sur `pain_protocol.persistent_signal_threshold` fait lever
+ * `evaluatePainProtocol()` en 500 opaque plutôt que de refuser proprement le
+ * démarrage — AC9 (protocole douleur) est un garde-fou de sécurité utilisateur
+ * au même titre qu'`AC8`, même s'il ne porte pas le préfixe `guardrails.`.
+ * Idem pour `nutrition.*` (AC11 — jamais de déficit calorique agressif, plancher
+ * de sécurité explicite). `interference.*` et le reste de `stagnation.*`
+ * restent volontairement hors de ce schéma : ce sont des questions ouvertes
+ * produit (`08-architecture.md` §12) dont l'absence de valeur ne met
+ * personne en danger (au pire, aucun espacement supplémentaire n'est imposé).
  */
 export const ProductionRulesetParamsSchema = RulesetParamsSchema.superRefine((params, ctx) => {
   for (const key of GUARDRAIL_PARAM_KEYS) {
@@ -154,6 +172,44 @@ export const ProductionRulesetParamsSchema = RulesetParamsSchema.superRefine((pa
       });
     }
   }
+  for (const key of PAIN_PROTOCOL_PARAM_KEYS) {
+    if (params.pain_protocol[key] === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pain_protocol", key],
+        message: `pain_protocol.${key} ne peut pas être null pour un ruleset publié en production (AC9, garde-fou de sécurité).`,
+      });
+    }
+  }
+  for (const key of NUTRITION_SCALAR_PARAM_KEYS) {
+    if (params.nutrition[key] === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["nutrition", key],
+        message: `nutrition.${key} ne peut pas être null pour un ruleset publié en production (AC11, garde-fou de sécurité).`,
+      });
+    }
+  }
+  params.nutrition.protein_g_per_kg_range.forEach((value, index) => {
+    if (value === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["nutrition", "protein_g_per_kg_range", index],
+        message: "nutrition.protein_g_per_kg_range ne peut pas contenir de null pour un ruleset publié en production (AC11).",
+      });
+    }
+  });
+  (Object.keys(params.nutrition.carb_modulation_by_session_type) as Array<keyof typeof params.nutrition.carb_modulation_by_session_type>).forEach(
+    (key) => {
+      if (params.nutrition.carb_modulation_by_session_type[key] === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["nutrition", "carb_modulation_by_session_type", key],
+          message: `nutrition.carb_modulation_by_session_type.${key} ne peut pas être null pour un ruleset publié en production (AC11).`,
+        });
+      }
+    },
+  );
 });
 
 /** `true` si `params` peut être activé (`is_active = true`) en production. */

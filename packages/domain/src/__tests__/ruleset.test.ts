@@ -61,22 +61,34 @@ describe("RulesetParamsSchema", () => {
   });
 });
 
-describe("ProductionRulesetParamsSchema — ADR-007 §4", () => {
-  it("refuse le ruleset 0.1.0-dev réellement seedé pour la production (cold_start_volume_ratio est null)", () => {
+/** Ruleset complet — tous les paramètres de sécurité (`guardrails`, `pain_protocol`, `nutrition`) renseignés. */
+const FULLY_RESOLVED_PARAMS = {
+  ...SEEDED_0_1_0_DEV_PARAMS,
+  guardrails: { ...SEEDED_0_1_0_DEV_PARAMS.guardrails, cold_start_volume_ratio: 0.7 },
+  pain_protocol: { persistent_signal_threshold: 3, persistent_window_days: 14 },
+  nutrition: {
+    max_daily_deficit_pct: 20,
+    absolute_kcal_floor_male: 1500,
+    absolute_kcal_floor_female: 1200,
+    protein_g_per_kg_range: [1.2, 2.2] as [number, number],
+    carb_modulation_by_session_type: { rest: 2, endurance: 4, intensity: 6 },
+  },
+};
+
+describe("ProductionRulesetParamsSchema — ADR-007 §4, finding B3 (extension pain_protocol/nutrition)", () => {
+  it("refuse le ruleset 0.1.0-dev réellement seedé pour la production (cold_start_volume_ratio, pain_protocol, nutrition sont null)", () => {
     const result = ProductionRulesetParamsSchema.safeParse(SEEDED_0_1_0_DEV_PARAMS);
     expect(result.success).toBe(false);
     if (!result.success) {
       const paths = result.error.issues.map((issue) => issue.path.join("."));
       expect(paths).toContain("guardrails.cold_start_volume_ratio");
+      expect(paths).toContain("pain_protocol.persistent_signal_threshold");
+      expect(paths).toContain("nutrition.max_daily_deficit_pct");
     }
   });
 
-  it("accepte un ruleset dont TOUS les paramètres de guardrails sont renseignés", () => {
-    const complete = {
-      ...SEEDED_0_1_0_DEV_PARAMS,
-      guardrails: { ...SEEDED_0_1_0_DEV_PARAMS.guardrails, cold_start_volume_ratio: 0.7 },
-    };
-    const result = ProductionRulesetParamsSchema.safeParse(complete);
+  it("accepte un ruleset dont TOUS les paramètres de sécurité (guardrails, pain_protocol, nutrition) sont renseignés", () => {
+    const result = ProductionRulesetParamsSchema.safeParse(FULLY_RESOLVED_PARAMS);
     expect(result.success).toBe(true);
   });
 
@@ -84,19 +96,47 @@ describe("ProductionRulesetParamsSchema — ADR-007 §4", () => {
     const parsed = RulesetParamsSchema.parse(SEEDED_0_1_0_DEV_PARAMS);
     expect(isProductionReady(parsed)).toBe(false);
 
-    const complete = RulesetParamsSchema.parse({
-      ...SEEDED_0_1_0_DEV_PARAMS,
-      guardrails: { ...SEEDED_0_1_0_DEV_PARAMS.guardrails, cold_start_volume_ratio: 0.7 },
-    });
+    const complete = RulesetParamsSchema.parse(FULLY_RESOLVED_PARAMS);
     expect(isProductionReady(complete)).toBe(true);
   });
 
   it("reste bloquant même si un seul garde-fou AC8 est null (pas seulement cold_start_volume_ratio)", () => {
     const almostComplete = {
-      ...SEEDED_0_1_0_DEV_PARAMS,
-      guardrails: { ...SEEDED_0_1_0_DEV_PARAMS.guardrails, cold_start_volume_ratio: 0.7, max_intense_sessions_per_week: null },
+      ...FULLY_RESOLVED_PARAMS,
+      guardrails: { ...FULLY_RESOLVED_PARAMS.guardrails, max_intense_sessions_per_week: null },
     };
     const result = ProductionRulesetParamsSchema.safeParse(almostComplete);
     expect(result.success).toBe(false);
+  });
+
+  it("reste bloquant si pain_protocol.* est null alors que guardrails est complet (AC9)", () => {
+    const missingPainProtocol = {
+      ...FULLY_RESOLVED_PARAMS,
+      pain_protocol: { persistent_signal_threshold: null, persistent_window_days: 14 },
+    };
+    const result = ProductionRulesetParamsSchema.safeParse(missingPainProtocol);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("pain_protocol.persistent_signal_threshold");
+    }
+  });
+
+  it("reste bloquant si un paramètre nutrition imbriqué (protein_g_per_kg_range, carb_modulation) est null (AC11)", () => {
+    const missingNutritionNested = {
+      ...FULLY_RESOLVED_PARAMS,
+      nutrition: {
+        ...FULLY_RESOLVED_PARAMS.nutrition,
+        protein_g_per_kg_range: [1.2, null] as [number, number | null],
+        carb_modulation_by_session_type: { ...FULLY_RESOLVED_PARAMS.nutrition.carb_modulation_by_session_type, rest: null },
+      },
+    };
+    const result = ProductionRulesetParamsSchema.safeParse(missingNutritionNested);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("nutrition.protein_g_per_kg_range.1");
+      expect(paths).toContain("nutrition.carb_modulation_by_session_type.rest");
+    }
   });
 });
