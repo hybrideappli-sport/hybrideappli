@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import type { EntitlementView } from "@hybride/domain";
 
 import { signOutAction } from "@/app/(auth)/actions";
+import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { CoachPlanCard } from "@/components/dashboard/coach-plan-card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { FreeAccessMeter } from "@/components/dashboard/free-access-meter";
@@ -12,9 +13,11 @@ import { UpsellBanner } from "@/components/dashboard/upsell-banner";
 import { WeeklyPreviewCard, WeeklyPreviewLocked } from "@/components/dashboard/weekly-preview-card";
 import { WeeklyReviewBadge } from "@/components/dashboard/weekly-review-badge";
 import { PaywallGate } from "@/components/paywall/paywall-gate";
+import { DailyLogForm } from "@/components/today/daily-log-form";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { Button } from "@/components/ui/button";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
 import { fetchActivePainNotice, fetchTodayNutritionView, fetchTodaySessionView, getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -60,16 +63,22 @@ export default async function DashboardPage() {
   const admin = createSupabaseServiceRoleClient();
 
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
+  const healthConsentActive = await isHealthConsentActive(supabase, user.id);
   const { blocked, entitlement } = await resolveEntitlement(admin, { userId: user.id, now });
 
   const header = (
     <div className="flex items-center justify-between">
       <h1 className="text-xl font-semibold">Dashboard</h1>
-      <form action={signOutAction}>
-        <Button type="submit" variant="ghost" size="sm">
-          Se déconnecter
-        </Button>
-      </form>
+      <div className="flex items-center gap-2">
+        <Link href="/compte" className="text-sm text-neutral-500 underline-offset-4 hover:underline" data-testid="account-link">
+          Mon compte
+        </Link>
+        <form action={signOutAction}>
+          <Button type="submit" variant="ghost" size="sm">
+            Se déconnecter
+          </Button>
+        </form>
+      </div>
     </div>
   );
 
@@ -78,6 +87,7 @@ export default async function DashboardPage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
         {header}
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+        {!healthConsentActive ? <DegradedModeBanner /> : null}
         <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
           <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
           <p className="mt-1">
@@ -89,6 +99,10 @@ export default async function DashboardPage() {
           </p>
         </div>
         <FreeAccessMeter freeAccess={entitlement.freeAccess} />
+        {/* AC13/ADR-008 §5 — la saisie quotidienne (`POST /session-logs`, ne consomme jamais
+            d'accès libre) reste accessible même quota épuisé : seul le CONTENU (séance/nutrition
+            du jour) est derrière ce quota, jamais la capacité à déclarer sa journée. */}
+        <DailyLogForm plannedSessionId={null} loggedDate={now} />
       </main>
     );
   }
@@ -106,6 +120,7 @@ export default async function DashboardPage() {
       {header}
 
       {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+      {!healthConsentActive ? <DegradedModeBanner /> : null}
 
       {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
 

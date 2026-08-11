@@ -14,8 +14,9 @@ const LOCALE = "fr";
  * disclaimer. La version n'est pas fournie par le client : le serveur résout `is_current`,
  * calcule `ip_hash`/`user_agent`, insère en `service_role`.
  *
- * Retrait (`granted: false`) hors périmètre de ce lot — voir `POST /consents/:code/revoke`
- * (`08-architecture.md` §6.7), Lot L4/L5.
+ * Retrait (`granted: false`) : voir `POST /api/v1/consents/:code/revoke`
+ * (`08-architecture.md` §6.7) — route dédiée (purge des données de santé le cas échéant, message
+ * distinct), cette route-ci reste strictement « octroi ».
  */
 export async function POST(request: Request) {
   const { supabase, user } = await requireUser();

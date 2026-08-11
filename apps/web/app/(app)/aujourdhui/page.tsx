@@ -3,12 +3,14 @@ import Link from "next/link";
 
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
+import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { DailyLogForm } from "@/components/today/daily-log-form";
 import { NutritionTargets } from "@/components/today/nutrition-targets";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { RestDayEmptyState } from "@/components/today/rest-day-empty-state";
 import { SessionDetail } from "@/components/today/session-detail";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
 import { fetchActivePainNotice, fetchTodayNutritionView, fetchTodaySessionView, getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -35,6 +37,7 @@ export default async function TodayPage() {
   const admin = createSupabaseServiceRoleClient();
 
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
+  const healthConsentActive = await isHealthConsentActive(supabase, user.id);
 
   // AC9, ADR-008 §5 — le référentiel douleur reste visible même paywallé : lu AVANT le contrôle
   // d'entitlement, jamais conditionné à son résultat. `PaywallRequiredError` est résolue ici, hors
@@ -55,12 +58,14 @@ export default async function TodayPage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
         <h1 className="text-xl font-semibold">Séance et repas du jour</h1>
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+        {!healthConsentActive ? <DegradedModeBanner /> : null}
         <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
           <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
-          <p className="mt-1">
-            La saisie reste accessible depuis ton Dashboard — reviens-y pour connaître ton prochain accès gratuit ou passer en illimité.
-          </p>
+          <p className="mt-1">Le détail de ta séance et de tes repas revient demain (ou passe en illimité) — mais ta saisie du jour reste possible ci-dessous.</p>
         </div>
+        {/* AC13/ADR-008 §5 — `POST /session-logs` ne consomme jamais d'accès libre : seul le
+            CONTENU (séance/nutrition détaillés) est derrière le quota, jamais la saisie. */}
+        <DailyLogForm plannedSessionId={null} loggedDate={now} />
         <Link href="/dashboard" className="text-sm font-medium text-orange-500 underline-offset-4 hover:underline">
           Retour au Dashboard
         </Link>
@@ -86,6 +91,7 @@ export default async function TodayPage() {
       </div>
 
       {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+      {!healthConsentActive ? <DegradedModeBanner /> : null}
 
       {session ? <SessionDetail session={session} /> : <RestDayEmptyState />}
       {nutrition ? <NutritionTargets nutrition={nutrition} /> : null}
