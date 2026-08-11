@@ -14,11 +14,18 @@ import { WeeklyPreviewCard, WeeklyPreviewLocked } from "@/components/dashboard/w
 import { WeeklyReviewBadge } from "@/components/dashboard/weekly-review-badge";
 import { PaywallGate } from "@/components/paywall/paywall-gate";
 import { DailyLogForm } from "@/components/today/daily-log-form";
+import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { Button } from "@/components/ui/button";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
-import { fetchActivePainNotice, fetchTodayNutritionView, fetchTodaySessionView, getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
+import {
+  fetchActiveMedicalClearanceNotice,
+  fetchActivePainNotice,
+  fetchTodayNutritionView,
+  fetchTodaySessionView,
+  getActivePlanVersionId,
+} from "@/lib/orchestration/read-today-plan";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -63,6 +70,7 @@ export default async function DashboardPage() {
   const admin = createSupabaseServiceRoleClient();
 
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
+  const medicalClearanceNotice = await fetchActiveMedicalClearanceNotice(admin, user.id);
   const healthConsentActive = await isHealthConsentActive(supabase, user.id);
   const { blocked, entitlement } = await resolveEntitlement(admin, { userId: user.id, now });
 
@@ -87,6 +95,7 @@ export default async function DashboardPage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
         {header}
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+        {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
         <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
           <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>

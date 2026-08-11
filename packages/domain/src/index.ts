@@ -224,6 +224,7 @@ export type { SessionLogSummary, NutritionCheckinSummary } from "./session-log";
 export { CreateSessionLogInputSchema, NutritionCheckinInputSchema } from "./today-plan";
 export type {
   PainNoticeView,
+  MedicalClearanceNoticeView,
   FreeAccessView,
   EntitlementView,
   TodayPlanResponse,

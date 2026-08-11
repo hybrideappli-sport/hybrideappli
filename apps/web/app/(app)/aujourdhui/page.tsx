@@ -5,13 +5,20 @@ import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
 import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { DailyLogForm } from "@/components/today/daily-log-form";
+import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { NutritionTargets } from "@/components/today/nutrition-targets";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { RestDayEmptyState } from "@/components/today/rest-day-empty-state";
 import { SessionDetail } from "@/components/today/session-detail";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
-import { fetchActivePainNotice, fetchTodayNutritionView, fetchTodaySessionView, getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
+import {
+  fetchActiveMedicalClearanceNotice,
+  fetchActivePainNotice,
+  fetchTodayNutritionView,
+  fetchTodaySessionView,
+  getActivePlanVersionId,
+} from "@/lib/orchestration/read-today-plan";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -37,6 +44,7 @@ export default async function TodayPage() {
   const admin = createSupabaseServiceRoleClient();
 
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
+  const medicalClearanceNotice = await fetchActiveMedicalClearanceNotice(admin, user.id);
   const healthConsentActive = await isHealthConsentActive(supabase, user.id);
 
   // AC9, ADR-008 §5 — le référentiel douleur reste visible même paywallé : lu AVANT le contrôle
@@ -58,6 +66,7 @@ export default async function TodayPage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
         <h1 className="text-xl font-semibold">Séance et repas du jour</h1>
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+        {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
         <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
           <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>

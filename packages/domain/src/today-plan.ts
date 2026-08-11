@@ -27,6 +27,15 @@ export interface PainNoticeView {
   message: string;
 }
 
+/**
+ * AC3 — profil à risque (`pathology`/`minor`, `resolveRiskRestrictions()` côté moteur,
+ * `requiresMedicalClearance`). Comme `PainNoticeView` : jamais derrière le paywall, un message
+ * d'orientation vers un professionnel de santé ne peut pas dépendre d'un abonnement.
+ */
+export interface MedicalClearanceNoticeView {
+  message: string;
+}
+
 export interface FreeAccessView {
   used: number;
   remaining: number;
@@ -53,6 +62,7 @@ export interface TodayPlanResponse {
   session: TodaySessionView | null; // null = jour de repos (état vide, `04-flow.md`)
   nutrition: TodayNutritionView | null;
   activePainNotice: PainNoticeView | null;
+  medicalClearanceNotice: MedicalClearanceNoticeView | null;
   entitlement: EntitlementView;
 }
 

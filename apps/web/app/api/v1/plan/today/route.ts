@@ -4,7 +4,13 @@ import type { TodayPlanResponse } from "@hybride/domain";
 import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
-import { fetchActivePainNotice, fetchTodayNutritionView, fetchTodaySessionView, getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
+import {
+  fetchActiveMedicalClearanceNotice,
+  fetchActivePainNotice,
+  fetchTodayNutritionView,
+  fetchTodaySessionView,
+  getActivePlanVersionId,
+} from "@/lib/orchestration/read-today-plan";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +36,9 @@ export async function GET(request: Request) {
   try {
     const entitlement = await requireEntitlement(admin, { userId: user.id, now, surface });
 
-    const [activePainNotice, planVersionId] = await Promise.all([
+    const [activePainNotice, medicalClearanceNotice, planVersionId] = await Promise.all([
       fetchActivePainNotice(admin, user.id),
+      fetchActiveMedicalClearanceNotice(admin, user.id),
       getActivePlanVersionId(admin, user.id),
     ]);
 
@@ -42,14 +49,18 @@ export async function GET(request: Request) {
         ])
       : [null, null];
 
-    const body: TodayPlanResponse = { date: now, session, nutrition, activePainNotice, entitlement };
+    const body: TodayPlanResponse = { date: now, session, nutrition, activePainNotice, medicalClearanceNotice, entitlement };
     return apiJson<TodayPlanResponse>(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof PaywallRequiredError) {
       // AC9, ADR-008 §5 — le référentiel douleur ne se retrouve JAMAIS derrière le paywall, même
-      // quand le reste du contenu du jour est bloqué : porté dans `details` du 402.
-      const activePainNotice = await fetchActivePainNotice(admin, user.id);
-      return apiError(402, "PAYWALL_REQUIRED", error.message, { activePainNotice, entitlement: error.entitlement });
+      // quand le reste du contenu du jour est bloqué : porté dans `details` du 402. Même principe
+      // pour la notice AC3 (finding B6).
+      const [activePainNotice, medicalClearanceNotice] = await Promise.all([
+        fetchActivePainNotice(admin, user.id),
+        fetchActiveMedicalClearanceNotice(admin, user.id),
+      ]);
+      return apiError(402, "PAYWALL_REQUIRED", error.message, { activePainNotice, medicalClearanceNotice, entitlement: error.entitlement });
     }
     throw error;
   }

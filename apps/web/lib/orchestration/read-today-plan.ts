@@ -2,8 +2,17 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@hybride/db";
-import type { ExplanationView, NutritionCheckinSummary, PainNoticeView, SessionLogSummary, TodayNutritionView, TodaySessionView } from "@hybride/domain";
+import type {
+  ExplanationView,
+  MedicalClearanceNoticeView,
+  NutritionCheckinSummary,
+  PainNoticeView,
+  SessionLogSummary,
+  TodayNutritionView,
+  TodaySessionView,
+} from "@hybride/domain";
 
+import { MEDICAL_CLEARANCE_NOTICE_MESSAGE } from "../medical-clearance-message";
 import { PAIN_REFERRAL_MESSAGES } from "../pain-referral-messages";
 
 /**
@@ -152,4 +161,29 @@ export async function fetchActivePainNotice(admin: SupabaseClient<Database>, use
   // en-tête (le template générique catégorie `'pain'` parle d'« adaptation », ambigu au niveau
   // `'acute'`, où AC9 exige explicitement l'absence de toute alternative d'auto-adaptation).
   return { zone: data.zone, level, message: PAIN_REFERRAL_MESSAGES[level] };
+}
+
+/**
+ * AC3 — jamais derrière le paywall, même principe que `fetchActivePainNotice()` (finding B6).
+ * Lit directement `risk_flags` (même source que `resolveRiskRestrictions()` côté moteur) plutôt
+ * que de dépendre d'un champ persisté par `generatePlan()` : `pathology`/`minor` peuvent être
+ * déclarés (ou résolus/retirés côté `service_role`) indépendamment de toute régénération de plan,
+ * la notice doit rester exacte à tout moment, pas seulement au moment de la dernière génération.
+ */
+export async function fetchActiveMedicalClearanceNotice(
+  admin: SupabaseClient<Database>,
+  userId: string,
+): Promise<MedicalClearanceNoticeView | null> {
+  const { data, error } = await admin
+    .from("risk_flags")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .in("flag_type", ["pathology", "minor"])
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`readTodayPlan: risk_flags — ${error.message}`);
+  if (!data) return null;
+
+  return { message: MEDICAL_CLEARANCE_NOTICE_MESSAGE };
 }
