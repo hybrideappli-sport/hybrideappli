@@ -65,9 +65,14 @@ export const ConfirmedAvailabilitySlotSchema = z.object({
 export type ConfirmedAvailabilitySlot = z.infer<typeof ConfirmedAvailabilitySlotSchema>;
 
 /**
- * AC3 — question filtre profils à risque. `notes` reste en clair ici (transport applicatif) ;
- * c'est la route `/complete` qui le chiffre (`risk_flags.notes_enc`, pgcrypto — ADR-010 §5) avant
- * écriture, jamais ce schéma de contrat.
+ * AC3 — question filtre profils à risque. `notes` reste en clair ici (transport applicatif).
+ *
+ * Correction de commentaire (revue post-Lot L5, nice-to-have) : contrairement à ce que ce
+ * commentaire affirmait, `POST /onboarding/session/:id/complete` ne chiffre PAS `notes` avant
+ * écriture — `completeOnboarding()` (`apps/web/lib/orchestration/complete-onboarding.ts`) l'ignore
+ * silencieusement (`risk_flags.notes_enc`, chiffrement pgcrypto, ADR-010 §5, n'est pas implémenté
+ * faute de gestion de clé définie) : seul `flagType` est persisté. Voir l'en-tête de cette fonction
+ * pour la limite assumée complète.
  */
 export const ConfirmedRiskFlagSchema = z.object({
   flagType: z.enum(RISK_FLAG_TYPES),
