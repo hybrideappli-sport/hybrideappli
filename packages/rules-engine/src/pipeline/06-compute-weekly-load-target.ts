@@ -90,7 +90,23 @@ export function computeWeeklyLoadTarget(
     let isHardGuardrail = false;
     let conditionExpr: string;
 
-    if (i === 0 && context.dataRegime === "cold") {
+    // Correction post-revue (finding B2) : ce garde-fou ne visait à s'appliquer QU'AU DÉMARRAGE
+    // (AC1/AC12 — « volume de démarrage prudent »), pas à la semaine d'index 0 de N'IMPORTE QUEL
+    // run. Avant cette correction, la condition était `i === 0 && dataRegime === 'cold'` seule :
+    // comme `dataRegime` n'était jamais réécrit en base (voir `run-weekly-review.ts`), CHAQUE
+    // révision hebdomadaire, chaque ajustement `negative_signal`/`pain_protocol` recalculait sa
+    // semaine 0 au volume de démarrage prudent — le plan ne progressait jamais dans les faits
+    // (AC1, AC5, AC8 tous silencieusement neutralisés). `context.previousPlan === null` cible
+    // précisément « aucun plan n'existe encore pour cet athlète » — le SEUL moment légitime pour
+    // ce garde-fou — plutôt que `context.trigger === 'onboarding'` seul : ce dernier exclurait à
+    // tort le plan négocié d'AC2 (`trigger = 'objective_renegotiation'` quand l'objectif initial
+    // est jugé irréaliste, `regenerate-plan.ts`), qui EST pourtant le tout premier plan de
+    // l'athlète (`previousPlan` y est également `null`). À l'inverse, `weekly_review`,
+    // `negative_signal`, `pain_protocol`, `stagnation` et `objective_end` s'exécutent TOUJOURS sur
+    // un plan déjà actif (`previousPlan` non `null` par construction — `applyDailyLog()`/
+    // `runWeeklyReview()` exigent un plan actif, voir `NoActivePlanError`) : ils ne peuvent donc
+    // plus jamais retomber dans cette branche, même si `dataRegime` valait encore `'cold'`.
+    if (i === 0 && context.dataRegime === "cold" && context.previousPlan === null) {
       const ratio = requireNonNull(ruleset.params.guardrails.cold_start_volume_ratio, "guardrails.cold_start_volume_ratio");
       proposedAfter = Math.round(baselineWeeklyLoad * ratio);
       ruleId = RULE_IDS.coldStart;

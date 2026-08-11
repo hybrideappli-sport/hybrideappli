@@ -68,7 +68,24 @@ export async function runWeeklyReview(admin: SupabaseClient<Database>, args: { u
 
   const { context, hash } = await buildPlanningContext(admin, { userId, now, trigger: "weekly_review", objectiveId: activePlan.objective_id });
   const completedWeeks = aggregateCompletedWeeks(context.history);
-  const contextWithWeeks = { ...context, history: { ...context.history, completedWeeks } };
+
+  // Correction post-revue (finding B2, 1/2) : `athlete_profiles.data_regime` avait pour défaut
+  // `'cold'` (migration 0003) et n'était réécrit par AUCUN code — vérifié par grep exhaustif avant
+  // cette correction. `buildPlanningContext()` laisse volontairement `history.completedWeeks = []`
+  // (agrégat canonique réservé à ce job, voir son en-tête) : c'est donc ICI, et seulement ici, que
+  // l'existence de semaines complétées devient connaissable. Dès qu'au moins une semaine agrégée
+  // existe, on bascule le régime vers `'declared'` (AC12 — « la donnée déclarée suffit, la donnée
+  // connectée enrichit ») : `computeBaselineWeeklyLoad()` (`06-compute-weekly-load-target.ts`) peut
+  // alors enfin baser la charge de référence sur l'historique RÉEL plutôt que de la recalculer à
+  // chaque fois depuis les heures déclarées à l'onboarding. Un régime déjà `'declared'`/`'connected'`
+  // (F2) n'est jamais rétrogradé ici.
+  const dataRegime = completedWeeks.length > 0 && context.dataRegime === "cold" ? "declared" : context.dataRegime;
+  if (dataRegime !== context.dataRegime) {
+    const { error: dataRegimeError } = await admin.from("athlete_profiles").update({ data_regime: dataRegime }).eq("user_id", userId);
+    if (dataRegimeError) throw new Error(`runWeeklyReview: athlete_profiles (data_regime) — ${dataRegimeError.message}`);
+  }
+
+  const contextWithWeeks = { ...context, history: { ...context.history, completedWeeks }, dataRegime };
 
   // 1) AC6/AC7 — diagnostic de stagnation, persisté indépendamment de la régénération du plan
   // (fonction top-level distincte, `08-architecture.md` §4.1). Idempotent par construction
