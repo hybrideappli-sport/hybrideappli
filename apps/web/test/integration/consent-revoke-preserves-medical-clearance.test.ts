@@ -61,6 +61,38 @@ describe("purgeHealthDataOnConsentRevoke — interaction B1 × B6", () => {
     expect(noticeAfterRevoke!.message).toBe(noticeBeforeRevoke!.message);
   });
 
+  it("le texte du consentement 'health_data_processing' en vigueur est cohérent avec le comportement de purge (0014_health_data_processing_consent_v1_1_0.sql)", async () => {
+    // La version 1.0.0 (0010_seed_referentials.sql) promettait sans réserve « le retrait entraîne
+    // la purge de ces données » — devenu inexact pour les flags 'pathology'/'minor' depuis
+    // l'interaction B1 × B6 (576bbf2). Ce test vérifie que le document RÉELLEMENT `is_current`
+    // (celui que l'utilisateur voit et acquitte, résolu par `POST /api/v1/consents`) documente
+    // désormais explicitement l'exception, plutôt que de dupliquer le texte en dur ici (ce qui
+    // recréerait le risque de divergence texte/comportement que ce correctif corrige).
+    const { data: currentDocument, error } = await admin
+      .from("consent_documents")
+      .select("version, body_md")
+      .eq("code", "health_data_processing")
+      .eq("locale", "fr")
+      .eq("is_current", true)
+      .maybeSingle();
+    if (error) throw new Error(`[test] consent_documents (lecture) : ${error.message}`);
+    expect(currentDocument, "un document health_data_processing is_current doit exister hors production (ADR-010 §9)").not.toBeNull();
+
+    const body = currentDocument!.body_md;
+
+    // Le retrait purge bien les données de saisie quotidienne (comportement inchangé).
+    expect(body).toMatch(/purge/i);
+
+    // L'exception de sécurité (pathologie / mineur conservés) doit être explicite, pas implicite.
+    expect(body).toMatch(/pathologie/i);
+    expect(body).toMatch(/mineur/i);
+    expect(body).toMatch(/professionnel de santé/i);
+    expect(body).toMatch(/indépendamment de l'état de ce consentement|indépendamment de ce consentement/i);
+
+    // Le droit à l'effacement complet du compte reste, lui, présenté comme total.
+    expect(body).toMatch(/suppression complète|effacement/i);
+  });
+
   it("les flags non liés à la sécurité (ex: 'other') sont purgés normalement", async () => {
     const otherUser = await createTestUser("consent-revoke-b1b6-other");
     try {

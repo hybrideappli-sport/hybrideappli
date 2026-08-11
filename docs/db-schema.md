@@ -1027,13 +1027,13 @@ Deux fichiers, **deux rôles qu'il ne faut pas confondre** :
 ### 9.1 `0010_seed_referentials.sql` — l'existence, partout
 
 1. **`sports`** : référentiel initial multi-disciplines, `is_documented = true` pour ce lot initial (il est documenté par cette seed). Tout sport ajouté **ultérieurement**, hors de ce référentiel, doit être inséré avec `is_documented = false` par le code applicatif ⇒ le moteur applique un profil générique prudent (question ouverte n°7).
-2. **`consent_documents`** : `medical_disclaimer`, `health_data_processing`, `terms`, `privacy` en version `1.0.0`, locale `fr` — insérés **`is_current = false`**. Contenu juridique **provisoire et non validé** (finding B3 de l'audit Lot L1) : aucune migration ne le promeut document en vigueur. Voir §9.3.
+2. **`consent_documents`** : `medical_disclaimer`, `health_data_processing`, `terms`, `privacy` en version `1.0.0`, locale `fr` — insérés **`is_current = false`**. Contenu juridique **provisoire et non validé** (finding B3 de l'audit Lot L1) : aucune migration ne le promeut document en vigueur. Voir §9.3. `health_data_processing` porte en plus, depuis `0014_health_data_processing_consent_v1_1_0.sql`, une seconde version `1.1.0` (texte amendé, toujours provisoire, insérée `is_current = false` selon le même principe) — voir §9.4.
 3. **`rulesets`** : `0.1.0-dev`, inséré **`is_active = false`** (finding B1). Les paramètres non tranchés restent `null` ⇒ le schéma Zod du Lot L2 refusera l'activation en production tant que les seuils AC8 ne sont pas fixés (ADR-007).
 
 ### 9.2 `supabase/seed.sql` — l'activation, hors production
 
 1. **`rulesets`** : bascule `0.1.0-dev` en `is_active = true`.
-2. **`consent_documents`** : bascule les 4 documents `1.0.0` / `fr` en `is_current = true` (voir §9.3 pour la forme exacte à écrire, qui doit être défensive).
+2. **`consent_documents`** : bascule `medical_disclaimer`, `terms`, `privacy` (`1.0.0` / `fr`) et, séparément, `health_data_processing` (`1.1.0` / `fr` depuis `0014_health_data_processing_consent_v1_1_0.sql` — §9.4) en `is_current = true` (voir §9.3 pour la forme exacte à écrire, qui doit être défensive).
 
 ### 9.3 `is_current` : un prérequis **relatif à l'environnement**, pas un prérequis uniforme
 
@@ -1079,6 +1079,16 @@ update consent_documents d
 **Contrat de la route (Lot L2/L3), pour que le blocage production soit lisible.** `POST /api/v1/consents` et `POST /api/v1/onboarding/session/:id/disclaimer` résolvent la version courante. Si aucune ligne `is_current` n'existe pour le `(code, locale)` demandé, la route ne doit **ni** planter en `500`, **ni** insérer une version arbitraire : elle répond `503` avec le code d'erreur stable **`CONSENT_DOCUMENT_UNAVAILABLE`** (convention `08-architecture.md` §6) et journalise une alerte d'exploitation. Un environnement mal préparé se diagnostique alors en une ligne de log, au lieu de se manifester par un onboarding cassé sans explication.
 
 **Ce que le contenu provisoire doit continuer de porter.** Les 4 textes conservent dans leur `body_md` la mention « *Contenu provisoire — à faire valider juridiquement avant mise en production* ». Comme l'UI affiche le corps du document lu en base, tout testeur d'une preview voit cette mention : activer le document hors production n'a jamais l'effet de faire passer un brouillon pour un texte définitif. Dette suivie en `08-architecture.md` §12, **question ouverte n°10** (et non n°8, que le commentaire actuel de `seed.sql` cite par erreur — n°8 porte sur la rétention du registre `consents`).
+
+### 9.4 Précédent : `health_data_processing` diverge sur `1.1.0` (2026-08-11)
+
+> `0014_health_data_processing_consent_v1_1_0.sql`. Décision tracée en **ADR-010 §10**.
+
+Le mécanisme des §9.1-9.3 supposait implicitement que les 4 documents évolueraient toujours **ensemble**, sur la même version provisoire. `health_data_processing` en est le premier contre-exemple : son texte `1.0.0` promettait sans réserve que le retrait « entraîne la purge de ces données », devenu inexact après le correctif comportemental `576bbf2` (les `risk_flags` `pathology`/`minor` survivent désormais volontairement au retrait, pour préserver l'avertissement médical fixe d'AC3). Une nouvelle version `1.1.0` amende ce texte ; `medical_disclaimer`, `terms`, `privacy` restent sur `1.0.0`, inchangés.
+
+Le mécanisme lui-même ne change pas : `1.1.0` est **insérée**, jamais une réécriture de `1.0.0` (immuabilité du registre, §1) ; elle reste, comme `1.0.0`, un texte **provisoire non validé juridiquement** (`is_current = false` posé par la migration elle-même, activation relative à l'environnement via `seed.sql` hors production). Ce qui change, c'est que `seed.sql` doit désormais poser **deux** clauses d'activation défensive distinctes sur `consent_documents` plutôt qu'une seule couvrant les 4 codes — chacune scopée à son propre `(code, version)`, pour ne jamais dépendre d'une hypothèse de version commune aux 4 documents qui ne tient plus.
+
+Aucun re-consentement n'est déclenché pour les utilisateurs ayant déjà consenti à `1.0.0` : `has_active_consent()` ne teste que `document_code` (voir son commentaire dans `0001_extensions_enums_helpers.sql` — choix déjà assumé, la bascule de version ne périme pas le consentement en cours). C'est cohérent ici puisque le comportement système que `1.1.0` documente était déjà en vigueur pour tous, y compris pour qui a consenti à `1.0.0`, depuis `576bbf2`.
 
 ---
 

@@ -19,6 +19,20 @@ import { withPgClient } from "./support/pg-client";
 
 const CONSENT_CODES = ["medical_disclaimer", "health_data_processing", "terms", "privacy"] as const;
 
+/**
+ * Version provisoire hors production attendue pour chaque document, par `code`. `developer`
+ * (0014_health_data_processing_consent_v1_1_0.sql) a fait diverger `health_data_processing` de
+ * `1.0.0` vers `1.1.0` -- texte amendé pour rester cohérent avec la conservation, au retrait de ce
+ * consentement, des `risk_flags` 'pathology'/'minor' (interaction B1 x B6, 576bbf2) -- sans toucher
+ * aux 3 autres documents, restés sur `1.0.0`.
+ */
+const EXPECTED_CURRENT_VERSION: Record<(typeof CONSENT_CODES)[number], string> = {
+  medical_disclaimer: "1.0.0",
+  health_data_processing: "1.1.0",
+  terms: "1.0.0",
+  privacy: "1.0.0",
+};
+
 describe("seed.sql — activation défensive de is_current / is_active (docs/db-schema.md §9.3)", () => {
   it("T14 — après `supabase db reset` local : exactement une ligne is_current par (code, locale) et le ruleset 0.1.0-dev actif", async () => {
     await withPgClient(async (client) => {
@@ -28,7 +42,7 @@ describe("seed.sql — activation défensive de is_current / is_active (docs/db-
           [code],
         );
         expect(rows, `${code} : exactement une version is_current attendue en local`).toHaveLength(1);
-        expect(rows[0]?.version).toBe("1.0.0");
+        expect(rows[0]?.version).toBe(EXPECTED_CURRENT_VERSION[code]);
       }
 
       const { rows: activeRulesets } = await client.query<{ version: string }>(
@@ -98,15 +112,28 @@ describe("seed.sql — activation défensive de is_current / is_active (docs/db-
            values ('9.9.9', '{}'::jsonb, '{}'::jsonb, 'checksum-test-t16', true, now())`,
         );
 
-        // 2) Rejoue exactement la forme défensive écrite dans `supabase/seed.sql` : ne doit ni
-        //    déloger la version validée, ni violer `consent_documents_current` /
-        //    `rulesets_single_active` (l'échec se manifesterait par une exception levée ici même).
+        // 2) Rejoue exactement les deux formes défensives écrites dans `supabase/seed.sql` (3
+        //    documents sur `1.0.0`, `health_data_processing` séparément sur `1.1.0` depuis
+        //    0014_health_data_processing_consent_v1_1_0.sql) : ne doit ni déloger la version
+        //    validée, ni violer `consent_documents_current` / `rulesets_single_active` (l'échec se
+        //    manifesterait par une exception levée ici même).
         await client.query(`
           update consent_documents d
              set is_current = true
            where d.version = '1.0.0'
              and d.locale  = 'fr'
-             and d.code in ('medical_disclaimer','health_data_processing','terms','privacy')
+             and d.code in ('medical_disclaimer','terms','privacy')
+             and not exists (
+               select 1 from consent_documents c
+                where c.code = d.code and c.locale = d.locale and c.is_current
+             );
+        `);
+        await client.query(`
+          update consent_documents d
+             set is_current = true
+           where d.version = '1.1.0'
+             and d.locale  = 'fr'
+             and d.code    = 'health_data_processing'
              and not exists (
                select 1 from consent_documents c
                 where c.code = d.code and c.locale = d.locale and c.is_current

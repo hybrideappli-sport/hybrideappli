@@ -75,15 +75,24 @@ export async function deleteTestUser(userId: string): Promise<void> {
  * §`athlete_profiles`/`session_logs`/…) à toute écriture via un client `rls` (authentifié), pas
  * seulement `service_role`. Écrit directement en base (`service_role`, aucune policy INSERT sur
  * `consents` — voir son en-tête) plutôt que de repasser par `POST /api/v1/consents` (dépend de
- * `next/headers`, hors de portée d'un test d'intégration, voir `paywall.test.ts`). Cible la version
- * `'1.0.0'`/`'fr'` réellement activée par `supabase/seed.sql` (`consent_documents.is_current`).
+ * `next/headers`, hors de portée d'un test d'intégration, voir `paywall.test.ts`). Cible, pour
+ * chaque code, la version `'fr'` réellement activée par `supabase/seed.sql`
+ * (`consent_documents.is_current`) — `'1.0.0'` pour `medical_disclaimer`, `'1.1.0'` pour
+ * `health_data_processing` depuis `0014_health_data_processing_consent_v1_1_0.sql` (texte amendé,
+ * comportement inchangé : `has_active_consent()` ne teste que `document_code`, jamais
+ * `document_version` — un mismatch de version n'aurait de toute façon fait échouer que la FK
+ * composite si le couple `(code, version, locale)` n'existait pas, jamais le contrôle RLS lui-même).
  */
 export async function grantHealthConsents(admin: SupabaseClient<Database>, userId: string): Promise<void> {
+  const CURRENT_VERSION: Record<"medical_disclaimer" | "health_data_processing", string> = {
+    medical_disclaimer: "1.0.0",
+    health_data_processing: "1.1.0",
+  };
   const { error } = await admin.from("consents").insert(
     (["medical_disclaimer", "health_data_processing"] as const).map((code) => ({
       user_id: userId,
       document_code: code,
-      document_version: "1.0.0",
+      document_version: CURRENT_VERSION[code],
       locale: "fr",
       granted: true,
     })),

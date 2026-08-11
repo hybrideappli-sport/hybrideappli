@@ -26,10 +26,16 @@ where version = '0.1.0-dev'
   );
 
 -- `consent_documents.is_current` : hors production uniquement, ce seed active la version
--- provisoire `1.0.0` / `fr` des 4 documents pour débloquer le développement, les tests
--- d'intégration et les E2E (ADR-010 §9, docs/db-schema.md §9.3). En production, `is_current`
--- reste `false` tant qu'une migration dédiée n'a pas publié une version juridiquement validée
--- (finding B3, audit Lot L1) : ce fichier n'y est structurellement jamais rejoué.
+-- provisoire `1.0.0` / `fr` de 3 des 4 documents (`medical_disclaimer`, `terms`, `privacy`) pour
+-- débloquer le développement, les tests d'intégration et les E2E (ADR-010 §9, docs/db-schema.md
+-- §9.3). En production, `is_current` reste `false` tant qu'une migration dédiée n'a pas publié une
+-- version juridiquement validée (finding B3, audit Lot L1) : ce fichier n'y est structurellement
+-- jamais rejoué.
+--
+-- `health_data_processing` est traité séparément juste après : depuis
+-- `0014_health_data_processing_consent_v1_1_0.sql`, sa version provisoire hors production est
+-- `1.1.0`, pas `1.0.0` (texte amendé pour rester cohérent avec la conservation, au retrait, des
+-- indicateurs de sécurité `risk_flags` 'pathology'/'minor' -- interaction B1 x B6, 576bbf2).
 --
 -- Activation DÉFENSIVE : ne bascule `1.0.0` que s'il n'existe pas déjà un document courant pour
 -- ce `(code, locale)`, pour ne jamais entrer en collision avec l'index unique partiel
@@ -39,7 +45,19 @@ update consent_documents d
    set is_current = true
  where d.version = '1.0.0'
    and d.locale  = 'fr'
-   and d.code in ('medical_disclaimer','health_data_processing','terms','privacy')
+   and d.code in ('medical_disclaimer','terms','privacy')
+   and not exists (
+     select 1 from consent_documents c
+      where c.code = d.code and c.locale = d.locale and c.is_current
+   );
+
+-- `health_data_processing` : même activation défensive, sur sa version provisoire `1.1.0` (au lieu
+-- de `1.0.0`) -- voir `0014_health_data_processing_consent_v1_1_0.sql` pour le détail du correctif.
+update consent_documents d
+   set is_current = true
+ where d.version = '1.1.0'
+   and d.locale  = 'fr'
+   and d.code    = 'health_data_processing'
    and not exists (
      select 1 from consent_documents c
       where c.code = d.code and c.locale = d.locale and c.is_current
