@@ -69,6 +69,28 @@ export async function deleteTestUser(userId: string): Promise<void> {
   });
 }
 
+/**
+ * Consentement santé actif (`health_data_processing`) + acquittement du disclaimer médical
+ * (`medical_disclaimer`) — préalable RLS réel (`has_active_consent()`, `0002_identity_consents.sql`
+ * §`athlete_profiles`/`session_logs`/…) à toute écriture via un client `rls` (authentifié), pas
+ * seulement `service_role`. Écrit directement en base (`service_role`, aucune policy INSERT sur
+ * `consents` — voir son en-tête) plutôt que de repasser par `POST /api/v1/consents` (dépend de
+ * `next/headers`, hors de portée d'un test d'intégration, voir `paywall.test.ts`). Cible la version
+ * `'1.0.0'`/`'fr'` réellement activée par `supabase/seed.sql` (`consent_documents.is_current`).
+ */
+export async function grantHealthConsents(admin: SupabaseClient<Database>, userId: string): Promise<void> {
+  const { error } = await admin.from("consents").insert(
+    (["medical_disclaimer", "health_data_processing"] as const).map((code) => ({
+      user_id: userId,
+      document_code: code,
+      document_version: "1.0.0",
+      locale: "fr",
+      granted: true,
+    })),
+  );
+  if (error) throw new Error(`[test] consents (seed) : ${error.message}`);
+}
+
 /** Sport de référence seedé (`0010_seed_referentials.sql`) — utilisé pour peupler `athlete_sports`/`objectives`. */
 export async function seedSportId(admin: SupabaseClient<Database>, code = "running"): Promise<string> {
   const { data, error } = await admin.from("sports").select("id").eq("code", code).single();
