@@ -98,7 +98,7 @@ export async function materializePlanVersion(
   },
 ): Promise<MaterializePlanVersionResult> {
   const { userId, objectiveId, trigger, ruleset, context, contextHash, engineResult, llmProvider, isWeeklyBaseline = false } = args;
-  const { plan, traces } = engineResult;
+  const { plan } = engineResult;
 
   // 1) `plans` — un seul plan actif par utilisateur (index `plans_one_active_per_user`).
   const { data: existingPlan, error: existingPlanError } = await admin
@@ -155,25 +155,98 @@ export async function materializePlanVersion(
   });
   if (engineRunError) throw new Error(`materializePlanVersion: engine_runs — ${engineRunError.message}`);
 
-  // 4) `plan_versions` — immuable (ADR-005).
-  const planVersionId = randomUUID();
-  const { error: planVersionError } = await admin.from("plan_versions").insert({
-    id: planVersionId,
-    plan_id: planId,
-    user_id: userId,
-    version_number: versionNumber,
-    trigger,
-    supersedes_version_id: existingPlan?.current_version_id ?? null,
-    is_weekly_baseline: isWeeklyBaseline,
-    ruleset_version: ruleset.version,
-    engine_run_id: engineRunId,
-    input_snapshot: context as unknown as Json,
-    input_snapshot_hash: contextHash,
-    snapshot: plan as unknown as Json,
-    horizon_start: plan.horizonStart,
-    horizon_end: plan.horizonEnd,
-  });
-  if (planVersionError) throw new Error(`materializePlanVersion: plan_versions — ${planVersionError.message}`);
+  // Correction post-revue (finding I5) : à partir d'ici, un échec PARTIEL (LLM lent,
+  // `explanations` en erreur réseau, …) laissait `engine_runs.status = 'running'` indéfiniment —
+  // invisible, jamais rejoué automatiquement (voir l'en-tête de ce module pour l'analyse complète
+  // de la limite transactionnelle). Le `try/catch` ci-dessous ne résout pas l'absence de
+  // transaction réelle (toujours hors budget : nécessiterait une fonction Postgres dédiée portant
+  // l'intégralité de l'écriture), mais rend l'échec VISIBLE et DIAGNOSTICABLE — même principe que
+  // `markJobFailed()` (`lib/jobs/queue.ts`, ADR-011 §3 : « un échec est visible, pas silencieux »)
+  // — et distingue explicitement le cas `plan_versions_idempotency` (23505), qui NE PEUT PAS
+  // réussir en rejouant tel quel (le contexte recalculé produit exactement le même hash tant que
+  // rien n'a changé — `input_snapshot_hash`) : un appelant qui recevrait
+  // `PlanVersionIdempotencyConflictError` sait qu'il doit soit abandonner cette tentative
+  // (job hebdomadaire : la prochaine semaine ISO produira un contexte différent), soit — hors
+  // budget de cette correction — reprendre l'écriture à partir de la ligne `plan_versions` déjà
+  // posée plutôt que d'en retenter une nouvelle.
+  try {
+    // 4) `plan_versions` — immuable (ADR-005).
+    const planVersionId = randomUUID();
+    const { error: planVersionError } = await admin.from("plan_versions").insert({
+      id: planVersionId,
+      plan_id: planId,
+      user_id: userId,
+      version_number: versionNumber,
+      trigger,
+      supersedes_version_id: existingPlan?.current_version_id ?? null,
+      is_weekly_baseline: isWeeklyBaseline,
+      ruleset_version: ruleset.version,
+      engine_run_id: engineRunId,
+      input_snapshot: context as unknown as Json,
+      input_snapshot_hash: contextHash,
+      snapshot: plan as unknown as Json,
+      horizon_start: plan.horizonStart,
+      horizon_end: plan.horizonEnd,
+    });
+    if (planVersionError) {
+      if (planVersionError.code === "23505") {
+        throw new PlanVersionIdempotencyConflictError(
+          `materializePlanVersion: plan_versions_idempotency déjà satisfaite pour (plan_id=${planId}, ` +
+            `ruleset=${ruleset.version}) — un run précédent avec un contexte identique a déjà écrit une ` +
+            "version (probablement suite à un échec partiel APRÈS cette insertion). Rejouer avec le même " +
+            "contexte échouera de la même façon ; ce n'est résolu qu'en changeant l'entrée (ex. semaine ISO suivante).",
+        );
+      }
+      throw new Error(`materializePlanVersion: plan_versions — ${planVersionError.message}`);
+    }
+
+    return await materializeRest(admin, {
+      planId,
+      planVersionId,
+      engineRunId,
+      userId,
+      context,
+      engineResult,
+      llmProvider,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await admin
+      .from("engine_runs")
+      .update({ status: "failed", error: message, finished_at: new Date().toISOString() })
+      .eq("id", engineRunId)
+      .then(
+        () => undefined,
+        (markError: unknown) =>
+          console.error(
+            `[materializePlanVersion] échec de marquage engine_runs.status='failed' pour ${engineRunId} : ` +
+              `${markError instanceof Error ? markError.message : markError}`,
+          ),
+      );
+    throw error;
+  }
+}
+
+export class PlanVersionIdempotencyConflictError extends Error {}
+
+/**
+ * Étapes 5 à 11 — extraites de `materializePlanVersion()` pour rester à l'intérieur du `try` qui
+ * marque `engine_runs.status='failed'` sur tout échec (finding I5), sans dupliquer la logique.
+ */
+async function materializeRest(
+  admin: SupabaseClient<Database>,
+  args: {
+    planId: string;
+    planVersionId: string;
+    engineRunId: string;
+    userId: string;
+    context: PlanningContext;
+    engineResult: EngineResult;
+    llmProvider: LlmProvider;
+  },
+): Promise<MaterializePlanVersionResult> {
+  const { planId, planVersionId, engineRunId, userId, context, engineResult, llmProvider } = args;
+  const { plan, traces } = engineResult;
 
   // 5) `plan_blocks` — macro.
   const blockIdByIndex = new Map<number, string>();

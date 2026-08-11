@@ -117,39 +117,44 @@ async function recordEvent(admin: SupabaseClient<Database>, event: Stripe.Event,
 
 /**
  * Ordre de livraison (ADR-009 §2 : « l'ordre est géré en ne persistant que si `event.created` est
- * postérieur au dernier événement traité pour cet abonnement »). `stripe_events` n'a pas de colonne
- * dédiée `stripe_subscription_id` (`docs/db-schema.md` §7 — DDL canonique, non modifié par ce
- * lot) : la comparaison relit le payload JSON des événements récents déjà traités. Limitation
- * assumée et documentée (rapport de fin de lot) : borné aux 50 événements les plus récents plutôt
- * qu'un index dédié — un vrai souci seulement au-delà de quelques dizaines de milliers d'événements
- * Stripe cumulés, hors de portée de ce lot.
+ * postérieur au dernier événement traité pour cet abonnement »).
+ *
+ * Correction post-revue (finding I2) : la version précédente relisait les 50 derniers
+ * `stripe_events` TOUS ABONNEMENTS CONFONDUS pour retrouver le dernier événement connu d'UN
+ * abonnement — avec quelques dizaines d'utilisateurs actifs, l'événement précédent d'un abonnement
+ * sortait de cette fenêtre en quelques heures, la fonction répondait alors `false` (« pas
+ * obsolète ») et un événement livré hors ordre pouvait écraser un état plus récent. Ce n'était pas
+ * une simple limite de volumétrie mais une faille de correction, dès la première dizaine
+ * d'utilisateurs. `subscriptions.last_event_created` (migration 0013) porte désormais, PAR
+ * ABONNEMENT, `event.created` du dernier événement effectivement appliqué : lecture indexée d'une
+ * seule ligne, correcte quel que soit le nombre d'abonnements ou d'événements cumulés.
+ *
+ * Lecture/écriture non atomiques (limite assumée) : deux livraisons concurrentes du même
+ * abonnement peuvent encore se chevaucher entre cette lecture et l'`update()` d'`upsertSubscriptionState()`
+ * — un vrai verrou nécessiterait une fonction Postgres dédiée (`select ... for update`), hors
+ * budget de cette correction. Le risque résiduel est un état légèrement désynchronisé sur une
+ * fenêtre de quelques centaines de millisecondes, jamais une régression de sécurité (le tier ne
+ * peut être élevé que par un événement Stripe réel).
  */
 async function isStaleForSubscription(admin: SupabaseClient<Database>, event: Stripe.Event, subscriptionId: string): Promise<boolean> {
-  const { data: rows, error } = await admin
-    .from("stripe_events")
-    .select("event_created, payload")
-    .not("processed_at", "is", null)
-    .order("event_created", { ascending: false })
-    .limit(50);
-  if (error) throw new Error(`isStaleForSubscription: stripe_events — ${error.message}`);
+  const { data, error } = await admin
+    .from("subscriptions")
+    .select("last_event_created")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (error) throw new Error(`isStaleForSubscription: subscriptions — ${error.message}`);
+  if (!data?.last_event_created) return false; // aucun événement encore appliqué pour cet abonnement.
 
-  for (const row of rows ?? []) {
-    const payload = row.payload as { data?: { object?: Record<string, unknown> } };
-    const object = payload.data?.object;
-    const objectSubscriptionId =
-      (object?.id as string | undefined) ??
-      (object as { parent?: { subscription_details?: { subscription?: string | { id: string } } } } | undefined)?.parent?.subscription_details
-        ?.subscription;
-    const resolvedId = typeof objectSubscriptionId === "string" ? objectSubscriptionId : objectSubscriptionId?.id;
-    if (resolvedId === subscriptionId) {
-      return new Date(row.event_created).getTime() >= event.created * 1000;
-    }
-  }
-  return false;
+  return new Date(data.last_event_created).getTime() >= event.created * 1000;
 }
 
-/** `customer.subscription.created` | `.updated` | `.deleted` — écrit `subscriptions`, `tier` selon `status`. */
-async function upsertSubscriptionState(admin: SupabaseClient<Database>, subscription: Stripe.Subscription): Promise<string | null> {
+/**
+ * `customer.subscription.created` | `.updated` | `.deleted` — écrit `subscriptions`, `tier` selon
+ * `status`. `eventCreated` (l'horodatage de l'événement Stripe QUI DÉCLENCHE cette écriture, pas un
+ * dérivé de l'objet `subscription` lui-même) alimente `last_event_created` — voir
+ * `isStaleForSubscription()` (finding I2).
+ */
+async function upsertSubscriptionState(admin: SupabaseClient<Database>, subscription: Stripe.Subscription, eventCreated: Date): Promise<string | null> {
   const tier = ACTIVE_LIKE_STATUSES.has(subscription.status) ? "premium" : "free";
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
@@ -162,6 +167,7 @@ async function upsertSubscriptionState(admin: SupabaseClient<Database>, subscrip
       price_id: subscription.items.data[0]?.price.id ?? null,
       current_period_end: currentPeriodEndIso(subscription),
       cancel_at_period_end: subscription.cancel_at_period_end,
+      last_event_created: eventCreated.toISOString(),
     })
     .eq("stripe_customer_id", customerId)
     .select("user_id")
@@ -188,7 +194,7 @@ async function handleEvent(admin: SupabaseClient<Database>, event: Stripe.Event)
         console.warn(`[stripe-webhook] événement ${event.id} (${event.type}) plus ancien qu'un événement déjà traité pour ${subscription.id} — ignoré.`);
         return;
       }
-      await upsertSubscriptionState(admin, subscription);
+      await upsertSubscriptionState(admin, subscription, new Date(event.created * 1000));
       return;
     }
     case "invoice.paid":
@@ -204,7 +210,7 @@ async function handleEvent(admin: SupabaseClient<Database>, event: Stripe.Event)
       }
 
       const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
-      const userId = await upsertSubscriptionState(admin, subscription);
+      const userId = await upsertSubscriptionState(admin, subscription, new Date(event.created * 1000));
 
       if (event.type === "invoice.payment_failed" && userId) {
         await notifyUser(admin, {

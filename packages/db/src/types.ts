@@ -1696,6 +1696,7 @@ export type Database = {
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
+          last_event_created: string | null
           price_id: string | null
           status: string | null
           stripe_customer_id: string | null
@@ -1708,6 +1709,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_event_created?: string | null
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
@@ -1720,6 +1722,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_event_created?: string | null
           price_id?: string | null
           status?: string | null
           stripe_customer_id?: string | null
@@ -1764,6 +1767,10 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
+      purge_stale_stripe_events: {
+        Args: { p_retention_days?: number }
+        Returns: number
+      }
       requeue_stuck_job_queue: {
         Args: { p_stuck_after_seconds?: number }
         Returns: number
