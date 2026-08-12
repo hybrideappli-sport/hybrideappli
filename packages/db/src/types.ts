@@ -1344,6 +1344,12 @@ export type Database = {
       }
       profiles: {
         Row: {
+          // MANUEL — pas encore généré par `supabase gen types` : la colonne existe dans
+          // `supabase/migrations/0015_club_app_enrolled.sql` mais 0015 n'est pas encore poussée
+          // sur le projet distant. Une régénération contre le distant supprimera cette ligne
+          // (les 3 occurrences ci-dessous, Row/Insert/Update) tant que 0015 n'a pas été appliquée
+          // — à réintégrer si ça arrive, ne pas juste laisser la suppression passer en revue.
+          app_enrolled: boolean
           created_at: string
           display_name: string | null
           id: string
@@ -1355,6 +1361,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          app_enrolled?: boolean
           created_at?: string
           display_name?: string | null
           id: string
@@ -1366,6 +1373,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          app_enrolled?: boolean
           created_at?: string
           display_name?: string | null
           id?: string

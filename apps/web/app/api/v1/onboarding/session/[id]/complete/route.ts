@@ -81,5 +81,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq("id", sessionId);
   if (sessionCompleteError) return apiError(500, "INTERNAL_ERROR", sessionCompleteError.message);
 
+  // `app_enrolled` (migration 0015) : un compte créé depuis le site club n'est pas enrôlé dans les
+  // automatismes commerciaux tant qu'il n'a pas réellement engagé l'app. La complétion de
+  // l'onboarding est ce signal — idempotent, sans effet si déjà `true`. `service_role` : la
+  // colonne n'est pas dans le GRANT UPDATE accordé à `authenticated` (0015).
+  const { error: appEnrolledError } = await admin.from("profiles").update({ app_enrolled: true }).eq("id", user.id);
+  if (appEnrolledError) return apiError(500, "INTERNAL_ERROR", appEnrolledError.message);
+
   return apiJson<CompleteOnboardingResponse>(result);
 }
