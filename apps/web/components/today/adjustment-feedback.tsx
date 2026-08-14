@@ -12,18 +12,18 @@ import { PainReferralNotice } from "./pain-referral-notice";
  */
 export function AdjustmentFeedback({ result, painZone }: { result: CreateSessionLogResponse; painZone: BodyZone | null }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4" data-testid="adjustment-feedback">
-      <p className="text-sm font-medium text-neutral-900">Saisie enregistrée.</p>
+    <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="adjustment-feedback">
+      <p className="text-body-strong font-semibold text-foreground">Saisie enregistrée.</p>
 
       {result.adjustment.applied ? (
         <div className="flex flex-col gap-1" data-testid="adjustment-applied">
-          <p className="text-sm text-neutral-700">Le coach a ajusté ta charge à la baisse pour tenir compte de ce signal.</p>
+          <p className="text-body text-foreground-muted">Le coach a ajusté ta charge à la baisse pour tenir compte de ce signal.</p>
           {result.adjustment.explanation ? (
             <ExplanationInline short={result.adjustment.explanation.short} explanationId={result.adjustment.explanation.explanationId} />
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-neutral-500" data-testid="adjustment-none">
+        <p className="text-body text-foreground-muted" data-testid="adjustment-none">
           Aucun ajustement nécessaire pour l&apos;instant.
         </p>
       )}

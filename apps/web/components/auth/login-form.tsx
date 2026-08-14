@@ -36,18 +36,18 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} loading={isPending}>
         {isPending ? "Connexion..." : "Se connecter"}
       </Button>
-      <div className="flex justify-between text-sm text-neutral-500">
-        <Link href="/inscription" className="hover:underline">
+      <div className="flex justify-between text-small text-foreground-muted">
+        <Link href="/inscription" className="hover:text-foreground hover:underline">
           Créer un compte
         </Link>
-        <Link href="/mot-de-passe-oublie" className="hover:underline">
+        <Link href="/mot-de-passe-oublie" className="hover:text-foreground hover:underline">
           Mot de passe oublié ?
         </Link>
       </div>

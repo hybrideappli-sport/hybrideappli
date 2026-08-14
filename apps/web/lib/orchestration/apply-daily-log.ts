@@ -10,7 +10,11 @@ import type { CreateSessionLogInput, CreateSessionLogResponse, DecisionTrace, Pl
 
 import { getLlmProvider } from "../coach-llm-provider";
 import { addDaysIso } from "../dates";
+import { finalizeSessionLogLoad } from "../data/finalize-session-log-load";
+import { reconcileSessionLogs } from "../data/reconcile-session-logs";
+import { refreshDataRegime } from "../data/refresh-data-regime";
 import { PAIN_REFERRAL_MESSAGES } from "../pain-referral-messages";
+import { recalculateHybridScoreQuietly } from "../score/compute-and-store-hybrid-score";
 import { buildPlanningContext } from "./build-planning-context";
 import { getActiveRuleset } from "./get-active-ruleset";
 import { fetchTodaySessionView } from "./read-today-plan";
@@ -48,6 +52,20 @@ export async function applyDailyLog(
 ): Promise<CreateSessionLogResponse> {
   const { userId, now, input } = args;
 
+  // US-02, AC3 — séance HORS PLAN : `sportCode` (déclaratif, choisi par l'utilisateur dans un
+  // référentiel public) est résolu en `sport_id` ICI, avant l'insertion — c'est une colonne
+  // GRANTée à `authenticated` (`0019_actuals_data_sources.sql`), à la différence de `load_units`
+  // (chemin d'écriture unique, `finalizeSessionLogLoad()` plus bas, ADR-015 §1). Un code inconnu
+  // du référentiel (jamais censé arriver, `SportCodeSchema` valide juste le FORMAT, pas
+  // l'existence) laisse `sportId` à `null` plutôt que d'échouer bruyamment : la séance hors plan
+  // reste enregistrable sans discipline reconnue (AC3 — jamais de blocage), au même titre qu'un
+  // import Strava non cartographié (`external_sport_mappings`, ADR-013).
+  let sportId: string | null = null;
+  if (input.sportCode) {
+    const { data: sportRow } = await rls.from("sports").select("id").eq("code", input.sportCode).maybeSingle();
+    sportId = sportRow?.id ?? null;
+  }
+
   // 1) Persistance du réalisé — client RLS (consentement santé vérifié en profondeur par la
   // policy `session_logs_insert_own`, pas seulement en amont dans le Route Handler).
   const { data: insertedLog, error: insertError } = await rls
@@ -56,6 +74,9 @@ export async function applyDailyLog(
       user_id: userId,
       planned_session_id: input.plannedSessionId,
       logged_date: input.loggedDate,
+      sport_id: sportId,
+      session_type: input.sessionType ?? null,
+      started_at: input.startedAt ?? null,
       completion: input.completion,
       not_done_reason: input.notDoneReason ?? null,
       actual_duration_min: input.actualDurationMin ?? null,
@@ -69,6 +90,22 @@ export async function applyDailyLog(
     .select("id")
     .single();
   if (insertError) throw new SessionLogPersistenceError(`applyDailyLog: session_logs — ${insertError.message}`);
+
+  // US-02, ADR-015 §1/§2 — point de contact #1 de `08-architecture.md` §13.6 : charge réalisée
+  // (chemin d'écriture unique, service_role) PUIS résolution de doublon (AC5). L'ordre importe :
+  // `reconcileSessionLogs()` doit voir un `load_units` déjà posé sur CETTE ligne pour que
+  // l'agrégat de la ligne portante (si elle change de ligne physique) reste cohérent dès la
+  // prochaine lecture. Aucun des deux n'affecte l'ajustement synchrone de l'AC4 ci-dessous, qui
+  // reste piloté par `input` (RPE/fraîcheur/douleur DÉCLARÉS dans CETTE requête), inchangé.
+  await finalizeSessionLogLoad(admin, { logId: insertedLog.id, userId });
+  const reconciliation = await reconcileSessionLogs(admin, { userId, logId: insertedLog.id });
+  await refreshDataRegime(admin, userId);
+  // AC7 — « recalculé à chaque nouvelle donnée pertinente » (ADR-014 §5). Volontairement APRÈS
+  // `refreshDataRegime()` et AVANT le reste de la fonction (protocole douleur, ajustement AC4) :
+  // le score ne conditionne ni n'est conditionné par eux (AC9, ADR-014 §6 — le score ne pilote
+  // rien), l'ordre exact vis-à-vis d'eux est donc sans conséquence ; il est placé ici pour rester
+  // au plus près des deux autres effets de bord du réalisé qu'il consomme.
+  await recalculateHybridScoreQuietly(admin, { userId, now });
 
   const { data: activePlan, error: planError } = await admin
     .from("plans")
@@ -307,5 +344,11 @@ export async function applyDailyLog(
     ? await fetchTodaySessionView(admin, { userId, planVersionId: refreshedPlan.current_version_id, date: addDaysIso(now, 1) })
     : null;
 
-  return { logId: insertedLog.id, adjustment, painProtocol: painProtocolResponse, nextSession };
+  return {
+    logId: insertedLog.id,
+    adjustment,
+    painProtocol: painProtocolResponse,
+    nextSession,
+    reconciliation: { merged: reconciliation.merged, survivingLogId: reconciliation.survivingLogId },
+  };
 }

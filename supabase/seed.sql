@@ -103,3 +103,26 @@ set params = params || jsonb_build_object(
   )
 )
 where version = '0.1.0-dev';
+
+-- US-02 (`developer`, Lot L1) — deux activations DÉFENSIVES supplémentaires, même patron que
+-- ci-dessus (`docs/db-schema.md` §10.8) : chaque clause ne bascule sa cible que si aucune autre
+-- ligne du même groupe n'est déjà active/courante, pour ne jamais entrer en collision avec l'index
+-- unique partiel correspondant (`consent_documents_current`, `rulesets_single_active`) le jour où
+-- une migration de production publie une vraie version.
+--
+-- `third_party_data_import` v1.0.0 : contenu provisoire, activé hors production uniquement
+-- (ADR-013 §5).
+update consent_documents d
+   set is_current = true
+ where d.code = 'third_party_data_import' and d.version = '1.0.0' and d.locale = 'fr'
+   and not exists (select 1 from consent_documents c
+                    where c.code = d.code and c.locale = d.locale and c.is_current);
+
+-- `0.2.0-dev` (hybrid_score, ADR-014) : n'active ce ruleset que si AUCUN ruleset n'est déjà actif.
+-- Le bloc `0.1.0-dev` ci-dessus s'exécute en premier dans ce fichier et gagne systématiquement en
+-- l'état actuel — c'est voulu : ADR-014 §3 rend la section `hybrid_score` optionnelle avec valeurs
+-- par défaut appliquées à la lecture, précisément pour que `0.1.0-dev` reste un ruleset actif valide
+-- pour le score hybride sans qu'aucune section dédiée n'y soit publiée.
+update rulesets r set is_active = true
+ where r.version = '0.2.0-dev'
+   and not exists (select 1 from rulesets x where x.is_active);

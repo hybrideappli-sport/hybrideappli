@@ -34,13 +34,13 @@ export default async function WeeklyReviewPage() {
   const diffView = plan ? await readLatestPlanDiff(admin, plan.id) : null;
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
-      <h1 className="text-xl font-semibold">Révision hebdomadaire</h1>
+    <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+      <h1 className="font-serif text-title text-foreground">Révision hebdomadaire</h1>
 
       <PaywallGate
         entitled={entitlement.canViewWeek}
         fallback={
-          <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="revision-paywall">
+          <div className="rounded-lg bg-surface p-6 text-center text-body text-foreground-muted" data-testid="revision-paywall">
             <p>La révision hebdomadaire complète est réservée aux abonnés.</p>
           </div>
         }
@@ -48,7 +48,7 @@ export default async function WeeklyReviewPage() {
         {diffView ? (
           <PlanDiffView diff={diffView} />
         ) : (
-          <p className="text-sm text-neutral-500" data-testid="revision-empty">
+          <p className="text-body text-foreground-muted" data-testid="revision-empty">
             Aucune révision hebdomadaire disponible pour le moment — reviens dimanche soir.
           </p>
         )}

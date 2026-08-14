@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /**
@@ -45,30 +47,29 @@ export function DeleteAccountForm({ email }: { email: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-red-300 bg-red-50 p-4" data-testid="delete-account-form">
-      <p className="text-sm font-semibold text-red-800">Supprimer définitivement mon compte</p>
-      <p className="text-sm text-red-700">
+    <div className="flex flex-col gap-3 rounded-lg bg-danger/10 p-4" data-testid="delete-account-form">
+      <p className="text-body-strong font-semibold text-danger">Supprimer définitivement mon compte</p>
+      <p className="text-body text-foreground-muted">
         Cette action est irréversible : toutes tes données personnelles sont supprimées immédiatement (profil, plans, saisies, historique).
         Seule la preuve de tes consentements est conservée, sous forme anonyme, pour une durée légale de 5 ans.
       </p>
-      <label className="text-sm text-red-800" htmlFor="delete-account-confirmation">
+      <Label htmlFor="delete-account-confirmation">
         Pour confirmer, saisis ton adresse e-mail (<span className="font-mono">{email}</span>) :
-      </label>
-      <input
+      </Label>
+      <Input
         id="delete-account-confirmation"
         type="email"
         value={confirmation}
         onChange={(event) => setConfirmation(event.target.value)}
-        className="rounded-md border border-red-300 px-3 py-2 text-sm"
         data-testid="delete-account-confirmation-input"
         autoComplete="off"
       />
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
-      <Button variant="secondary" size="sm" onClick={handleDelete} disabled={!canSubmit || pending} data-testid="delete-account-submit">
+      <Button variant="secondary" size="sm" onClick={handleDelete} disabled={!canSubmit || pending} loading={pending} data-testid="delete-account-submit">
         {pending ? "Suppression…" : "Supprimer définitivement mon compte"}
       </Button>
     </div>

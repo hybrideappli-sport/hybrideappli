@@ -16,5 +16,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/connexion");
   }
 
-  return <div className="min-h-screen bg-neutral-50">{children}</div>;
+  return <div className="min-h-screen bg-background">{children}</div>;
 }

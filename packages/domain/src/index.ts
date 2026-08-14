@@ -230,6 +230,7 @@ export type {
   TodayPlanResponse,
   CreateSessionLogInput,
   CreateSessionLogResponse,
+  SessionLogReconciliationView,
   NutritionCheckinInput,
   NutritionCheckinResponse,
   BodyMetricInput,
@@ -290,3 +291,43 @@ export type { ObjectiveEndProposalView, ObjectiveEndResponse } from "./objective
 
 export { PushSubscriptionInputSchema } from "./push";
 export type { PushSubscriptionInput, PushSubscriptionResponse } from "./push";
+
+// ---------------------------------------------------------------------------
+// data-sources.ts — US-02, `/data/*` (AC1, AC2, AC6, AC10)
+// ---------------------------------------------------------------------------
+
+export { ActivitiesQuerySchema } from "./data-sources";
+export type {
+  DataSourceStatus,
+  DataSourceView,
+  DataSourcesView,
+  AuthorizeConnectionResponse,
+  DisconnectDataConnectionResponse,
+  ActivitiesQuery,
+  ActivityFeedItem,
+  DataOverviewCell,
+  DataOverviewSync,
+  DataOverviewView,
+} from "./data-sources";
+
+// ---------------------------------------------------------------------------
+// hybrid-score.ts — US-02, ADR-014 — uniquement des types
+// ---------------------------------------------------------------------------
+
+export type {
+  HybridScoreSessionInput,
+  HybridScoreContext,
+  HybridScoreStatus,
+  HybridScoreSubcomponent,
+  HybridScoreComponents,
+  HybridScoreByDisciplineItem,
+  HybridScoreByDayItem,
+  HybridScoreResult,
+  HybridScoreVolumeDayView,
+  HybridScoreVolumeView,
+  HybridScoreSplitItemView,
+  HybridScoreSplitView,
+  HybridScoreComponentView,
+  HybridScoreNextStepView,
+  HybridScoreResponse,
+} from "./hybrid-score";

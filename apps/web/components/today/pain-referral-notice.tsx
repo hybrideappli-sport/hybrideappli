@@ -12,10 +12,10 @@ export function PainReferralNotice({ notice }: { notice: PainNoticeView }) {
     <div
       role="alert"
       data-testid="pain-referral-notice"
-      className={`rounded-lg border p-4 text-sm ${isAcute ? "border-red-300 bg-red-50 text-red-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}
+      className={`rounded-lg p-4 text-body ${isAcute ? "bg-danger/10 text-danger" : "bg-warning/10 text-warning"}`}
     >
-      <p className="font-semibold">{isAcute ? "Douleur à prendre au sérieux" : "Gêne persistante détectée"}</p>
-      <p className="mt-1">{notice.message}</p>
+      <p className="text-body-strong font-semibold">{isAcute ? "Douleur à prendre au sérieux" : "Gêne persistante détectée"}</p>
+      <p className="mt-1 text-foreground-muted">{notice.message}</p>
     </div>
   );
 }

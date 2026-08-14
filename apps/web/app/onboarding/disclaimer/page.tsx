@@ -23,8 +23,8 @@ export default async function OnboardingDisclaimerPage() {
   if (!document) {
     return (
       <div className="flex flex-col gap-3">
-        <h1 className="text-lg font-semibold">Avertissement indisponible</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="font-serif text-title text-foreground">Avertissement indisponible</h1>
+        <p className="text-body text-foreground-muted">
           Le disclaimer n&apos;est pas encore disponible dans cet environnement. Réessaie plus tard ou contacte le support.
         </p>
       </div>

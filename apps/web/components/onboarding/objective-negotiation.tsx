@@ -22,25 +22,27 @@ type ObjectiveNegotiationProps = {
 export function ObjectiveNegotiation({ reasoning, proposals, onAcceptProposal, onKeepOriginal, pending, error }: ObjectiveNegotiationProps) {
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">Ton objectif mérite d&apos;être ajusté</h1>
+      <h1 className="font-serif text-title text-foreground">Ton objectif mérite d&apos;être ajusté</h1>
       <Card>
-        <CardContent className="pt-6 text-sm text-neutral-700">
+        <CardContent className="flex flex-col gap-2 pt-5 text-body text-foreground-muted">
           <p>{reasoning.short}</p>
-          <details className="mt-2 text-neutral-500">
-            <summary className="cursor-pointer text-xs font-medium">En savoir plus</summary>
-            <p className="mt-1 whitespace-pre-wrap text-xs">{reasoning.long}</p>
+          <details className="text-foreground-subtle">
+            <summary className="cursor-pointer text-body-strong font-semibold text-accent">
+              En savoir plus →
+            </summary>
+            <p className="mt-1 whitespace-pre-wrap text-small">{reasoning.long}</p>
           </details>
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {proposals.map((proposal) => (
           <Card key={proposal.id}>
             <CardHeader>
-              <CardTitle className="text-sm">{proposal.label}</CardTitle>
+              <CardTitle>{proposal.label}</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm text-neutral-700">
-              <p className="text-neutral-500">Nouvelle date cible : {proposal.targetDate}</p>
+            <CardContent className="flex flex-col gap-2 text-body text-foreground-muted">
+              <p className="text-small">Nouvelle date cible : {proposal.targetDate}</p>
               <p>{proposal.rationale}</p>
               <Button variant="secondary" onClick={() => onAcceptProposal(proposal.id)} disabled={pending}>
                 Choisir cette proposition
@@ -51,7 +53,7 @@ export function ObjectiveNegotiation({ reasoning, proposals, onAcceptProposal, o
       </div>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}

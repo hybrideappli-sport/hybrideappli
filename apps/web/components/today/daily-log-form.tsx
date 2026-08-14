@@ -1,11 +1,21 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ChevronDown, Check } from "lucide-react";
 import { ADHERENCE_LEVELS, BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS } from "@hybride/domain";
 import type { AdherenceLevel, BodyZone, CompletionStatus, CreateSessionLogResponse, PainLevel } from "@hybride/domain";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AdjustmentFeedback } from "./adjustment-feedback";
+
+// Boîte de sélection — docs/design-system.md §4.6 (« Select : même boîte + chevron
+// `--color-foreground-muted` à droite »). Le `<select>` natif est conservé (comportement/tests
+// inchangés, cf. `e2e/pain-acute.spec.ts` qui pilote ces champs via `selectOption`) : seule
+// l'habillage visuel change.
+const SELECT_CLASSES =
+  "h-[52px] w-full appearance-none rounded-md border border-transparent bg-surface-raised px-4 pr-10 text-body text-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
 
 const COMPLETION_LABELS: Record<CompletionStatus, string> = { done: "Réalisée", partial: "Partiellement réalisée", not_done: "Non réalisée" };
 const PAIN_LABELS: Record<PainLevel, string> = { none: "Aucune gêne", light: "Gêne légère", pain: "Douleur" };
@@ -93,147 +103,152 @@ export function DailyLogForm({ plannedSessionId, loggedDate }: { plannedSessionI
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-4" data-testid="daily-log-form">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="completion" className="text-sm font-medium">
-          Séance réalisée ?
-        </label>
-        <select
-          id="completion"
-          value={completion}
-          onChange={(e) => setCompletion(e.target.value as CompletionStatus)}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
-        >
-          {COMPLETION_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {COMPLETION_LABELS[status]}
-            </option>
-          ))}
-        </select>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-lg bg-surface p-4" data-testid="daily-log-form">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="completion">Séance réalisée ?</Label>
+        <div className="relative">
+          <select
+            id="completion"
+            value={completion}
+            onChange={(e) => setCompletion(e.target.value as CompletionStatus)}
+            className={SELECT_CLASSES}
+          >
+            {COMPLETION_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {COMPLETION_LABELS[status]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-foreground-muted" />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="rpe" className="text-sm font-medium">
-          Effort ressenti (RPE, 1 à 10)
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="rpe">Effort ressenti (RPE, 1 à 10)</Label>
+        <Input
           id="rpe"
           type="number"
+          inputMode="numeric"
           min={1}
           max={10}
           value={rpe}
           onChange={(e) => setRpe(Number(e.target.value))}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="freshness" className="text-sm font-medium">
-          Fraîcheur / sommeil (1 à 5)
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="freshness">Fraîcheur / sommeil (1 à 5)</Label>
+        <Input
           id="freshness"
           type="number"
+          inputMode="numeric"
           min={1}
           max={5}
           value={freshness}
           onChange={(e) => setFreshness(Number(e.target.value))}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="pain" className="text-sm font-medium">
-          Douleur ou gêne
-        </label>
-        <select
-          id="pain"
-          value={pain}
-          onChange={(e) => handlePainChange(e.target.value as PainLevel)}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
-        >
-          {PAIN_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {PAIN_LABELS[level]}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {pain !== "none" ? (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="painZone" className="text-sm font-medium">
-            Localisation
-          </label>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="pain">Douleur ou gêne</Label>
+        <div className="relative">
           <select
-            id="painZone"
-            value={painZone}
-            onChange={(e) => setPainZone(e.target.value as BodyZone)}
-            className="rounded-md border border-neutral-300 p-2 text-sm"
-            required
+            id="pain"
+            value={pain}
+            onChange={(e) => handlePainChange(e.target.value as PainLevel)}
+            className={SELECT_CLASSES}
           >
-            <option value="" disabled>
-              Choisis une zone
-            </option>
-            {BODY_ZONES.map((zone) => (
-              <option key={zone} value={zone}>
-                {ZONE_LABELS[zone]}
+            {PAIN_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {PAIN_LABELS[level]}
               </option>
             ))}
           </select>
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-foreground-muted" />
+        </div>
+      </div>
+
+      {pain !== "none" ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="painZone">Localisation</Label>
+          <div className="relative">
+            <select
+              id="painZone"
+              value={painZone}
+              onChange={(e) => setPainZone(e.target.value as BodyZone)}
+              className={SELECT_CLASSES}
+              required
+            >
+              <option value="" disabled>
+                Choisis une zone
+              </option>
+              {BODY_ZONES.map((zone) => (
+                <option key={zone} value={zone}>
+                  {ZONE_LABELS[zone]}
+                </option>
+              ))}
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-foreground-muted" />
+          </div>
         </div>
       ) : null}
 
       {/* AC9 niveau 3 — question conditionnelle, UNIQUEMENT si "douleur" (pas "gêne légère"). */}
       {pain === "pain" ? (
-        <div className="flex items-center gap-2">
-          <input id="painAtRest" type="checkbox" checked={painAtRest} onChange={(e) => setPainAtRest(e.target.checked)} />
-          <label htmlFor="painAtRest" className="text-sm">
-            Cette douleur est-elle aussi présente au repos ?
-          </label>
-        </div>
+        <label htmlFor="painAtRest" className="flex min-h-11 cursor-pointer items-center gap-3">
+          <span className="relative flex size-6 shrink-0 items-center justify-center">
+            <input
+              id="painAtRest"
+              type="checkbox"
+              checked={painAtRest}
+              onChange={(e) => setPainAtRest(e.target.checked)}
+              className="peer size-6 shrink-0 appearance-none rounded-sm border-[1.5px] border-border-strong bg-transparent checked:border-accent checked:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            />
+            <Check aria-hidden="true" className="pointer-events-none absolute size-4 text-on-accent opacity-0 peer-checked:opacity-100" />
+          </span>
+          <span className="text-body text-foreground">Cette douleur est-elle aussi présente au repos ?</span>
+        </label>
       ) : null}
 
-      <div className="flex flex-col gap-1 border-t border-neutral-100 pt-3">
-        <label htmlFor="adherence" className="text-sm font-medium">
-          Adhérence nutrition
-        </label>
-        <select
-          id="adherence"
-          value={adherence}
-          onChange={(e) => setAdherence(e.target.value as AdherenceLevel)}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
-        >
-          {ADHERENCE_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {ADHERENCE_LABELS[level]}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+        <Label htmlFor="adherence">Adhérence nutrition</Label>
+        <div className="relative">
+          <select
+            id="adherence"
+            value={adherence}
+            onChange={(e) => setAdherence(e.target.value as AdherenceLevel)}
+            className={SELECT_CLASSES}
+          >
+            {ADHERENCE_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {ADHERENCE_LABELS[level]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-foreground-muted" />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="energy" className="text-sm font-medium">
-          Énergie ressentie (1 à 5)
-        </label>
-        <input
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="energy">Énergie ressentie (1 à 5)</Label>
+        <Input
           id="energy"
           type="number"
+          inputMode="numeric"
           min={1}
           max={5}
           value={energy}
           onChange={(e) => setEnergy(Number(e.target.value))}
-          className="rounded-md border border-neutral-300 p-2 text-sm"
         />
       </div>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
 
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} loading={pending}>
         {pending ? "Enregistrement…" : "Enregistrer ma séance"}
       </Button>
     </form>

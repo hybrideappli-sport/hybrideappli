@@ -22,15 +22,15 @@ const DIRECTION_ARROW: Record<PlanDiffItemView["direction"], string> = {
 /** `DiffItemRow` — un item du diff hebdomadaire, direction ↑/↓ + explication (AC5, plan §1.6). */
 export function DiffItemRow({ item }: { item: PlanDiffItemView }) {
   return (
-    <li className="rounded-md border border-neutral-200 p-3" data-testid="diff-item-row" data-direction={item.direction}>
+    <li className="rounded-md bg-surface-raised p-3" data-testid="diff-item-row" data-direction={item.direction}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-neutral-800">
+        <span className="text-body-strong font-semibold text-foreground">
           <span aria-hidden className="mr-1">
             {DIRECTION_ARROW[item.direction]}
           </span>
           {KIND_LABELS[item.kind]}
         </span>
-        {item.targetDate ? <span className="text-xs text-neutral-400">{item.targetDate}</span> : null}
+        {item.targetDate ? <span className="text-caption text-foreground-subtle">{item.targetDate}</span> : null}
       </div>
       {item.explanation ? (
         <div className="mt-1">

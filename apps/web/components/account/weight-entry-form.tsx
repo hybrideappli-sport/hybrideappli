@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * `WeightEntryForm` — AC11, finding I7. Saisie minimale du poids déclaré : c'est la seule mesure
@@ -49,13 +50,13 @@ export function WeightEntryForm({ latestWeightKg, measuredOn }: { latestWeightKg
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-4" data-testid="weight-entry-form">
-      <p className="text-sm font-medium text-neutral-800">Poids déclaré</p>
-      <p className="text-sm text-neutral-600">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 rounded-lg bg-surface p-4" data-testid="weight-entry-form">
+      <p className="text-body-strong font-semibold text-foreground">Poids déclaré</p>
+      <p className="text-body text-foreground-muted">
         Utilisé pour calculer tes cibles caloriques et macros (AC11) — sans lui, le coach utilise une valeur par défaut générique.
       </p>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="number"
           inputMode="decimal"
           step="0.1"
@@ -63,22 +64,22 @@ export function WeightEntryForm({ latestWeightKg, measuredOn }: { latestWeightKg
           max={400}
           value={weight}
           onChange={(event) => setWeight(event.target.value)}
-          className="w-24 rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          className="w-24"
           aria-label="Poids en kilogrammes"
           data-testid="weight-input"
         />
-        <span className="text-sm text-neutral-600">kg</span>
-        <Button type="submit" size="sm" disabled={pending} data-testid="weight-submit">
+        <span className="text-body text-foreground-muted">kg</span>
+        <Button type="submit" size="sm" disabled={pending} loading={pending} data-testid="weight-submit">
           {pending ? "Enregistrement…" : "Enregistrer"}
         </Button>
       </div>
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
       {success ? (
-        <p className="text-sm text-emerald-700" data-testid="weight-saved">
+        <p className="text-small text-success" data-testid="weight-saved">
           Poids enregistré.
         </p>
       ) : null}

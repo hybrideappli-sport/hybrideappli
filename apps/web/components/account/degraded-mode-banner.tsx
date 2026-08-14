@@ -11,14 +11,14 @@ export function DegradedModeBanner() {
     <div
       role="status"
       data-testid="degraded-mode-banner"
-      className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+      className="rounded-lg bg-warning/10 p-4 text-body text-warning"
     >
-      <p className="font-semibold">Mode dégradé — consentement santé non actif</p>
-      <p className="mt-1">
+      <p className="text-body-strong font-semibold">Mode dégradé — consentement santé non actif</p>
+      <p className="mt-1 text-foreground-muted">
         Sans ce consentement, le coach ne peut plus enregistrer tes séances, tes repas ni tes gênes/douleurs — ton plan reste consultable,
         mais il ne s&apos;ajuste plus à tes nouvelles saisies.
       </p>
-      <Link href="/compte" className="mt-2 inline-block font-medium text-amber-900 underline underline-offset-2" data-testid="degraded-mode-link">
+      <Link href="/compte" className="mt-2 inline-block text-body-strong font-semibold text-warning underline underline-offset-2" data-testid="degraded-mode-link">
         Gérer mon consentement
       </Link>
     </div>

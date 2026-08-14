@@ -23,7 +23,7 @@ export function ResetRequestForm() {
 
   if (state.success) {
     return (
-      <p className="text-sm text-neutral-700">
+      <p className="text-body text-foreground-muted">
         Si un compte existe avec cette adresse, un lien de réinitialisation vient de vous
         être envoyé.
       </p>
@@ -37,15 +37,15 @@ export function ResetRequestForm() {
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} loading={isPending}>
         {isPending ? "Envoi..." : "Envoyer le lien"}
       </Button>
-      <p className="text-center text-sm text-neutral-500">
-        <Link href="/connexion" className="hover:underline">
+      <p className="text-center text-small text-foreground-muted">
+        <Link href="/connexion" className="hover:text-foreground hover:underline">
           Retour à la connexion
         </Link>
       </p>

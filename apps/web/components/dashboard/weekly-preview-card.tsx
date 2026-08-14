@@ -27,30 +27,30 @@ export function WeeklyPreviewCard({ week, macroFocus }: { week: WeekPlanResponse
   return (
     <Card data-testid="weekly-preview-card">
       <CardHeader>
-        <CardTitle className="text-sm">Ta semaine complète</CardTitle>
+        <CardTitle>Ta semaine complète</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm text-neutral-600">
+      <CardContent className="flex flex-col gap-3 text-body text-foreground-muted">
         {week ? (
           <>
             <ul className="grid grid-cols-7 gap-1 text-center" data-testid="weekly-preview-days">
               {week.days.map((day, index) => (
                 <li key={day.date} className="flex flex-col items-center gap-1">
-                  <span className="text-xs font-medium text-neutral-500">{WEEKDAY_LABELS[index]}</span>
+                  <span className="text-caption font-medium text-foreground-subtle">{WEEKDAY_LABELS[index]}</span>
                   <span
-                    className={`w-full rounded-md px-1 py-2 text-[11px] leading-tight ${day.session ? "bg-orange-50 text-orange-700" : "bg-neutral-100 text-neutral-500"}`}
+                    className={`w-full rounded-md px-1 py-2 text-[11px] leading-tight ${day.session ? "bg-accent-subtle text-accent" : "bg-surface-raised text-foreground-subtle"}`}
                   >
                     {day.session ? (SESSION_TYPE_LABELS[day.session.sessionType] ?? day.session.sessionType) : "Repos"}
                   </span>
                 </li>
               ))}
             </ul>
-            {week.isDeload ? <p className="text-xs font-medium text-neutral-500">Semaine de décharge (AC8) — volume réduit, non désactivable.</p> : null}
+            {week.isDeload ? <p className="text-caption font-medium text-foreground-subtle">Semaine de décharge (AC8) — volume réduit, non désactivable.</p> : null}
           </>
         ) : (
           <p>Ta vue semaine apparaîtra ici dès que ton plan sera généré.</p>
         )}
         {macroFocus ? (
-          <p className="border-t border-neutral-100 pt-2 text-xs text-neutral-500" data-testid="weekly-preview-macro-focus">
+          <p className="border-t border-border-subtle pt-2 text-caption text-foreground-subtle" data-testid="weekly-preview-macro-focus">
             Bloc en cours : {macroFocus}
           </p>
         ) : null}
@@ -69,13 +69,13 @@ export function WeeklyPreviewLocked() {
   return (
     <Card className="relative overflow-hidden" data-testid="weekly-preview-locked">
       <CardHeader>
-        <CardTitle className="text-sm">Aperçu de ta semaine</CardTitle>
+        <CardTitle>Aperçu de ta semaine</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2 text-sm text-neutral-500">
+      <CardContent className="flex flex-col gap-2 text-body text-foreground-muted">
         <p aria-hidden className="select-none blur-sm">
           Lun · Mar · Mer · Jeu · Ven · Sam · Dim — vision complète de ta semaine
         </p>
-        <p className="font-medium text-neutral-700">Réservé aux abonnés — passe en illimité pour voir ta semaine complète.</p>
+        <p className="font-medium text-foreground">Réservé aux abonnés — passe en illimité pour voir ta semaine complète.</p>
       </CardContent>
     </Card>
   );

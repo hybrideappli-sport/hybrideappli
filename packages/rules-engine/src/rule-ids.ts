@@ -45,4 +45,8 @@ export const RULE_IDS = {
   stagnationDiagnosis: "stagnation.diagnosis",
 
   objectiveEnd: "objective_end.offer",
+
+  // US-02 — ADR-014. Hors pipeline (§6 de l'ADR) : jamais référencé par `generate-plan.ts`.
+  hybridScoreCalibration: "hybrid_score.calibration_insufficient_data",
+  hybridScoreComputed: "hybrid_score.computed",
 } as const;

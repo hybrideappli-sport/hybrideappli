@@ -133,10 +133,10 @@ export function CoachChat() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
-      <div className="border-b border-neutral-200 bg-white px-4 py-3">
-        <h1 className="text-base font-semibold">Ton coach IA</h1>
-        <p className="text-xs text-neutral-500">Quelques questions pour construire ton premier plan.</p>
+    <div className="flex h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-lg bg-surface">
+      <div className="bg-surface-sunken px-4 py-3">
+        <h1 className="text-heading font-semibold text-foreground">Ton coach IA</h1>
+        <p className="text-caption text-foreground-subtle">Quelques questions pour construire ton premier plan.</p>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.map((message) => (
@@ -144,7 +144,7 @@ export function CoachChat() {
         ))}
         {pending ? <CoachTypingIndicator /> : null}
         {error ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-small text-danger">
             {error}
           </p>
         ) : null}

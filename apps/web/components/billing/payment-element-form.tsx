@@ -58,11 +58,11 @@ function CheckoutForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" data-testid="payment-element-form">
       <PaymentElement />
       {error ? (
-        <p role="alert" className="text-sm text-red-600" data-testid="payment-error">
+        <p role="alert" className="text-small text-danger" data-testid="payment-error">
           {error}
         </p>
       ) : null}
-      <Button type="submit" disabled={!stripe || !elements || pending} data-testid="payment-submit">
+      <Button type="submit" disabled={!stripe || !elements || pending} loading={pending} data-testid="payment-submit">
         {pending ? "Traitement en cours…" : "Payer et activer mon abonnement"}
       </Button>
     </form>

@@ -15,18 +15,18 @@ export function UpsellBanner({ tier }: { tier: "free" | "premium" }) {
   if (tier === "premium" || dismissed) return null;
 
   return (
-    <Card className="border-dashed" data-testid="upsell-banner">
-      <CardContent className="flex items-center justify-between gap-3 pt-6 text-sm text-neutral-700">
+    <Card data-testid="upsell-banner">
+      <CardContent className="flex items-center justify-between gap-3 pt-5 text-body text-foreground-muted">
         <p>
           Ton coach est disponible 24/7 et s&apos;adapte en continu à ta réalité.{" "}
-          <Link href="/abonnement" className="font-medium text-orange-500 underline underline-offset-2" data-testid="upsell-cta">
+          <Link href="/abonnement" className="text-body-strong font-semibold text-accent underline underline-offset-2" data-testid="upsell-cta">
             Passe en illimité
           </Link>{" "}
           pour débloquer ta semaine complète.
         </p>
         <button
           type="button"
-          className="shrink-0 text-xs text-neutral-400 hover:text-neutral-600"
+          className="shrink-0 text-caption text-foreground-subtle hover:text-foreground-muted"
           onClick={() => setDismissed(true)}
           aria-label="Fermer ce message"
         >

@@ -8,7 +8,9 @@ import type { Json } from "@hybride/db/types";
  * `job_queue` — enrôlement + drain (ADR-011, `docs/db-schema.md` §8). Table strictement
  * `service_role` (aucune policy RLS) : ce module n'est jamais appelé avec un client authentifié.
  */
-export type JobKind = "weekly_review" | "objective_check";
+// US-02 — `strava_backfill` (rattrapage 90 j à la connexion), `strava_activity_sync` (webhook
+// temps réel, un événement), `strava_reconcile` (filet quotidien, fenêtre 7 j) — ADR-013 §1.
+export type JobKind = "weekly_review" | "objective_check" | "strava_backfill" | "strava_activity_sync" | "strava_reconcile";
 
 /**
  * Après combien de secondes d'immobilité un job `running` est considéré planté et repris

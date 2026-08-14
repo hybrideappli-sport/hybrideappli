@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,27 +44,35 @@ export function HealthConsentForm({ title, bodyMd }: HealthConsentFormProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{title}</h1>
+      <h1 className="font-serif text-title text-foreground">{title}</h1>
       <Card>
-        <CardContent className="prose prose-sm max-h-96 overflow-y-auto whitespace-pre-wrap pt-6 text-sm text-neutral-700">{bodyMd}</CardContent>
+        <CardContent className="max-h-96 overflow-y-auto whitespace-pre-wrap pt-5 text-body text-foreground-muted">
+          {bodyMd}
+        </CardContent>
       </Card>
-      <label className="flex items-start gap-2 text-sm text-neutral-800">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => setChecked(event.target.checked)}
-          className="mt-1"
-          aria-label="Je consens au traitement de mes données de santé"
-        />
-        Je consens au traitement de mes données de santé (fréquence cardiaque, sommeil, poids, douleur) pour permettre au coach IA
-        d&apos;ajuster mon plan.
+      <label className="flex min-h-11 cursor-pointer items-start gap-3">
+        <span className="relative mt-0.5 flex size-6 shrink-0 items-center justify-center">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => setChecked(event.target.checked)}
+            className="peer size-6 shrink-0 appearance-none rounded-sm border-[1.5px] border-border-strong bg-transparent checked:border-accent checked:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            aria-label="Je consens au traitement de mes données de santé"
+            aria-describedby={error ? "health-consent-error" : undefined}
+          />
+          <Check aria-hidden="true" className="pointer-events-none absolute size-4 text-on-accent opacity-0 peer-checked:opacity-100" />
+        </span>
+        <span className="text-body text-foreground">
+          Je consens au traitement de mes données de santé (fréquence cardiaque, sommeil, poids, douleur) pour permettre au coach IA
+          d&apos;ajuster mon plan.
+        </span>
       </label>
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p id="health-consent-error" role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
-      <Button onClick={handleConsent} disabled={!checked || pending}>
+      <Button onClick={handleConsent} disabled={!checked || pending} loading={pending}>
         {pending ? "Validation…" : "J'accepte, continuer"}
       </Button>
     </div>

@@ -79,6 +79,19 @@ export const TEST_RULESET: Ruleset = {
       accesses_per_period: 3,
       window_strategy: "fixed_week",
     },
+    // US-02 — ADR-014 §1, valeurs tranchées par le fondateur le 2026-08-12 (contrairement aux
+    // sections ci-dessus, CE ne sont PAS des placeholders provisoires : recopiées à l'identique de
+    // `supabase/migrations/0021_seed_data_sources.sql` / ruleset `0.2.0-dev`).
+    hybrid_score: {
+      weights: { volume: 0.5, consistency: 0.3, diversity: 0.2 },
+      chronic_load_reference_units: 700,
+      target_active_days_per_28d: 20,
+      diversity_reference_disciplines: 3,
+      acute_window_days: 7,
+      chronic_window_days: 28,
+      calibration_min_weeks: 4,
+      min_sessions_for_score: 4,
+    },
   },
   sourceRefs: {
     "guardrails.weekly_volume_progression_cap_pct": {

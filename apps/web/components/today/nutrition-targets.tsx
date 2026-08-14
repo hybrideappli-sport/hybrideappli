@@ -14,31 +14,31 @@ export function NutritionTargets({ nutrition }: { nutrition: TodayNutritionView 
   return (
     <Card data-testid="nutrition-targets">
       <CardHeader>
-        <CardTitle className="text-sm">Nutrition du jour — {MODULATION_LABELS[nutrition.modulationReason] ?? nutrition.modulationReason}</CardTitle>
+        <CardTitle>Nutrition du jour — {MODULATION_LABELS[nutrition.modulationReason] ?? nutrition.modulationReason}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm text-neutral-700">
-        <div className="flex gap-4">
-          <span className="font-medium">{nutrition.kcalTarget} kcal</span>
+      <CardContent className="flex flex-col gap-3 text-body text-foreground-muted">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="text-metric font-bold text-foreground">{nutrition.kcalTarget} kcal</span>
           <span>{nutrition.proteinG} g protéines</span>
           <span>{nutrition.carbsG} g glucides</span>
           <span>{nutrition.fatG} g lipides</span>
         </div>
-        <div className="flex flex-col gap-1 text-neutral-600">
+        <div className="flex flex-col gap-1">
           {nutrition.advice.pre ? (
             <p>
-              <span className="font-medium">Avant — </span>
+              <span className="font-medium text-foreground">Avant — </span>
               {nutrition.advice.pre}
             </p>
           ) : null}
           {nutrition.advice.during ? (
             <p>
-              <span className="font-medium">Pendant — </span>
+              <span className="font-medium text-foreground">Pendant — </span>
               {nutrition.advice.during}
             </p>
           ) : null}
           {nutrition.advice.post ? (
             <p>
-              <span className="font-medium">Après — </span>
+              <span className="font-medium text-foreground">Après — </span>
               {nutrition.advice.post}
             </p>
           ) : null}

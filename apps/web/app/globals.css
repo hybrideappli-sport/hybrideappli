@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
+/* Design system Hybride Club — thème sombre unique (docs/design-system.md). */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Surfaces */
+  --background: #0a0a0a;
+  --surface: #1a1a1a;
+  --surface-raised: #262626;
+  --surface-sunken: #141414;
+  --border-subtle: #262626;
+  --border-strong: #3a3a3a;
+
+  /* Texte */
+  --foreground: #ffffff;
+  --foreground-muted: #a1a1aa;
+  --foreground-subtle: #8b8b94;
+  --foreground-on-accent: #0a0a0a;
+
+  /* Accent */
+  --accent: #a78bfa;
+  --accent-hover: #b9a3fb;
+  --accent-pressed: #8b5cf6;
+  --accent-subtle: #241e3a;
+
+  /* Sémantique */
+  --success: #4ade80;
+  --info: #60a5fa;
+  --warning: #f59e0b;
+  --danger: #f87171;
+
+  /* Élévation */
+  --shadow-overlay-value: 0 -8px 24px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-on-accent: var(--foreground-on-accent);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-subtle: var(--accent-subtle);
+
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-inter), -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-serif: var(--font-playfair), "Source Serif 4", Georgia, serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-overlay: var(--shadow-overlay-value);
+
+  /* Échelle typographique (docs/design-system.md §2.2). Chaque token pilote
+     taille + interligne (+ graisse) ; la famille (serif/sans) reste à poser
+     via `font-serif`/`font-sans` au cas par cas, cf. règle d'or §2.1. */
+  --text-display: 32px;
+  --text-display--line-height: 36px;
+  --text-display--font-weight: 700;
+
+  --text-title: 24px;
+  --text-title--line-height: 30px;
+  --text-title--font-weight: 700;
+
+  --text-heading: 20px;
+  --text-heading--line-height: 26px;
+  --text-heading--font-weight: 600;
+
+  --text-metric: 22px;
+  --text-metric--line-height: 26px;
+  --text-metric--font-weight: 700;
+
+  --text-question: 16px;
+  --text-question--line-height: 22px;
+  --text-question--font-weight: 600;
+
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+  --text-body--font-weight: 400;
+
+  --text-body-strong: 15px;
+  --text-body-strong--line-height: 24px;
+  --text-body-strong--font-weight: 600;
+
+  --text-button: 16px;
+  --text-button--line-height: 20px;
+  --text-button--font-weight: 600;
+
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-small--font-weight: 400;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+
+  /* US-02 — extension de l'échelle typographique pour la valeur héroïque de l'anneau de score
+     hybride (`09-design-feature2-notes.md` §6, écart 2) : `--text-metric` 22px est trop petit pour
+     un chiffre héros à lecture immédiate. Aucune police ni couleur nouvelle — sans 700, 48/52. */
+  --text-score: 48px;
+  --text-score--line-height: 52px;
+  --text-score--font-weight: 700;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Signature forte de la charte : label de section majuscule très tracké
+   (docs/design-system.md §2.2 `--text-label`, §4.5 badges, tab bar, etc.).
+   Non exprimable via le namespace `--text-*` de `@theme` (text-transform
+   n'y est pas supporté), d'où une classe utilitaire dédiée. */
+.text-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

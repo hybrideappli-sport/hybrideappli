@@ -63,19 +63,19 @@ export default async function TodayPage() {
 
   if (blocked) {
     return (
-      <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
-        <h1 className="text-xl font-semibold">Séance et repas du jour</h1>
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+        <h1 className="font-serif text-title text-foreground">Séance et repas du jour</h1>
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
         {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
-        <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
-          <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
-          <p className="mt-1">Le détail de ta séance et de tes repas revient demain (ou passe en illimité) — mais ta saisie du jour reste possible ci-dessous.</p>
+        <div className="rounded-lg bg-surface p-6 text-center" data-testid="paywall-blocked">
+          <p className="text-body-strong font-semibold text-foreground">Tu as utilisé tous tes accès libres cette semaine</p>
+          <p className="mt-1 text-body text-foreground-muted">Le détail de ta séance et de tes repas revient demain (ou passe en illimité) — mais ta saisie du jour reste possible ci-dessous.</p>
         </div>
         {/* AC13/ADR-008 §5 — `POST /session-logs` ne consomme jamais d'accès libre : seul le
             CONTENU (séance/nutrition détaillés) est derrière le quota, jamais la saisie. */}
         <DailyLogForm plannedSessionId={null} loggedDate={now} />
-        <Link href="/dashboard" className="text-sm font-medium text-orange-500 underline-offset-4 hover:underline">
+        <Link href="/dashboard" className="text-body-strong font-semibold text-accent underline-offset-4 hover:underline">
           Retour au Dashboard
         </Link>
       </main>
@@ -91,10 +91,10 @@ export default async function TodayPage() {
     : [null, null];
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+    <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Séance et repas du jour</h1>
-        <Link href="/dashboard" className="text-sm text-neutral-500 underline-offset-4 hover:underline">
+        <h1 className="font-serif text-title text-foreground">Séance et repas du jour</h1>
+        <Link href="/dashboard" className="text-small text-foreground-muted hover:text-foreground hover:underline">
           Dashboard
         </Link>
       </div>
@@ -107,7 +107,7 @@ export default async function TodayPage() {
 
       {session || nutrition ? (
         session?.log ? (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600" data-testid="already-logged">
+          <div className="rounded-lg bg-surface-raised p-4 text-body text-foreground-muted" data-testid="already-logged">
             <p>Tu as déjà enregistré ta saisie du jour.</p>
           </div>
         ) : (

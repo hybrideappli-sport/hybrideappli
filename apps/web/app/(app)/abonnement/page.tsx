@@ -34,9 +34,9 @@ export default async function SubscriptionPage() {
 
   if (entitlement.tier === "premium") {
     return (
-      <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
-        <h1 className="text-xl font-semibold">Abonnement</h1>
-        <p className="text-sm text-neutral-600" data-testid="already-subscribed">
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+        <h1 className="font-serif text-title text-foreground">Abonnement</h1>
+        <p className="text-body text-foreground-muted" data-testid="already-subscribed">
           Ton abonnement est déjà actif — toutes les fonctionnalités du coach sont débloquées.
         </p>
       </main>
@@ -45,9 +45,9 @@ export default async function SubscriptionPage() {
 
   if (!publishableKey) {
     return (
-      <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
-        <h1 className="text-xl font-semibold">Abonnement</h1>
-        <p role="alert" className="text-sm text-red-600">
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+        <h1 className="font-serif text-title text-foreground">Abonnement</h1>
+        <p role="alert" className="text-small text-danger">
           Le paiement est momentanément indisponible. Réessaie dans quelques instants.
         </p>
       </main>
@@ -60,8 +60,8 @@ export default async function SubscriptionPage() {
   ]);
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
-      <h1 className="text-xl font-semibold">Débloquer ton coach en illimité</h1>
+    <main className="mx-auto flex max-w-md flex-col gap-6 px-5 py-8">
+      <h1 className="font-serif text-title text-foreground">Débloquer ton coach en illimité</h1>
       <OfferCard offer={offer} />
       <PaymentElementForm clientSecret={intent.clientSecret} publishableKey={publishableKey} />
     </main>

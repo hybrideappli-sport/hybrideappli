@@ -7,6 +7,8 @@ import type { EntitlementView } from "@hybride/domain";
 import { signOutAction } from "@/app/(auth)/actions";
 import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { CoachPlanCard } from "@/components/dashboard/coach-plan-card";
+import { ConnectInviteCard } from "@/components/dashboard/connect-invite-card";
+import { DataCard } from "@/components/dashboard/data-card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { FreeAccessMeter } from "@/components/dashboard/free-access-meter";
 import { UpsellBanner } from "@/components/dashboard/upsell-banner";
@@ -78,9 +80,9 @@ export default async function DashboardPage() {
 
   const header = (
     <div className="flex items-center justify-between">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <h1 className="font-serif text-title text-foreground">Dashboard</h1>
       <div className="flex items-center gap-2">
-        <Link href="/compte" className="text-sm text-neutral-500 underline-offset-4 hover:underline" data-testid="account-link">
+        <Link href="/compte" className="text-small text-foreground-muted hover:text-foreground hover:underline" data-testid="account-link">
           Mon compte
         </Link>
         <form action={signOutAction}>
@@ -94,16 +96,18 @@ export default async function DashboardPage() {
 
   if (blocked) {
     return (
-      <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
         {header}
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
         {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
-        <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
-          <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
-          <p className="mt-1">
+        {/* Quota atteint : le contenu reste visible, seul le CTA bascule vers l'abonnement
+            (docs/design-system.md §4.11 — jamais tout l'écran grisé). */}
+        <div className="rounded-lg bg-surface p-6 text-center" data-testid="paywall-blocked">
+          <p className="text-body-strong font-semibold text-foreground">Tu as utilisé tous tes accès libres cette semaine</p>
+          <p className="mt-1 text-body text-foreground-muted">
             Reviens le {entitlement.freeAccess.resetsAt} pour un nouvel accès gratuit, ou{" "}
-            <Link href="/abonnement" className="font-medium text-orange-500 underline underline-offset-2" data-testid="paywall-upgrade-link">
+            <Link href="/abonnement" className="text-body-strong font-semibold text-accent underline underline-offset-2" data-testid="paywall-upgrade-link">
               passe en illimité
             </Link>{" "}
             pour continuer dès maintenant — ton coach reste disponible 24/7 avec une adaptation continue.
@@ -138,13 +142,19 @@ export default async function DashboardPage() {
   const macroFocus = macroPlan ? macroFocusForToday(macroPlan, now) : null;
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+    <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
       {header}
 
       {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
       {!healthConsentActive ? <DegradedModeBanner /> : null}
 
       {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
+
+      {/* US-02 — ordre éditorial `08-architecture.md` §13.6/§14.4 : plan du jour (ci-dessus) →
+          emplacement réservé à `D-planning-card` (F3, pas encore construit) → les deux cartes F2
+          → reste du Dashboard inchangé. `ConnectInviteCard` se masque elle-même hors régime froid. */}
+      <ConnectInviteCard userId={user.id} />
+      <DataCard userId={user.id} />
 
       <PaywallGate entitled={entitlement.canViewWeek} fallback={<WeeklyPreviewLocked />}>
         <WeeklyPreviewCard week={weekPlan} macroFocus={macroFocus} />

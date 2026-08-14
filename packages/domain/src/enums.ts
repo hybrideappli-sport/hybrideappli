@@ -110,6 +110,10 @@ export const PLAN_TRIGGERS = [
   "stagnation",
   "objective_end",
   "manual_admin",
+  // US-02 — ADR-014 §5/§6 : réutilise `engine_runs.trigger` pour l'auditabilité de
+  // `computeHybridScore()`, comme `pain_protocol` le fait déjà pour `evaluatePainProtocol()`. Ne
+  // déclenche AUCUNE génération de plan (`TRIGGERS_ALLOWING_INCREASE` ne le liste pas).
+  "hybrid_score",
 ] as const;
 export type PlanTrigger = (typeof PLAN_TRIGGERS)[number];
 
@@ -165,6 +169,8 @@ export const DECISION_TRACE_CATEGORIES = [
   "feasibility",
   "risk_restriction",
   "calibration",
+  // US-02 — ADR-014 : `computeHybridScore()` produit sa propre trace, hors pipeline (§6 de l'ADR).
+  "hybrid_score",
 ] as const;
 export type DecisionTraceCategory = (typeof DECISION_TRACE_CATEGORIES)[number];
 
@@ -176,6 +182,9 @@ export const DECISION_TRACE_SCOPES = [
   "nutrition_day",
   "objective",
   "pain_zone",
+  // US-02 — ADR-014 : le score hybride n'est rattaché à aucun plan/objectif, seulement à une
+  // fenêtre glissante de séances réalisées.
+  "hybrid_score",
 ] as const;
 export type DecisionTraceScope = (typeof DECISION_TRACE_SCOPES)[number];
 
@@ -237,5 +246,8 @@ export const ONBOARDING_CHAT_STEPS: readonly OnboardingStep[] = [
 ];
 
 /** `consent_documents.code` / `consents.document_code` — ADR-010 §1. */
-export const CONSENT_CODES = ["medical_disclaimer", "health_data_processing", "terms", "privacy"] as const;
+// US-02, ADR-013 §5 — consentement dédié à l'import de données depuis une source tierce (Strava),
+// distinct de `health_data_processing` : le traitement change (transfert vers/depuis un tiers,
+// jeton d'accès permanent), pas seulement la catégorie de données.
+export const CONSENT_CODES = ["medical_disclaimer", "health_data_processing", "terms", "privacy", "third_party_data_import"] as const;
 export type ConsentCode = (typeof CONSENT_CODES)[number];
