@@ -92,6 +92,33 @@ export const TEST_RULESET: Ruleset = {
       calibration_min_weeks: 4,
       min_sessions_for_score: 4,
     },
+    // US-03 — ADR-016 §4, valeurs recopiées à l'identique de `docs/rulesets/0.3.0-dev.md` /
+    // `supabase/migrations/0025_seed_planning_ruleset.sql`. `min_minutes_between_sessions_same_day`,
+    // `max_sessions_per_day` et `allow_two_intense_sessions_same_day` restent `to_validate`
+    // (ADR-016, question ouverte n°1) ; `incident_soft_limit_per_week` reste `null` (question
+    // produit non tranchée, fiche US-03 §7).
+    planning: {
+      slot_windows: {
+        am: { start: "06:30", end: "11:30" },
+        pm: { start: "16:30", end: "21:30" },
+        unspecified: { start: "06:30", end: "21:30" },
+      },
+      grid_minutes: 30,
+      preferred_start_times: {
+        am: ["07:00", "06:30", "08:00", "09:00"],
+        pm: ["18:30", "19:00", "17:30", "20:00"],
+        unspecified: ["18:30", "07:00", "12:30"],
+      },
+      default_slot_capacity_min: 120,
+      min_lead_time_min: 60,
+      min_minutes_between_sessions_same_day: 360,
+      max_sessions_per_day: 2,
+      allow_two_intense_sessions_same_day: false,
+      incident_block_margin_min: 120,
+      reschedule_scope: "current_week",
+      closeout_local_hour: 3,
+      incident_soft_limit_per_week: null,
+    },
   },
   sourceRefs: {
     "guardrails.weekly_volume_progression_cap_pct": {

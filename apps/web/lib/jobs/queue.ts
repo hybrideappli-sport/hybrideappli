@@ -10,7 +10,16 @@ import type { Json } from "@hybride/db/types";
  */
 // US-02 — `strava_backfill` (rattrapage 90 j à la connexion), `strava_activity_sync` (webhook
 // temps réel, un événement), `strava_reconcile` (filet quotidien, fenêtre 7 j) — ADR-013 §1.
-export type JobKind = "weekly_review" | "objective_check" | "strava_backfill" | "strava_activity_sync" | "strava_reconcile";
+// US-03 — `refresh_placements` (trigger `availability_slots_refresh_placements`, AC2),
+// `schedule_closeout` (clôture d'imprévu quotidienne, ADR-017 §1).
+export type JobKind =
+  | "weekly_review"
+  | "objective_check"
+  | "strava_backfill"
+  | "strava_activity_sync"
+  | "strava_reconcile"
+  | "refresh_placements"
+  | "schedule_closeout";
 
 /**
  * Après combien de secondes d'immobilité un job `running` est considéré planté et repris

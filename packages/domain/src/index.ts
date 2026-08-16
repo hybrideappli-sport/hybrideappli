@@ -59,6 +59,10 @@ export {
   ONBOARDING_STEPS,
   ONBOARDING_CHAT_STEPS,
   CONSENT_CODES,
+  PLACEMENT_STATUSES,
+  PLACEMENT_REASONS,
+  INCIDENT_RESOLUTIONS,
+  INCIDENT_CLOSEOUT_OUTCOMES,
 } from "./enums";
 export type {
   BodyZone,
@@ -90,6 +94,10 @@ export type {
   FreeAccessWindowStrategy,
   OnboardingStep,
   ConsentCode,
+  PlacementStatus,
+  PlacementReason,
+  IncidentResolution,
+  IncidentCloseoutOutcome,
 } from "./enums";
 
 // ---------------------------------------------------------------------------
@@ -104,6 +112,7 @@ export type {
   StagnationParams,
   NutritionParams,
   FreeAccessParams,
+  PlanningParams,
   RulesetParams,
   SourceConfidence,
   RulesetSourceRef,
@@ -309,6 +318,28 @@ export type {
   DataOverviewSync,
   DataOverviewView,
 } from "./data-sources";
+
+// ---------------------------------------------------------------------------
+// planning.ts — US-03, ADR-016/ADR-017
+// ---------------------------------------------------------------------------
+
+export { ReportIncidentInputSchema } from "./planning";
+export type {
+  PlacementCalendarWindowInput,
+  PlacementIncidentWindowInput,
+  PlacementFrozenOccupancyInput,
+  PlacementSessionOriginInput,
+  PlacementSessionInput,
+  PlacementTriggerReason,
+  PlacementInput,
+  PlacementDecision,
+  PlacementResult,
+  SessionPlacementOriginView,
+  SessionPlacementView,
+  ReportIncidentInput,
+  ReportIncidentResponse,
+  AcknowledgeIncidentResponse,
+} from "./planning";
 
 // ---------------------------------------------------------------------------
 // hybrid-score.ts — US-02, ADR-014 — uniquement des types

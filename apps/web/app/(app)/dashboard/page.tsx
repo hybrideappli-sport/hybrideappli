@@ -19,10 +19,12 @@ import { DailyLogForm } from "@/components/today/daily-log-form";
 import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { Button } from "@/components/ui/button";
-import { startOfIsoWeekIso } from "@/lib/dates";
+import { NotDoneNotice } from "@/components/planning/notdone-notice";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
+import { fetchGlidingWeekPreview } from "@/lib/orchestration/read-gliding-week";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
-import { fetchMacroPlan, fetchWeekPlan } from "@/lib/orchestration/read-plan-week-macro";
+import { fetchMacroPlan } from "@/lib/orchestration/read-plan-week-macro";
 import {
   fetchActiveMedicalClearanceNotice,
   fetchActivePainNotice,
@@ -30,7 +32,8 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
-import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { readNotDoneNotices } from "@/lib/planning/read-notdone-notices";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard — Hybride Club" };
@@ -122,23 +125,27 @@ export default async function DashboardPage() {
     );
   }
 
-  const planVersionId = await getActivePlanVersionId(admin, user.id);
-  const [session, nutrition] = planVersionId
-    ? await Promise.all([
-        fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now }),
-        fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
-      ])
-    : [null, null];
+  const ruleset = await getActiveRuleset(admin);
+  const nowParts = nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris");
 
-  // AC13, finding B4 — contenu RÉEL de `WeeklyPreviewCard` (`plan_weeks`/`plan_blocks`, déjà
-  // matérialisés), pas un texte annonçant une fonctionnalité qui n'existait pas encore. Chargé
-  // uniquement pour les abonnés : un utilisateur `free` voit `WeeklyPreviewLocked`, jamais ce fetch.
-  const [weekPlan, macroPlan] = entitlement.canViewWeek && planVersionId
+  const planVersionId = await getActivePlanVersionId(admin, user.id);
+  const [session, nutrition, notDoneNotices] = planVersionId
     ? await Promise.all([
-        fetchWeekPlan(admin, { userId: user.id, planVersionId, weekStart: startOfIsoWeekIso(now) }),
+        fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now, now: nowParts, ruleset }),
+        fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
+        readNotDoneNotices(admin, user.id),
+      ])
+    : [null, null, []];
+
+  // AC13, finding B4 — contenu RÉEL de `D-planning-card` (`session_placements`, déjà matérialisés),
+  // pas un texte annonçant une fonctionnalité qui n'existait pas encore. Chargé uniquement pour les
+  // abonnés : un utilisateur `free` voit `WeeklyPreviewLocked`, jamais ce fetch (AC6).
+  const [glidingWeek, macroPlan] = entitlement.canViewWeek && planVersionId
+    ? await Promise.all([
+        fetchGlidingWeekPreview(admin, { userId: user.id, planVersionId, now: nowParts, ruleset }),
         fetchMacroPlan(admin, { planVersionId }),
       ])
-    : [null, null];
+    : [[], null];
   const macroFocus = macroPlan ? macroFocusForToday(macroPlan, now) : null;
 
   return (
@@ -150,15 +157,21 @@ export default async function DashboardPage() {
 
       {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
 
-      {/* US-02 — ordre éditorial `08-architecture.md` §13.6/§14.4 : plan du jour (ci-dessus) →
-          emplacement réservé à `D-planning-card` (F3, pas encore construit) → les deux cartes F2
-          → reste du Dashboard inchangé. `ConnectInviteCard` se masque elle-même hors régime froid. */}
+      {/* US-03, amendement ADR-017 §8-§9 — `D-notdone-notice` : immédiatement après le plan du jour,
+          avant tout le reste (design §3.1). `notDoneNotices` porte la plus récente ; le composant
+          dérive lui-même « + N autre(s) ». */}
+      {notDoneNotices.length > 0 ? <NotDoneNotice notice={notDoneNotices[0]!} extraCount={notDoneNotices.length - 1} /> : null}
+
+      {/* US-03 — `D-planning-card` : ordre éditorial ARRÊTÉ (`08-architecture.md` §14.4). Le même
+          objet que le plan du jour, à une autre échelle : la séance du jour, puis la semaine qui la
+          contient. Vient AVANT les deux cartes d'enrichissement F2. */}
+      <PaywallGate entitled={entitlement.canViewWeek} fallback={<WeeklyPreviewLocked />}>
+        <WeeklyPreviewCard days={glidingWeek} macroFocus={macroFocus} />
+      </PaywallGate>
+
+      {/* US-02 — `ConnectInviteCard` se masque elle-même hors régime froid. */}
       <ConnectInviteCard userId={user.id} />
       <DataCard userId={user.id} />
-
-      <PaywallGate entitled={entitlement.canViewWeek} fallback={<WeeklyPreviewLocked />}>
-        <WeeklyPreviewCard week={weekPlan} macroFocus={macroFocus} />
-      </PaywallGate>
 
       <WeeklyReviewBadge userId={user.id} />
       {entitlement.tier === "free" ? <FreeAccessMeter freeAccess={entitlement.freeAccess} /> : null}

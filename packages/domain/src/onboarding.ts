@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { CONSENT_CODES, EXPERIENCE_LEVELS, RISK_FLAG_TYPES } from "./enums";
 import type { NutritionCheckinSummary, SessionLogSummary } from "./session-log";
+import type { SessionPlacementView } from "./planning";
 
 // ---------------------------------------------------------------------------
 // Building blocks
@@ -214,6 +215,13 @@ export interface TodaySessionView {
    * réalisé n'existe qu'après passage par `POST /session-logs` (Lot L4).
    */
   log: SessionLogSummary | null;
+  /**
+   * US-03 — heure du jour et droit de signalement (`08-architecture.md` §14.5). `null` tant que
+   * `materializeSessionPlacements()` n'a pas encore tourné pour cette séance (fenêtre transitoire
+   * entre l'écriture de `planned_sessions` et celle de `session_placements`, § 14.2) — jamais un
+   * état d'erreur, jamais bloquant pour l'affichage du reste de la séance.
+   */
+  placement: SessionPlacementView | null;
 }
 
 export interface TodayNutritionView {

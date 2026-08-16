@@ -6,6 +6,8 @@ import type { Database } from "@hybride/db";
 import { runObjectiveCheck } from "../orchestration/run-objective-check";
 import { runWeeklyReview } from "../orchestration/run-weekly-review";
 import { todayInTimezone } from "../orchestration/today-in-timezone";
+import { closeOutScheduleIncidents } from "../planning/close-out-schedule-incidents";
+import { runRefreshPlacements } from "./refresh-placements";
 import { runStravaActivitySync, runStravaBackfill, runStravaReconcile } from "./sync-data-connection";
 import { claimJobs, markJobDone, markJobFailed } from "./queue";
 
@@ -54,6 +56,14 @@ export async function drainJobs(admin: SupabaseClient<Database>, limit: number):
         const connectionId = (job.payload as { connectionId?: string }).connectionId;
         if (!connectionId) throw new Error(`job ${job.id} (strava_reconcile) sans connectionId dans le payload.`);
         await runStravaReconcile(admin, { connectionId });
+      } else if (job.kind === "refresh_placements") {
+        // US-03, AC2 — enrôlé par le trigger `availability_slots_refresh_placements`
+        // (`docs/db-schema.md` §11.4), jamais par une route applicative : aucun payload à valider.
+        await runRefreshPlacements(admin, { userId: job.userId });
+      } else if (job.kind === "schedule_closeout") {
+        const localDate = (job.payload as { localDate?: string }).localDate;
+        if (!localDate) throw new Error(`job ${job.id} (schedule_closeout) sans localDate dans le payload.`);
+        await closeOutScheduleIncidents(admin, { userId: job.userId, localDate });
       } else {
         throw new Error(`job ${job.id} : kind inconnu "${job.kind}".`);
       }

@@ -245,6 +245,35 @@ export const ONBOARDING_CHAT_STEPS: readonly OnboardingStep[] = [
   "risk_filter",
 ];
 
+// ---------------------------------------------------------------------------
+// US-03 — ADR-016 (placement), ADR-017 (clôture d'imprévu). Recopiés à
+// l'identique des `create type ... as enum (...)` de
+// `supabase/migrations/0024_session_placements.sql` (docs/db-schema.md §11.1).
+// ---------------------------------------------------------------------------
+
+export const PLACEMENT_STATUSES = ["scheduled", "moved", "cancelled_week"] as const;
+export type PlacementStatus = (typeof PLACEMENT_STATUSES)[number];
+
+export const PLACEMENT_REASONS = [
+  "initial",
+  "plan_regenerated",
+  "availability_changed",
+  "incident_reported",
+  "no_slot_available",
+] as const;
+export type PlacementReason = (typeof PLACEMENT_REASONS)[number];
+
+export const INCIDENT_RESOLUTIONS = ["rescheduled", "cancelled_week"] as const;
+export type IncidentResolution = (typeof INCIDENT_RESOLUTIONS)[number];
+
+export const INCIDENT_CLOSEOUT_OUTCOMES = [
+  "log_created",
+  "already_logged",
+  "skipped_no_consent",
+  "skipped_session_absent",
+] as const;
+export type IncidentCloseoutOutcome = (typeof INCIDENT_CLOSEOUT_OUTCOMES)[number];
+
 /** `consent_documents.code` / `consents.document_code` — ADR-010 §1. */
 // US-02, ADR-013 §5 — consentement dédié à l'import de données depuis une source tierce (Strava),
 // distinct de `health_data_processing` : le traitement change (transfert vers/depuis un tiers,

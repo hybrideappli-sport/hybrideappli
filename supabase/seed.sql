@@ -126,3 +126,12 @@ update consent_documents d
 update rulesets r set is_active = true
  where r.version = '0.2.0-dev'
    and not exists (select 1 from rulesets x where x.is_active);
+
+-- `0.3.0-dev` (planning, ADR-016) : même clause DÉFENSIVE, même raison — `0.1.0-dev` reste le
+-- ruleset actif en local tant que ce fichier s'exécute dans cet ordre, et c'est voulu : la section
+-- `planning` est optionnelle avec défauts (docs/db-schema.md §11.5, ADR-016 §4), exactement comme
+-- `hybrid_score` ci-dessus, précisément pour que `0.1.0-dev` reste un ruleset actif valide pour le
+-- placement horaire sans qu'aucune section dédiée n'y soit publiée.
+update rulesets r set is_active = true
+ where r.version = '0.3.0-dev'
+   and not exists (select 1 from rulesets x where x.is_active);

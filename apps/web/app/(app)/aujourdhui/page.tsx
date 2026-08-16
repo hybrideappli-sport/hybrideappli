@@ -11,6 +11,7 @@ import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { RestDayEmptyState } from "@/components/today/rest-day-empty-state";
 import { SessionDetail } from "@/components/today/session-detail";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
 import {
   fetchActiveMedicalClearanceNotice,
@@ -19,7 +20,7 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
-import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Séance et repas du jour — Hybride Club" };
@@ -85,7 +86,13 @@ export default async function TodayPage() {
   const planVersionId = await getActivePlanVersionId(admin, user.id);
   const [session, nutrition] = planVersionId
     ? await Promise.all([
-        fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now }),
+        fetchTodaySessionView(admin, {
+          userId: user.id,
+          planVersionId,
+          date: now,
+          now: nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris"),
+          ruleset: await getActiveRuleset(admin),
+        }),
         fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
       ])
     : [null, null];

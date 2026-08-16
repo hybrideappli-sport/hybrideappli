@@ -340,8 +340,19 @@ export async function applyDailyLog(
     .maybeSingle();
   if (refreshedPlanError) throw new Error(`applyDailyLog: plans (relecture) — ${refreshedPlanError.message}`);
 
+  // `now: { date: now, time: "00:00" }` — approximation documentée : `applyDailyLog()` ne reçoit
+  // que la date locale (`args.now: string`), jamais l'heure. Sans conséquence pratique ici : ce
+  // `placement.canReportIncident` n'est qu'un aperçu de la séance de J+1 (`CreateSessionLogResponse.nextSession`),
+  // jamais rendu par un bouton de signalement — la vraie porte d'entrée (`/plan/today`,
+  // `/aujourdhui`) résout l'heure réelle via `nowPartsInTimezone()`.
   const nextSession = refreshedPlan?.current_version_id
-    ? await fetchTodaySessionView(admin, { userId, planVersionId: refreshedPlan.current_version_id, date: addDaysIso(now, 1) })
+    ? await fetchTodaySessionView(admin, {
+        userId,
+        planVersionId: refreshedPlan.current_version_id,
+        date: addDaysIso(now, 1),
+        now: { date: now, time: "00:00" },
+        ruleset,
+      })
     : null;
 
   return {

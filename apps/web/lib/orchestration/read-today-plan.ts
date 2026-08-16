@@ -7,12 +7,14 @@ import type {
   MedicalClearanceNoticeView,
   NutritionCheckinSummary,
   PainNoticeView,
+  Ruleset,
   SessionLogSummary,
   TodayNutritionView,
   TodaySessionView,
 } from "@hybride/domain";
 
 import { MEDICAL_CLEARANCE_NOTICE_MESSAGE } from "../medical-clearance-message";
+import { fetchCurrentPlacementBySessionId, toSessionPlacementView } from "../planning/read-session-placements";
 import { PAIN_REFERRAL_MESSAGES } from "../pain-referral-messages";
 
 /**
@@ -76,11 +78,17 @@ async function fetchNutritionCheckinSummary(admin: SupabaseClient<Database>, use
  * `session: null` = état vide « jour de repos », explicite (`04-flow.md`) : le moteur n'a
  * simplement rien planifié ce jour-là — ce n'est jamais une erreur.
  */
+/**
+ * US-03 — `now` est le moment RÉEL (pas le jour `date` demandé, qui peut être un autre jour de la
+ * semaine, `08-architecture.md` §14.5) : nécessaire pour `canReportIncident`
+ * (`planning.min_lead_time_min`, ADR-016 §7). `ruleset` optionnel : les appelants qui l'ont déjà en
+ * main (boucle sur 7 jours) évitent 7 lectures redondantes de `rulesets`.
+ */
 export async function fetchTodaySessionView(
   admin: SupabaseClient<Database>,
-  args: { userId: string; planVersionId: string; date: string },
+  args: { userId: string; planVersionId: string; date: string; now: { date: string; time: string }; ruleset: Ruleset },
 ): Promise<TodaySessionView | null> {
-  const { userId, planVersionId, date } = args;
+  const { userId, planVersionId, date, now, ruleset } = args;
   const { data: row, error } = await admin
     .from("planned_sessions")
     .select("id, session_type, duration_min, load_units, intensity_zone, prescription, interference_note, explanation_id, sports(code)")
@@ -90,8 +98,11 @@ export async function fetchTodaySessionView(
   if (error) throw new Error(`readTodayPlan: planned_sessions — ${error.message}`);
   if (!row) return null;
 
-  const explanation = row.explanation_id ? await fetchExplanationView(admin, row.explanation_id) : null;
-  const log = await fetchSessionLogSummary(admin, userId, date);
+  const [explanation, log, currentPlacement] = await Promise.all([
+    row.explanation_id ? fetchExplanationView(admin, row.explanation_id) : Promise.resolve(null),
+    fetchSessionLogSummary(admin, userId, date),
+    fetchCurrentPlacementBySessionId(admin, { userId, plannedSessionId: row.id }),
+  ]);
   const sportRef = row.sports as unknown as { code: string } | null;
 
   return {
@@ -108,6 +119,9 @@ export async function fetchTodaySessionView(
     // repli neutre plutôt qu'une génération LLM à la volée (interdite en lecture, §6.3).
     explanation: explanation ?? { short: "Aperçu à ce stade — le détail précis arrivera à l'approche de ce jour.", explanationId: "" },
     log,
+    // `null` = `materializeSessionPlacements()` n'a pas encore tourné pour cette séance (fenêtre
+    // transitoire, §14.2) — jamais une erreur, jamais bloquant.
+    placement: currentPlacement ? toSessionPlacementView(currentPlacement, now, ruleset) : null,
   };
 }
 

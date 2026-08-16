@@ -1743,6 +1743,98 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_incidents: {
+        Row: {
+          acknowledged_at: string | null
+          blocked_from: string
+          blocked_slot: Database["public"]["Enums"]["day_slot"]
+          blocked_to: string
+          closed_out_at: string | null
+          closeout_outcome:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at: string
+          id: string
+          invalidated_placement_id: string | null
+          planned_session_id: string | null
+          reported_at: string
+          reported_for_date: string
+          resolution: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id: string | null
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          blocked_from: string
+          blocked_slot: Database["public"]["Enums"]["day_slot"]
+          blocked_to: string
+          closed_out_at?: string | null
+          closeout_outcome?:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at?: string
+          id?: string
+          invalidated_placement_id?: string | null
+          planned_session_id?: string | null
+          reported_at?: string
+          reported_for_date: string
+          resolution: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id?: string | null
+          scope?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          blocked_from?: string
+          blocked_slot?: Database["public"]["Enums"]["day_slot"]
+          blocked_to?: string
+          closed_out_at?: string | null
+          closeout_outcome?:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at?: string
+          id?: string
+          invalidated_placement_id?: string | null
+          planned_session_id?: string | null
+          reported_at?: string
+          reported_for_date?: string
+          resolution?: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id?: string | null
+          scope?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_incidents_invalidated_placement_fk"
+            columns: ["invalidated_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_resulting_session_log_id_fkey"
+            columns: ["resulting_session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_resulting_session_log_id_fkey"
+            columns: ["resulting_session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_logs: {
         Row: {
           actual_duration_min: number | null
@@ -1865,6 +1957,115 @@ export type Database = {
             columns: ["superseded_by_log_id"]
             isOneToOne: false
             referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_placements: {
+        Row: {
+          created_at: string
+          guardrails_checked: string[]
+          id: string
+          incident_id: string | null
+          origin_date: string
+          origin_time: string | null
+          plan_version_id: string
+          planned_session_id: string
+          previous_placement_id: string | null
+          reason: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version: string
+          scheduled_date: string | null
+          scheduled_time: string | null
+          slot: Database["public"]["Enums"]["day_slot"]
+          status: Database["public"]["Enums"]["placement_status"]
+          superseded_at: string | null
+          superseded_by_placement_id: string | null
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          guardrails_checked?: string[]
+          id?: string
+          incident_id?: string | null
+          origin_date: string
+          origin_time?: string | null
+          plan_version_id: string
+          planned_session_id: string
+          previous_placement_id?: string | null
+          reason: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          slot?: Database["public"]["Enums"]["day_slot"]
+          status: Database["public"]["Enums"]["placement_status"]
+          superseded_at?: string | null
+          superseded_by_placement_id?: string | null
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          guardrails_checked?: string[]
+          id?: string
+          incident_id?: string | null
+          origin_date?: string
+          origin_time?: string | null
+          plan_version_id?: string
+          planned_session_id?: string
+          previous_placement_id?: string | null
+          reason?: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version?: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          slot?: Database["public"]["Enums"]["day_slot"]
+          status?: Database["public"]["Enums"]["placement_status"]
+          superseded_at?: string | null
+          superseded_by_placement_id?: string | null
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_placements_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_plan_version_id_fkey"
+            columns: ["plan_version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_previous_placement_id_fkey"
+            columns: ["previous_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_ruleset_version_fkey"
+            columns: ["ruleset_version"]
+            isOneToOne: false
+            referencedRelation: "rulesets"
+            referencedColumns: ["version"]
+          },
+          {
+            foreignKeyName: "session_placements_superseded_by_placement_id_fkey"
+            columns: ["superseded_by_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
             referencedColumns: ["id"]
           },
         ]
@@ -2342,6 +2543,12 @@ export type Database = {
       explanation_source: "template" | "llm"
       feasibility_status: "realistic" | "stretch" | "unrealistic"
       hybrid_score_status: "calibration" | "available"
+      incident_closeout_outcome:
+        | "log_created"
+        | "already_logged"
+        | "skipped_no_consent"
+        | "skipped_session_absent"
+      incident_resolution: "rescheduled" | "cancelled_week"
       job_status: "pending" | "running" | "done" | "failed" | "abandoned"
       muscle_group:
         | "quads"
@@ -2378,6 +2585,13 @@ export type Database = {
         | "completed"
       pain_level: "none" | "light" | "pain"
       pain_protocol_level: "none" | "light" | "persistent" | "acute"
+      placement_reason:
+        | "initial"
+        | "plan_regenerated"
+        | "availability_changed"
+        | "incident_reported"
+        | "no_slot_available"
+      placement_status: "scheduled" | "moved" | "cancelled_week"
       plan_trigger:
         | "onboarding"
         | "objective_renegotiation"
@@ -2584,6 +2798,13 @@ export const Constants = {
       explanation_source: ["template", "llm"],
       feasibility_status: ["realistic", "stretch", "unrealistic"],
       hybrid_score_status: ["calibration", "available"],
+      incident_closeout_outcome: [
+        "log_created",
+        "already_logged",
+        "skipped_no_consent",
+        "skipped_session_absent",
+      ],
+      incident_resolution: ["rescheduled", "cancelled_week"],
       job_status: ["pending", "running", "done", "failed", "abandoned"],
       muscle_group: [
         "quads",
@@ -2623,6 +2844,14 @@ export const Constants = {
       ],
       pain_level: ["none", "light", "pain"],
       pain_protocol_level: ["none", "light", "persistent", "acute"],
+      placement_reason: [
+        "initial",
+        "plan_regenerated",
+        "availability_changed",
+        "incident_reported",
+        "no_slot_available",
+      ],
+      placement_status: ["scheduled", "moved", "cancelled_week"],
       plan_trigger: [
         "onboarding",
         "objective_renegotiation",

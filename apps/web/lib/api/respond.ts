@@ -16,6 +16,9 @@ export type ApiErrorCode =
   | "ENGINE_FAILED"
   | "RATE_LIMITED"
   | "CONFLICT"
+  // US-03 — `POST /schedule/incidents` (`08-architecture.md` §14.5).
+  | "SESSION_NOT_REPORTABLE"
+  | "PLACEMENT_FAILED"
   | "INTERNAL_ERROR";
 
 export function apiError(status: number, code: ApiErrorCode, message: string, details?: unknown) {

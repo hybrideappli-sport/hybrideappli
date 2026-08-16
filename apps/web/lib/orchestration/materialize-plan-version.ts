@@ -42,6 +42,12 @@ export interface MaterializedToday {
         explanation: { short: string; explanationId: string };
         /** AC4 — jamais de réalisé au moment même de la génération du plan (Lot L4 lit/écrit ce champ). */
         log: null;
+        /**
+         * US-03 — toujours `null` à CE stade : `materializeSessionPlacements()` tourne APRÈS
+         * `materializePlanVersion()` (`08-architecture.md` §14.2), donc après la construction de cet
+         * objet. `regeneratePlan()` réattribue le placement réel une fois le placement calculé.
+         */
+        placement: null;
       }
     | null;
   nutrition:
@@ -513,6 +519,7 @@ async function materializeRest(
               explanationId: explanationIdBySessionDate.get(context.now)!.id,
             },
             log: null,
+            placement: null,
           }
         : null,
     nutrition:
