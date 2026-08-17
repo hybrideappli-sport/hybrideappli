@@ -116,6 +116,11 @@ export function toSessionPlacementView(
  * ssi un `schedule_incidents` l'a produit via la clôture (`closeout_outcome = 'log_created'` +
  * `resulting_session_log_id`). `schedule_incidents_resulting_log` (index unique, `0024_session_
  * placements.sql`) garantit au plus une ligne par `sessionLogId`.
+ *
+ * Filtre aussi `session_logs.excluded_at is null` (ADR-015 §2, finding N3, seconde passe
+ * `code-reviewer`) : le même discriminant que `readNotDoneNotices()`, pour que la carte Planning ne
+ * reste jamais en état « non réalisée » sur une séance qu'une fusion Strava a déjà fait disparaître
+ * de la carte Dashboard.
  */
 export async function fetchIsAutomaticNotDone(
   admin: SupabaseClient<Database>,
@@ -123,11 +128,13 @@ export async function fetchIsAutomaticNotDone(
 ): Promise<boolean> {
   const { data, error } = await admin
     .from("schedule_incidents")
-    .select("id")
+    .select("id, session_logs!schedule_incidents_resulting_session_log_id_fkey(excluded_at)")
     .eq("user_id", args.userId)
     .eq("resulting_session_log_id", args.sessionLogId)
     .eq("closeout_outcome", "log_created")
     .maybeSingle();
   if (error) throw new Error(`fetchIsAutomaticNotDone: schedule_incidents — ${error.message}`);
-  return data !== null;
+  if (!data) return false;
+  const log = data.session_logs as unknown as { excluded_at: string | null } | null;
+  return log !== null && log.excluded_at === null;
 }

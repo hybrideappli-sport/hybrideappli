@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { TodaySessionView } from "@hybride/domain";
 
 import { NotDoneBadge, PlacementBadge } from "./placement-badge";
@@ -123,6 +124,19 @@ export function PlanningSessionCard({ dayLabel, session }: { dayLabel: string; s
             setPlacement((current) => (current ? { ...current, canReportIncident: false } : current));
           }}
         />
+      ) : isAutomaticNotDone && session.log ? (
+        // État (d) — §3.4 : « Je l'ai faite quand même » REMPLACE « Signaler un imprévu », qui
+        // disparaît. Même cible que `D-notdone-notice` (`components/planning/notdone-notice.tsx`,
+        // `/aujourdhui?log=<id>`) : aucun POST direct, la correction passe par le parcours du jour
+        // (finding N5, seconde passe `code-reviewer`).
+        <Link
+          href={`/aujourdhui?log=${session.log.id}`}
+          className="min-h-11 py-3 text-left text-small font-medium text-accent-text hover:text-accent-hover hover:underline"
+          aria-label={`Corriger : j'ai fait la séance ${label} du ${dayLabel}${scheduledTime ? ` ${scheduledTime}` : ""}`}
+          data-testid="planning-session-card-fix-notdone"
+        >
+          Je l&apos;ai faite quand même
+        </Link>
       ) : null}
 
       <p aria-live="polite" className="sr-only" data-testid="planning-session-announcement">

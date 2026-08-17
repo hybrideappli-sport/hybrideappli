@@ -44,6 +44,12 @@ async function fetchSessionLogSummary(admin: SupabaseClient<Database>, userId: s
     .select("id, completion, actual_duration_min, rpe, freshness, pain, pain_zone, pain_at_rest, comment")
     .eq("user_id", userId)
     .eq("logged_date", date)
+    // ADR-015 §2 — une séance fusionnée avec une donnée Strava ne doit apparaître dans aucun
+    // agrégat, y compris cette vue « aujourd'hui ». Même discriminant que `readNotDoneNotices()`
+    // (`lib/planning/read-notdone-notices.ts`, finding N3, seconde passe `code-reviewer`) : sans ce
+    // filtre, la carte Dashboard disparaît après une fusion mais la carte Planning reste en état
+    // « non réalisée ».
+    .is("excluded_at", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
