@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
 import { apiError, apiJson } from "@/lib/api/respond";
@@ -13,18 +15,30 @@ export const runtime = "nodejs";
  * `GET/POST /api/v1/webhooks/strava/:pathSecret` — ADR-013 §1. Le segment `pathSecret` n'est JAMAIS
  * journalisé (aucun `console.log`/`console.error` de ce module ne l'inclut).
  *
- * `POST` : « enrôle un job et rend la main. < 2 s. Aucun appel réseau. » Le payload n'est JAMAIS
- * cru : seuls `object_id`/`aspect_type`/`object_type`/`owner_id` sont lus, l'activité est
- * intégralement RE-récupérée avec notre propre jeton dans le job (`sync-data-connection.ts`).
+ * `POST` : « enrôle un job et rend la main. < 2 s. Aucun appel réseau, aucune écriture métier. » Le
+ * payload n'est JAMAIS cru : seuls `object_id`/`aspect_type`/`object_type`/`owner_id` sont lus,
+ * l'activité est intégralement RE-récupérée avec notre propre jeton dans le job
+ * (`sync-data-connection.ts`).
  */
-async function verifyPathSecret(pathSecret: string): Promise<boolean> {
+function verifyPathSecret(pathSecret: string): boolean {
   const config = getStravaConfig();
-  return pathSecret === config.webhookPathSecret;
+  // Comparaison en temps constant (finding I4, revue post-`aaba499`) : `===` sur des chaînes fuit
+  // la position du premier octet différent par une différence de timing mesurable à distance —
+  // exactement le risque que le reste du projet neutralise sur les autres secrets comparés côté
+  // serveur (signature Stripe, vérifiée par `stripe.webhooks.constructEvent()`, HMAC en temps
+  // constant côté SDK). `timingSafeEqual` exige deux `Buffer` de MÊME longueur : le rejet anticipé
+  // sur une longueur différente ne fuit que la LONGUEUR du secret (jamais son contenu), et reste en
+  // temps constant par rapport au CONTENU pour toute paire de tentatives de même longueur — c'est le
+  // patron standard documenté par la doc Node.js de `crypto.timingSafeEqual`.
+  const expected = Buffer.from(config.webhookPathSecret);
+  const received = Buffer.from(pathSecret);
+  if (received.length !== expected.length) return false;
+  return timingSafeEqual(received, expected);
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ pathSecret: string }> }) {
   const { pathSecret } = await params;
-  if (!(await verifyPathSecret(pathSecret))) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
+  if (!verifyPathSecret(pathSecret)) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
 
   const { searchParams } = new URL(request.url);
   const config = getStravaConfig();
@@ -50,7 +64,7 @@ interface StravaWebhookEvent {
 
 export async function POST(request: Request, { params }: { params: Promise<{ pathSecret: string }> }) {
   const { pathSecret } = await params;
-  if (!(await verifyPathSecret(pathSecret))) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
+  if (!verifyPathSecret(pathSecret)) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
 
   const rawBody: unknown = await request.json().catch(() => null);
   if (!rawBody || typeof rawBody !== "object") return apiJson({ received: true }); // corps illisible — acquitté, rien à traiter
@@ -63,15 +77,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ pat
 
   // Vérification `subscription_id` — défense complémentaire (ADR-013 §1). `STRAVA_WEBHOOK_
   // SUBSCRIPTION_ID` est renseignée par `devops` APRÈS la création de la souscription (« acte
-  // d'exploitation », ADR-013 §1) : absente tant que ce n'est pas fait, avertissement journalisé au
-  // lieu d'un refus — le segment de chemin secret reste la protection principale entre-temps.
+  // d'exploitation », ADR-013 §1) : absente tant que ce n'est pas fait.
+  //
+  // Doctrine fail-closed (finding I2, revue post-`aaba499`) — même patron que `getStravaConfig()`
+  // et `webhooks/stripe/route.ts` (`STRIPE_WEBHOOK_SECRET` absente ⟹ 503 en production) : en
+  // PRODUCTION, une variable absente n'est PAS une échappatoire silencieuse, c'est un refus
+  // explicite. Hors production (développement, preview, tests E2E — la souscription webhook réelle
+  // n'existe pas forcément dans ces environnements), avertissement bruyant mais requête traitée : le
+  // segment de chemin secret reste la protection principale.
   const expectedSubscriptionId = process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID;
-  if (expectedSubscriptionId && String(event.subscription_id) !== expectedSubscriptionId) {
+  if (!expectedSubscriptionId) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[strava-webhook] STRAVA_WEBHOOK_SUBSCRIPTION_ID absente EN PRODUCTION — requête refusée (fail closed).");
+      return apiError(503, "INTERNAL_ERROR", "Webhook Strava non configuré.");
+    }
+    console.warn("[strava-webhook] STRAVA_WEBHOOK_SUBSCRIPTION_ID non configurée — vérification de subscription_id ignorée (hors production).");
+  } else if (String(event.subscription_id) !== expectedSubscriptionId) {
     console.error("[strava-webhook] subscription_id inattendu — événement ignoré.");
     return apiJson({ received: true });
-  }
-  if (!expectedSubscriptionId) {
-    console.warn("[strava-webhook] STRAVA_WEBHOOK_SUBSCRIPTION_ID non configurée — vérification de subscription_id ignorée (à câbler avec devops).");
   }
 
   const admin = createSupabaseServiceRoleClient();
@@ -92,15 +115,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ pat
   if (!connection) return apiJson({ received: true });
 
   if (event.object_type === "athlete") {
-    // Déautorisation initiée DEPUIS Strava (ADR-013 §6). Local uniquement : AUCUN appel réseau
-    // (le jeton est de toute façon déjà mort côté Strava) — respecte le budget < 2 s / 0 I/O réseau
-    // du handler.
+    // Déautorisation initiée DEPUIS Strava (ADR-013 §6). Enrôle un job (`runStravaDeauthorize()`,
+    // `lib/jobs/sync-data-connection.ts`) plutôt que d'écrire directement ici (finding I1, revue
+    // post-`aaba499`) : ADR-013 §1 est littéral — le handler « ne fait que » vérifier
+    // `subscription_id`, résoudre `owner_id`, insérer une ligne dans `job_queue`, AUCUNE écriture
+    // métier. Une latence base inhabituelle ne mange plus le budget < 2 s de la réponse webhook, et
+    // l'échec est rejouable par le back-off standard de `drain.ts` plutôt que silencieusement perdu.
     if (event.updates?.authorized === "false") {
-      await admin.from("data_connection_secrets").delete().eq("data_connection_id", connection.id);
-      await admin
-        .from("data_connections")
-        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "provider_deauthorized" })
-        .eq("id", connection.id);
+      await enqueueJob(admin, {
+        kind: "strava_deauthorize",
+        userId: connection.user_id,
+        idempotencyKey: `strava_deauthorize:${connection.id}`,
+        payload: { connectionId: connection.id },
+        scheduledFor: new Date().toISOString(),
+      });
     }
     return apiJson({ received: true });
   }

@@ -34,67 +34,86 @@ function metaLine(session: TodaySessionView): string {
  * carte passe d'état SUR PLACE (état d'arrivée = la réponse de `POST /schedule/incidents`, jamais
  * un rechargement de page).
  *
- * Simplification documentée : l'état (d) « Non réalisée » est approximé par `session.log.completion
- * === 'not_done'` — le discriminant EXACT « automatique vs déclaré » (`schedule_incidents.resulting_session_log_id`,
- * ADR-017 §8) n'est pas encore branché sur cette lecture (`fetchWeekPlan`/`fetchTodaySessionView`
- * n'exposent pas ce distinguo). Sans conséquence sur AC3/AC4 (états a/b/c, cœur de cette US) ; à
- * corriger dans une passe ultérieure en étendant `SessionPlacementView` ou une jointure dédiée.
+ * L'état (d) « Non réalisée » se base sur `placement.isAutomaticNotDone` — le discriminant EXACT
+ * « automatique vs déclaré » d'ADR-017 §8, propagé par `fetchTodaySessionView()` — jamais sur
+ * `session.log.completion === 'not_done'` seul (finding B4, revue post-`aaba499` : un `not_done`
+ * saisi par l'utilisateur sans imprévu ne doit jamais afficher cet état).
+ *
+ * Deux règles de préséance strictes (`11-design-notes.md` §3.4) :
+ *   1. (d) prime sur (b) : une séance déplacée puis non réalisée affiche `NON RÉALISÉE`.
+ *   2. (c) prime sur (d) : une séance annulée n'affiche jamais `NON RÉALISÉE`, même si un
+ *      `session_log` `not_done` existe en base.
+ *
+ * `placement` peut être `null` (fenêtre transitoire avant `materializeSessionPlacements()`,
+ * `packages/domain/src/onboarding.ts:218-224`) : aucun champ dérivé de `placement` (`origin`,
+ * `scheduledTime`, `isAutomaticNotDone`…) n'est déréférencé sans vérifier son existence (finding B3).
  */
 export function PlanningSessionCard({ dayLabel, session }: { dayLabel: string; session: TodaySessionView }) {
   const [placement, setPlacement] = useState(session.placement);
   const [announcement, setAnnouncement] = useState<string | null>(null);
 
   const label = SESSION_TYPE_LABELS[session.sessionType] ?? session.sessionType;
-  const isNotDone = session.log?.completion === "not_done";
   const status = placement?.status ?? "scheduled";
+  const origin = placement?.origin ?? null;
+  const scheduledTime = placement?.scheduledTime ?? null;
 
-  const liseredClass = isNotDone || status === "cancelled_week" ? "border-l-border-strong" : status === "moved" ? "border-l-warning" : "border-l-transparent";
+  const isCancelled = status === "cancelled_week";
+  const isMoved = status === "moved";
+  // Règle 2 : (c) prime sur (d).
+  const isAutomaticNotDone = !isCancelled && Boolean(placement?.isAutomaticNotDone);
 
-  const ariaLabelParts = [dayLabel, placement?.scheduledTime ?? "", label];
-  if (isNotDone) ariaLabelParts.push("comptée comme non réalisée");
-  else if (status === "moved") ariaLabelParts.push(`déplacée depuis ${formatOriginLabel(placement!.origin!.date, placement!.origin!.time)}`);
-  else if (status === "cancelled_week") ariaLabelParts.push("annulée cette semaine : aucun créneau ne permettait de la placer. Elle n'est pas reportée à la semaine prochaine.");
+  // Règle 1 : (d) prime sur (b). Précédence du badge : cancelled > not_done > moved > none.
+  const badge: "cancelled" | "not_done" | "moved" | "none" = isCancelled
+    ? "cancelled"
+    : isAutomaticNotDone
+      ? "not_done"
+      : isMoved
+        ? "moved"
+        : "none";
+
+  const liseredClass =
+    badge === "cancelled" || badge === "not_done" ? "border-l-border-strong" : badge === "moved" ? "border-l-warning" : "border-l-transparent";
+
+  // Motif « ancien → nouveau » : montré pour une annulation, ou pour un déplacement réel (que la
+  // séance soit ensuite comptée non réalisée ou non) — jamais pour un `not_done` sur une séance
+  // restée à son horaire d'origine (design §3.4, ligne 2 : « mar. 18h30 » seul dans ce cas).
+  const showOriginArrow = (isCancelled || isMoved) && origin !== null;
+  const destinationLabel = isCancelled ? "Annulée" : (scheduledTime ?? "");
+  const destinationTone = isAutomaticNotDone ? "subtle" : "warning";
+
+  const ariaLabelParts = [dayLabel, scheduledTime ?? "", label];
+  if (badge === "not_done") ariaLabelParts.push("comptée comme non réalisée après un imprévu");
+  else if (badge === "moved" && origin) ariaLabelParts.push(`déplacée depuis ${formatOriginLabel(origin.date, origin.time)}`);
+  else if (badge === "cancelled") ariaLabelParts.push("annulée cette semaine : aucun créneau ne permettait de la placer. Elle n'est pas reportée à la semaine prochaine.");
 
   return (
     <li className={`flex flex-col gap-2 rounded-lg border-l-[3px] bg-surface p-5 ${liseredClass}`} aria-label={ariaLabelParts.join(", ")} data-testid="planning-session-card">
-      {isNotDone ? (
-        <NotDoneBadge />
-      ) : status !== "scheduled" ? (
-        <PlacementBadge status={status} />
-      ) : null}
+      {badge === "not_done" ? <NotDoneBadge /> : badge !== "none" ? <PlacementBadge status={status} /> : null}
 
-      {status === "cancelled_week" ? (
-        <PlacementChange originLabel={formatOriginLabel(placement!.origin!.date, placement!.origin!.time)} destinationLabel="Annulée" />
-      ) : status === "moved" || isNotDone ? (
-        <PlacementChange
-          originLabel={formatOriginLabel(placement!.origin!.date, placement!.origin!.time)}
-          destinationLabel={placement!.scheduledTime ?? ""}
-          destinationTone={isNotDone ? "subtle" : "warning"}
-        />
+      {showOriginArrow && origin ? (
+        <PlacementChange originLabel={formatOriginLabel(origin.date, origin.time)} destinationLabel={destinationLabel} destinationTone={destinationTone} />
       ) : (
-        <p className="text-small text-foreground">{placement?.scheduledTime}</p>
+        <p className={`text-small ${isAutomaticNotDone ? "text-foreground-subtle" : "text-foreground"}`}>{scheduledTime}</p>
       )}
 
-      <p className={`text-heading font-normal ${status === "cancelled_week" || isNotDone ? "text-foreground-muted" : "text-foreground"}`}>{label}</p>
+      <p className={`text-heading font-normal ${isCancelled || isAutomaticNotDone ? "text-foreground-muted" : "text-foreground"}`}>{label}</p>
       <p className="text-small text-foreground-subtle">{metaLine(session)}</p>
 
-      {status === "cancelled_week" ? (
+      {isCancelled ? (
         <>
           <p className="text-small text-foreground-subtle">Aucun créneau disponible cette semaine.</p>
           <p className="text-small text-foreground-subtle">Elle n&apos;est pas reportée à la semaine prochaine.</p>
         </>
-      ) : status === "moved" ? (
+      ) : isMoved && !isAutomaticNotDone ? (
         <p className="text-small text-foreground-subtle">Déplacée suite à un imprévu signalé.</p>
       ) : null}
 
-      {isNotDone ? (
-        <p className="text-small text-foreground-subtle">Je l&apos;ai comptée comme non réalisée après ton imprévu.</p>
-      ) : null}
+      {isAutomaticNotDone ? <p className="text-small text-foreground-subtle">Je l&apos;ai comptée comme non réalisée après ton imprévu.</p> : null}
 
-      {status !== "cancelled_week" && !isNotDone ? (
+      {!isCancelled && !isAutomaticNotDone ? (
         <ReportIncidentButton
           plannedSessionId={session.id}
-          sessionLabel={`${label} ${placement?.scheduledTime ? `du ${dayLabel} ${placement.scheduledTime}` : ""}`}
+          sessionLabel={`${label} ${scheduledTime ? `du ${dayLabel} ${scheduledTime}` : ""}`}
           disabled={placement ? !placement.canReportIncident : true}
           onResolved={(outcome) => {
             setAnnouncement(outcome.message);

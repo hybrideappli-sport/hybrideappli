@@ -14,7 +14,7 @@ import type {
 } from "@hybride/domain";
 
 import { MEDICAL_CLEARANCE_NOTICE_MESSAGE } from "../medical-clearance-message";
-import { fetchCurrentPlacementBySessionId, toSessionPlacementView } from "../planning/read-session-placements";
+import { fetchCurrentPlacementBySessionId, fetchIsAutomaticNotDone, toSessionPlacementView } from "../planning/read-session-placements";
 import { PAIN_REFERRAL_MESSAGES } from "../pain-referral-messages";
 
 /**
@@ -105,6 +105,11 @@ export async function fetchTodaySessionView(
   ]);
   const sportRef = row.sports as unknown as { code: string } | null;
 
+  // Discriminant EXACT B4 : uniquement interrogé quand une lecture `not_done` existe déjà — pas de
+  // jointure superflue pour les cas (bien plus fréquents) `done`/`partial`/absence de log.
+  const isAutomaticNotDone =
+    log && log.completion === "not_done" ? await fetchIsAutomaticNotDone(admin, { userId, sessionLogId: log.id }) : false;
+
   return {
     id: row.id,
     sportCode: sportRef?.code ?? null,
@@ -121,7 +126,7 @@ export async function fetchTodaySessionView(
     log,
     // `null` = `materializeSessionPlacements()` n'a pas encore tourné pour cette séance (fenêtre
     // transitoire, §14.2) — jamais une erreur, jamais bloquant.
-    placement: currentPlacement ? toSessionPlacementView(currentPlacement, now, ruleset) : null,
+    placement: currentPlacement ? toSessionPlacementView(currentPlacement, now, ruleset, isAutomaticNotDone) : null,
   };
 }
 

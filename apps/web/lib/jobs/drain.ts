@@ -8,7 +8,7 @@ import { runWeeklyReview } from "../orchestration/run-weekly-review";
 import { todayInTimezone } from "../orchestration/today-in-timezone";
 import { closeOutScheduleIncidents } from "../planning/close-out-schedule-incidents";
 import { runRefreshPlacements } from "./refresh-placements";
-import { runStravaActivitySync, runStravaBackfill, runStravaReconcile } from "./sync-data-connection";
+import { runStravaActivitySync, runStravaBackfill, runStravaDeauthorize, runStravaReconcile } from "./sync-data-connection";
 import { claimJobs, markJobDone, markJobFailed } from "./queue";
 
 export interface DrainSummary {
@@ -56,6 +56,10 @@ export async function drainJobs(admin: SupabaseClient<Database>, limit: number):
         const connectionId = (job.payload as { connectionId?: string }).connectionId;
         if (!connectionId) throw new Error(`job ${job.id} (strava_reconcile) sans connectionId dans le payload.`);
         await runStravaReconcile(admin, { connectionId });
+      } else if (job.kind === "strava_deauthorize") {
+        const connectionId = (job.payload as { connectionId?: string }).connectionId;
+        if (!connectionId) throw new Error(`job ${job.id} (strava_deauthorize) sans connectionId dans le payload.`);
+        await runStravaDeauthorize(admin, { connectionId });
       } else if (job.kind === "refresh_placements") {
         // US-03, AC2 — enrôlé par le trigger `availability_slots_refresh_placements`
         // (`docs/db-schema.md` §11.4), jamais par une route applicative : aucun payload à valider.

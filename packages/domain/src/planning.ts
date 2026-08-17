@@ -134,6 +134,14 @@ export interface SessionPlacementView {
   reason: PlacementReason;
   note: string | null; // « Déplacée suite à un imprévu signalé. » — le « pourquoi » d'AC3
   canReportIncident: boolean; // false si passée, annulée, ou hors fenêtre de préavis
+  /**
+   * État (d) « Non réalisée », `11-design-notes.md` §3.4. Discriminant EXACT « automatique vs
+   * déclaré » d'ADR-017 §8 : `true` ssi un `schedule_incidents` a produit CE log via la clôture
+   * automatique (`closeout_outcome = 'log_created'` + `resulting_session_log_id`), jamais dérivé
+   * de `session_logs.completion === 'not_done'` seul — un `not_done` saisi par l'utilisateur sans
+   * imprévu ne doit jamais déclencher cet état (finding B4, revue post-`aaba499`).
+   */
+  isAutomaticNotDone: boolean;
 }
 
 // ---------------------------------------------------------------------------

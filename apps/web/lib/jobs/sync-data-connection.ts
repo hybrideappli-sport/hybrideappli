@@ -241,3 +241,27 @@ export async function runStravaReconcile(admin: SupabaseClient<Database>, args: 
     throw error;
   }
 }
+
+/**
+ * `strava_deauthorize` — déautorisation initiée DEPUIS Strava (webhook `object_type === 'athlete'`,
+ * `updates.authorized === 'false'`, ADR-013 §6). Écriture métier (suppression du jeton, révocation
+ * de la connexion) déplacée ici plutôt qu'exécutée en ligne dans le handler webhook (finding I1,
+ * revue post-`aaba499` : ADR-013 §1 est littéral, le handler « ne fait que » vérifier
+ * `subscription_id`, résoudre `owner_id`, insérer une ligne dans `job_queue`, aucune écriture
+ * métier). Idempotent : une connexion déjà `revoked` ne l'est pas une seconde fois.
+ */
+export async function runStravaDeauthorize(admin: SupabaseClient<Database>, args: { connectionId: string }): Promise<void> {
+  const { data: connection, error } = await admin.from("data_connections").select("id, status").eq("id", args.connectionId).maybeSingle();
+  if (error) throw new Error(`runStravaDeauthorize: lecture data_connections — ${error.message}`);
+  if (!connection || connection.status === "revoked") return; // déjà traité (rejeu webhook, ou révoquée entretemps)
+
+  // Local uniquement : AUCUN appel réseau (le jeton est de toute façon déjà mort côté Strava).
+  const { error: secretsError } = await admin.from("data_connection_secrets").delete().eq("data_connection_id", connection.id);
+  if (secretsError) throw new Error(`runStravaDeauthorize: data_connection_secrets — ${secretsError.message}`);
+
+  const { error: connectionError } = await admin
+    .from("data_connections")
+    .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "provider_deauthorized" })
+    .eq("id", connection.id);
+  if (connectionError) throw new Error(`runStravaDeauthorize: data_connections — ${connectionError.message}`);
+}

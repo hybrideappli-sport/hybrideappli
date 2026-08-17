@@ -79,8 +79,18 @@ function isWithinReportableWindow(row: CurrentPlacementRow, now: { date: string;
 /**
  * `PlacementDecision`/`CurrentPlacementRow` → `SessionPlacementView` — la vue servie par
  * `/plan/today`, `/plan/week` et le Dashboard. Le contrat exact est en `08-architecture.md` §14.5.
+ *
+ * `isAutomaticNotDone` par défaut à `false` : les deux appelants qui omettent ce paramètre
+ * (`resolveScheduleIncident()`, `regenerate-plan.ts`) construisent la vue dans l'instant qui suit un
+ * signalement/replacement ou une régénération fraîche de plan — un `not_done` automatique n'a par
+ * construction pas encore pu être posé sur cette séance à ce moment-là.
  */
-export function toSessionPlacementView(row: CurrentPlacementRow, now: { date: string; time: string }, ruleset: Ruleset): SessionPlacementView {
+export function toSessionPlacementView(
+  row: CurrentPlacementRow,
+  now: { date: string; time: string },
+  ruleset: Ruleset,
+  isAutomaticNotDone = false,
+): SessionPlacementView {
   const note =
     row.status === "moved" && row.reason === "incident_reported"
       ? "Déplacée suite à un imprévu signalé."
@@ -96,5 +106,28 @@ export function toSessionPlacementView(row: CurrentPlacementRow, now: { date: st
     reason: row.reason,
     note,
     canReportIncident: isWithinReportableWindow(row, now, ruleset.params.planning.min_lead_time_min),
+    isAutomaticNotDone,
   };
+}
+
+/**
+ * Discriminant EXACT « automatique vs déclaré » d'ADR-017 §8, identique à celui de
+ * `readNotDoneNotices()` (`lib/planning/read-notdone-notices.ts`) : un `not_done` est automatique
+ * ssi un `schedule_incidents` l'a produit via la clôture (`closeout_outcome = 'log_created'` +
+ * `resulting_session_log_id`). `schedule_incidents_resulting_log` (index unique, `0024_session_
+ * placements.sql`) garantit au plus une ligne par `sessionLogId`.
+ */
+export async function fetchIsAutomaticNotDone(
+  admin: SupabaseClient<Database>,
+  args: { userId: string; sessionLogId: string },
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("schedule_incidents")
+    .select("id")
+    .eq("user_id", args.userId)
+    .eq("resulting_session_log_id", args.sessionLogId)
+    .eq("closeout_outcome", "log_created")
+    .maybeSingle();
+  if (error) throw new Error(`fetchIsAutomaticNotDone: schedule_incidents — ${error.message}`);
+  return data !== null;
 }
