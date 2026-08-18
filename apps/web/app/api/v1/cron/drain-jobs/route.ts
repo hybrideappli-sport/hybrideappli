@@ -14,8 +14,9 @@ export const maxDuration = 60;
 const DRAIN_BATCH_SIZE = 10;
 
 /**
- * `/api/v1/cron/drain-jobs` — cron toutes les 5 min (`vercel.json`, ADR-011 §3). `GET` + `POST`,
- * voir `enqueue-weekly-reviews/route.ts` pour le détail (Vercel Cron invoque en `GET`).
+ * `/api/v1/cron/drain-jobs` — cron toutes les 5 min (`.github/workflows/cron-drain-jobs.yml`,
+ * ADR-011 §3). `GET` + `POST`, voir `enqueue-weekly-reviews/route.ts` pour le détail (le workflow
+ * GitHub Actions invoque en `GET`).
  */
 async function handle(request: Request) {
   if (!isAuthorizedCronRequest(request)) return apiError(401, "UNAUTHORIZED", "Requête cron non autorisée.");

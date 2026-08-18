@@ -1,0 +1,19 @@
+name: Cron - drain-jobs
+
+# Remplace l'ancien cron Vercel (plan Hobby limité à 1 exécution/jour, cf. `vercel.json` avant
+# ce commit et `docs/adr/ADR-011-traitements-periodiques-file-de-jobs.md`). Même horaire que
+# l'origine Vercel : "*/5 * * * *" (toutes les 5 minutes).
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler /api/v1/cron/drain-jobs
+        run: |
+          curl -fsS -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_BASE_URL }}/api/v1/cron/drain-jobs"

@@ -1,0 +1,19 @@
+name: Cron - enqueue-schedule-closeouts
+
+# Remplace l'ancien cron Vercel (plan Hobby limité à 1 exécution/jour, cf. `vercel.json` avant
+# ce commit et `docs/adr/ADR-011-traitements-periodiques-file-de-jobs.md`). Même horaire que
+# l'origine Vercel : "0 * * * *" (horaire).
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler /api/v1/cron/enqueue-schedule-closeouts
+        run: |
+          curl -fsS -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_BASE_URL }}/api/v1/cron/enqueue-schedule-closeouts"

@@ -1,7 +1,16 @@
-# ADR-011 — Traitements périodiques : Vercel Cron + file de jobs idempotente
+# ADR-011 — Traitements périodiques : déclencheur planifié + file de jobs idempotente
 
 - **Statut** : Accepté
 - **Date** : 2026-08-04
+- **Mise à jour (2026-08-18, `devops`)** : le déclencheur d'enrôlement n'est plus Vercel Cron mais
+  des **workflows GitHub Actions planifiés** (`.github/workflows/cron-*.yml`). Raison : le projet
+  reste sur le plan **Vercel Hobby** (gratuit) — décision du fondateur — qui limite les cron jobs à
+  une exécution quotidienne maximum ; le déploiement `main` avait échoué avec trois des six cron
+  (horaires ou toutes les 5 min) définis dans `apps/web/vercel.json`. Chaque workflow reproduit
+  l'horaire d'origine et appelle la même route `GET /api/v1/cron/<job>` avec le même en-tête
+  `Authorization: Bearer ${CRON_SECRET}`. `apps/web/vercel.json` ne porte plus de clé `crons`. Le
+  reste de cette décision (file `job_queue`, idempotence, verrouillage, dégradation gracieuse) est
+  inchangé — seul le mécanisme de déclenchement périodique change.
 - **Décideur** : `architect`
 - **Portée** : Projet
 - **Dépend de** : ADR-001, ADR-005
@@ -23,7 +32,7 @@ Trois contraintes techniques :
 
 1. **Le fuseau compte.** « Dimanche soir » n'est pas un instant unique : un utilisateur peut être hors d'Europe/Paris, et l'AC8 impose des semaines calendaires cohérentes.
 2. **Durée d'exécution.** Une révision hebdomadaire = construction du `PlanningContext`, exécution du moteur, matérialisation du plan, calcul du diff, **un ou plusieurs appels LLM** pour les explications. Compter ~2 à 10 s par utilisateur. Une fonction serverless ne peut pas traiter toute la base en une invocation.
-3. **Idempotence.** Vercel Cron garantit un déclenchement, pas une exécution unique : un retry après timeout ne doit pas produire deux versions de plan ni deux notifications.
+3. **Idempotence.** Le déclencheur planifié (initialement Vercel Cron, GitHub Actions depuis la mise à jour du 2026-08-18) garantit un déclenchement, pas une exécution unique : un retry après timeout ne doit pas produire deux versions de plan ni deux notifications.
 
 Rappel de contrainte plateforme (docs Vercel, vérifié le 2026-08-04) : **plan Hobby = 1 exécution par jour maximum, précision horaire ±59 min**. Le plan **Pro** est requis pour une planification à la minute.
 
@@ -32,7 +41,7 @@ Rappel de contrainte plateforme (docs Vercel, vérifié le 2026-08-04) : **plan 
 **Cron = déclencheur d'enrôlement. File de jobs en base = exécution.**
 
 ```
-Vercel Cron (toutes les heures, Pro)
+Déclencheur planifié (GitHub Actions, toutes les heures — voir mise à jour 2026-08-18 ci-dessus)
         │
         ▼
 POST /api/v1/cron/enqueue-weekly-reviews        (protégé par CRON_SECRET)
@@ -87,7 +96,7 @@ L'AC4 exige une baisse de charge **immédiate** après une saisie. Ce recalcul e
 
 **Négatives / à surveiller**
 
-- **Le plan Vercel Pro est nécessaire** (le plan Hobby plafonne à un cron quotidien avec ±59 min d'imprécision, incompatible avec un rituel « dimanche soir » multi-fuseaux). À intégrer au budget par `devops`.
+- ~~**Le plan Vercel Pro est nécessaire** (le plan Hobby plafonne à un cron quotidien avec ±59 min d'imprécision, incompatible avec un rituel « dimanche soir » multi-fuseaux). À intégrer au budget par `devops`.~~ **Résolu (2026-08-18)** : le fondateur choisit de rester sur le plan Hobby et de déplacer le déclenchement périodique vers des workflows GitHub Actions (voir mise à jour ci-dessus), qui n'ont pas cette limitation de fréquence. Le reste de l'imprécision de planification (~1 min pour un cron GitHub Actions, comparable à celle d'un cron Vercel Pro) reste acceptable pour ce rituel.
 - Une file en base est adaptée jusqu'à quelques milliers d'utilisateurs actifs ; au-delà, migrer vers une file dédiée (QStash, Inngest, `pg_cron` + Edge Functions). Le contrat `job_queue` est conçu pour rendre cette bascule locale.
 - La supervision (jobs en échec, jobs bloqués, latence LLM) doit être mise en place dès la V1 avec `devops`.
 

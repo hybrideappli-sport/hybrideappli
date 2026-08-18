@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * `/api/v1/cron/purge-stripe-events` — cron QUOTIDIEN (`vercel.json`, finding I3). `stripe_events`
+ * `/api/v1/cron/purge-stripe-events` — cron QUOTIDIEN
+ * (`.github/workflows/cron-purge-stripe-events.yml`, finding I3). `stripe_events`
  * n'a pas de `user_id` et n'est pas couverte par `erase_account()` (`08-architecture.md` §5.3,
  * question ouverte n°9) : ce job purge les événements de plus de 60 jours (`purge_stale_stripe_events()`,
  * `supabase/migrations/0013_billing_robustness.sql`). `GET` + `POST`, même garde `CRON_SECRET` que
