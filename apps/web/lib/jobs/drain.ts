@@ -6,6 +6,9 @@ import type { Database } from "@hybride/db";
 import { runObjectiveCheck } from "../orchestration/run-objective-check";
 import { runWeeklyReview } from "../orchestration/run-weekly-review";
 import { todayInTimezone } from "../orchestration/today-in-timezone";
+import { closeOutScheduleIncidents } from "../planning/close-out-schedule-incidents";
+import { runRefreshPlacements } from "./refresh-placements";
+import { runStravaActivitySync, runStravaBackfill, runStravaDeauthorize, runStravaReconcile } from "./sync-data-connection";
 import { claimJobs, markJobDone, markJobFailed } from "./queue";
 
 export interface DrainSummary {
@@ -39,6 +42,32 @@ export async function drainJobs(admin: SupabaseClient<Database>, limit: number):
         const { data: profileRow } = await admin.from("profiles").select("timezone").eq("id", job.userId).maybeSingle();
         const now = todayInTimezone(profileRow?.timezone ?? "Europe/Paris");
         await runObjectiveCheck(admin, { userId: job.userId, objectiveId, now });
+      } else if (job.kind === "strava_backfill") {
+        const connectionId = (job.payload as { connectionId?: string }).connectionId;
+        if (!connectionId) throw new Error(`job ${job.id} (strava_backfill) sans connectionId dans le payload.`);
+        await runStravaBackfill(admin, { connectionId });
+      } else if (job.kind === "strava_activity_sync") {
+        const payload = job.payload as { connectionId?: string; activityId?: string; aspectType?: "create" | "update" | "delete" };
+        if (!payload.connectionId || !payload.activityId || !payload.aspectType) {
+          throw new Error(`job ${job.id} (strava_activity_sync) : payload incomplet (connectionId/activityId/aspectType).`);
+        }
+        await runStravaActivitySync(admin, { connectionId: payload.connectionId, activityId: payload.activityId, aspectType: payload.aspectType });
+      } else if (job.kind === "strava_reconcile") {
+        const connectionId = (job.payload as { connectionId?: string }).connectionId;
+        if (!connectionId) throw new Error(`job ${job.id} (strava_reconcile) sans connectionId dans le payload.`);
+        await runStravaReconcile(admin, { connectionId });
+      } else if (job.kind === "strava_deauthorize") {
+        const connectionId = (job.payload as { connectionId?: string }).connectionId;
+        if (!connectionId) throw new Error(`job ${job.id} (strava_deauthorize) sans connectionId dans le payload.`);
+        await runStravaDeauthorize(admin, { connectionId });
+      } else if (job.kind === "refresh_placements") {
+        // US-03, AC2 — enrôlé par le trigger `availability_slots_refresh_placements`
+        // (`docs/db-schema.md` §11.4), jamais par une route applicative : aucun payload à valider.
+        await runRefreshPlacements(admin, { userId: job.userId });
+      } else if (job.kind === "schedule_closeout") {
+        const localDate = (job.payload as { localDate?: string }).localDate;
+        if (!localDate) throw new Error(`job ${job.id} (schedule_closeout) sans localDate dans le payload.`);
+        await closeOutScheduleIncidents(admin, { userId: job.userId, localDate });
       } else {
         throw new Error(`job ${job.id} : kind inconnu "${job.kind}".`);
       }

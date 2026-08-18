@@ -58,26 +58,26 @@ export function HealthConsentManager({ active: initialActive }: { active: boolea
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-4" data-testid="health-consent-manager">
-      <p className="text-sm font-medium text-neutral-800">Traitement des données de santé</p>
-      <p className="text-sm text-neutral-600">
+    <div className="flex flex-col gap-2 rounded-lg bg-surface p-4" data-testid="health-consent-manager">
+      <p className="text-body-strong font-semibold text-foreground">Traitement des données de santé</p>
+      <p className="text-body text-foreground-muted">
         Statut actuel :{" "}
-        <span className={active ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"} data-testid="health-consent-status">
+        <span className={active ? "font-semibold text-success" : "font-semibold text-warning"} data-testid="health-consent-status">
           {active ? "accordé" : "retiré"}
         </span>
         .
       </p>
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
       {active ? (
-        <Button variant="secondary" size="sm" onClick={revoke} disabled={pending} data-testid="revoke-health-consent">
+        <Button variant="secondary" size="sm" onClick={revoke} disabled={pending} loading={pending} data-testid="revoke-health-consent">
           {pending ? "Retrait en cours…" : "Retirer mon consentement"}
         </Button>
       ) : (
-        <Button size="sm" onClick={grant} disabled={pending} data-testid="grant-health-consent">
+        <Button size="sm" onClick={grant} disabled={pending} loading={pending} data-testid="grant-health-consent">
           {pending ? "Enregistrement…" : "Accorder de nouveau mon consentement"}
         </Button>
       )}

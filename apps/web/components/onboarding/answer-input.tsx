@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ArrowUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ export function AnswerInput({ onSubmit, disabled = false }: AnswerInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 border-t border-neutral-200 bg-neutral-50 p-3">
+    <form onSubmit={handleSubmit} className="flex gap-2 bg-surface-sunken p-3">
       <Input
         value={value}
         onChange={(event) => setValue(event.target.value)}
@@ -31,9 +32,15 @@ export function AnswerInput({ onSubmit, disabled = false }: AnswerInputProps) {
         disabled={disabled}
         autoComplete="off"
         maxLength={2000}
+        className="rounded-full"
       />
-      <Button type="submit" disabled={disabled || value.trim().length === 0}>
-        Envoyer
+      <Button
+        type="submit"
+        aria-label="Envoyer ma réponse"
+        disabled={disabled || value.trim().length === 0}
+        className="size-12 shrink-0 px-0"
+      >
+        <ArrowUp aria-hidden="true" className="size-5" />
       </Button>
     </form>
   );

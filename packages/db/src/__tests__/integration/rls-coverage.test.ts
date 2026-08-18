@@ -7,7 +7,7 @@ import { withPgClient } from "./support/pg-client";
  * `service_role`, RLS activée quand même (règle non négociable §3 du plan,
  * `docs/db-schema.md` §7-§8). Toute autre table doit avoir ≥ 1 policy.
  */
-const SERVICE_ROLE_ONLY_TABLES = new Set(["stripe_events", "job_queue"]);
+const SERVICE_ROLE_ONLY_TABLES = new Set(["stripe_events", "job_queue", "data_connection_secrets"]);
 
 /**
  * Tables produites par le moteur : aucune policy d'écriture (INSERT/UPDATE/

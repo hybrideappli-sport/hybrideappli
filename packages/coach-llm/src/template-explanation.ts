@@ -35,6 +35,8 @@ function summarizeTrace(trace: LlmTraceInput): string {
       return `Restriction de sécurité appliquée au profil déclaré : ${output.field} = ${formatValue(output.after)}.`;
     case "calibration":
       return `Phase de calibration en cours : ${formatValue(output.after)} semaine(s) de données disponibles.`;
+    case "hybrid_score":
+      return `Score hybride recalculé : ${formatValue(output.after)}/100, à partir de ta charge, ta régularité et ta diversité de disciplines.`;
     default:
       return `${output.field} : ${formatValue(output.before)} → ${formatValue(output.after)}.`;
   }

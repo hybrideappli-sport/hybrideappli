@@ -23,8 +23,8 @@ export function SessionDetail({ session }: { session: TodaySessionView }) {
       <CardHeader>
         <CardTitle>{SESSION_TYPE_LABELS[session.sessionType] ?? session.sessionType}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm text-neutral-700">
-        <div className="flex gap-4 text-neutral-600">
+      <CardContent className="flex flex-col gap-3 text-body text-foreground-muted">
+        <div className="flex gap-4 text-small text-foreground-subtle">
           {session.sportCode ? <span>{session.sportCode.replace(/_/g, " ")}</span> : null}
           {session.durationMin ? <span>{session.durationMin} min</span> : null}
           {session.intensityZone ? <span>Zone {session.intensityZone}</span> : null}
@@ -33,22 +33,22 @@ export function SessionDetail({ session }: { session: TodaySessionView }) {
         {session.prescription ? (
           <div className="flex flex-col gap-2">
             <p>
-              <span className="font-medium">Échauffement — </span>
+              <span className="font-medium text-foreground">Échauffement — </span>
               {session.prescription.warmup}
             </p>
             <p>
-              <span className="font-medium">Corps de séance — </span>
+              <span className="font-medium text-foreground">Corps de séance — </span>
               {session.prescription.body}
             </p>
             <p>
-              <span className="font-medium">Retour au calme — </span>
+              <span className="font-medium text-foreground">Retour au calme — </span>
               {session.prescription.cooldown}
             </p>
           </div>
         ) : null}
 
         {session.interferenceNote ? (
-          <p className="text-xs text-neutral-500" data-testid="interference-note">
+          <p className="text-caption text-foreground-subtle" data-testid="interference-note">
             {session.interferenceNote}
           </p>
         ) : null}

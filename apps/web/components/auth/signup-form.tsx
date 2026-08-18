@@ -15,7 +15,7 @@ export function SignupForm() {
 
   if (state.success) {
     return (
-      <p className="text-sm text-neutral-700">
+      <p className="text-body text-foreground-muted">
         Un e-mail de confirmation vient de vous être envoyé. Ouvrez-le pour activer votre
         compte.
       </p>
@@ -40,16 +40,16 @@ export function SignupForm() {
         />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} loading={isPending}>
         {isPending ? "Création..." : "Créer mon compte"}
       </Button>
-      <p className="text-center text-sm text-neutral-500">
+      <p className="text-center text-small text-foreground-muted">
         Déjà un compte ?{" "}
-        <Link href="/connexion" className="hover:underline">
+        <Link href="/connexion" className="hover:text-foreground hover:underline">
           Se connecter
         </Link>
       </p>

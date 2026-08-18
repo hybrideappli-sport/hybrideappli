@@ -7,9 +7,9 @@ import type { MedicalClearanceNoticeView } from "@hybride/domain";
  */
 export function MedicalClearanceNotice({ notice }: { notice: MedicalClearanceNoticeView }) {
   return (
-    <div role="alert" data-testid="medical-clearance-notice" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-      <p className="font-semibold">Avis médical recommandé</p>
-      <p className="mt-1">{notice.message}</p>
+    <div role="alert" data-testid="medical-clearance-notice" className="rounded-lg bg-warning/10 p-4 text-body text-warning">
+      <p className="text-body-strong font-semibold">Avis médical recommandé</p>
+      <p className="mt-1 text-foreground-muted">{notice.message}</p>
     </div>
   );
 }

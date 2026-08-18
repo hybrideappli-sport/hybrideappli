@@ -20,8 +20,17 @@ async function fetchAllProfiles(admin: SupabaseClient<Database>): Promise<Array<
   let from = 0;
   // Ordre stable (`id`) : indispensable pour que la pagination par `range()` ne saute ni ne
   // répète de ligne entre deux pages (PostgREST ne garantit un ordre cohérent que trié).
+  //
+  // `app_enrolled = true` (migration 0015) : exclut les comptes créés depuis le site club
+  // (hybride-page) qui n'ont pas réellement engagé l'app — sans ce filtre, tout inscrit à une
+  // sortie club recevait la révision hebdomadaire applicative.
   for (;;) {
-    const { data, error } = await admin.from("profiles").select("id, timezone").order("id", { ascending: true }).range(from, from + PROFILES_PAGE_SIZE - 1);
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id, timezone")
+      .eq("app_enrolled", true)
+      .order("id", { ascending: true })
+      .range(from, from + PROFILES_PAGE_SIZE - 1);
     if (error) throw new Error(`enqueueWeeklyReviews: profiles — ${error.message}`);
     all.push(...(data ?? []));
     if (!data || data.length < PROFILES_PAGE_SIZE) break;

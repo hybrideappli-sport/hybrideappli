@@ -8,7 +8,7 @@ import { ExplanationSheet } from "./explanation-sheet";
  */
 export function ExplanationInline({ short, explanationId }: { short: string; explanationId: string }) {
   return (
-    <div className="flex flex-col gap-1 text-sm text-neutral-600" data-testid="explanation-inline">
+    <div className="flex flex-col gap-1 text-body text-foreground-muted" data-testid="explanation-inline">
       <p>{short}</p>
       {explanationId ? <ExplanationSheet explanationId={explanationId} /> : null}
     </div>

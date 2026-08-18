@@ -23,6 +23,8 @@ export { evaluateStagnation } from "./stagnation";
 export { evaluatePainProtocol } from "./pain-protocol";
 export { diffPlanVersions } from "./diff-plan-versions";
 export { evaluateFreeAccess } from "./free-access";
+export { computeHybridScore } from "./hybrid-score/compute-hybrid-score";
+export { placeWeekSessions } from "./placement/place-week-sessions";
 
 export { createTraceFactory } from "./lib/trace";
 export type { TraceFactory } from "./lib/trace";

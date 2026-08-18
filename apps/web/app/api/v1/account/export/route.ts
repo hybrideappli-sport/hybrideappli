@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 /**
  * `GET /api/v1/account/export` (art. 15/20 RGPD, `08-architecture.md` §6.7) — export JSON
  * intégral des données personnelles de l'utilisateur courant : profil, plans/versions/séances/
- * nutrition, saisies quotidiennes, traces de décision, explications, consentements, abonnement.
+ * nutrition, saisies quotidiennes, traces de décision, explications, consentements, abonnement,
+ * sources de données connectées et scores hybrides (US-02, `08-architecture.md` §13.3).
  *
  * Lit exclusivement via le client `rls` (authentifié, cookie de session) — PAS `service_role` :
  * chaque table exportée porte déjà une policy `select ... using (user_id = auth.uid())`
@@ -57,6 +58,9 @@ export async function GET() {
     freeAccessEvents,
     notifications,
     pushSubscriptions,
+    dataConnections,
+    syncRuns,
+    hybridScores,
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
     supabase.from("athlete_profiles").select("*").eq("user_id", uid).maybeSingle(),
@@ -86,6 +90,12 @@ export async function GET() {
     supabase.from("free_access_events").select("*").eq("user_id", uid),
     supabase.from("notifications").select("*").eq("user_id", uid),
     supabase.from("push_subscriptions").select("*").eq("user_id", uid),
+    // US-02 — `data_connections` (JAMAIS `data_connection_secrets`, table intégralement hors
+    // portée de `authenticated`, ADR-013 §2 : aucune policy, `revoke all`), `sync_runs`,
+    // `hybrid_scores` (`08-architecture.md` §13.3, `docs/db-schema.md` §11 T30).
+    supabase.from("data_connections").select("*").eq("user_id", uid),
+    supabase.from("sync_runs").select("*").eq("user_id", uid),
+    supabase.from("hybrid_scores").select("*").eq("user_id", uid),
   ]);
 
   const errored = [
@@ -117,6 +127,9 @@ export async function GET() {
     freeAccessEvents,
     notifications,
     pushSubscriptions,
+    dataConnections,
+    syncRuns,
+    hybridScores,
   ].find((result) => result.error);
   if (errored?.error) return apiError(500, "INTERNAL_ERROR", errored.error.message);
 
@@ -151,6 +164,9 @@ export async function GET() {
       freeAccessEvents: freeAccessEvents.data,
       notifications: notifications.data,
       pushSubscriptions: pushSubscriptions.data,
+      dataConnections: dataConnections.data,
+      syncRuns: syncRuns.data,
+      hybridScores: hybridScores.data,
     },
     { headers: { "Cache-Control": "no-store", "Content-Disposition": "attachment; filename=hybride-export.json" } },
   );

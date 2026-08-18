@@ -284,6 +284,136 @@ export type Database = {
           },
         ]
       }
+      data_connection_secrets: {
+        Row: {
+          access_token_enc: string
+          access_token_expires_at: string
+          created_at: string
+          data_connection_id: string
+          refresh_locked_until: string | null
+          refresh_token_enc: string
+          rotated_at: string
+        }
+        Insert: {
+          access_token_enc: string
+          access_token_expires_at: string
+          created_at?: string
+          data_connection_id: string
+          refresh_locked_until?: string | null
+          refresh_token_enc: string
+          rotated_at?: string
+        }
+        Update: {
+          access_token_enc?: string
+          access_token_expires_at?: string
+          created_at?: string
+          data_connection_id?: string
+          refresh_locked_until?: string | null
+          refresh_token_enc?: string
+          rotated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_connection_secrets_data_connection_id_fkey"
+            columns: ["data_connection_id"]
+            isOneToOne: true
+            referencedRelation: "data_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_connections: {
+        Row: {
+          backfill_completed_at: string | null
+          connected_at: string | null
+          created_at: string
+          external_account_id: string | null
+          id: string
+          last_error_code: string | null
+          last_sync_status: Database["public"]["Enums"]["sync_status"] | null
+          last_synced_at: string | null
+          provider_code: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          scopes: string[]
+          status: Database["public"]["Enums"]["data_connection_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backfill_completed_at?: string | null
+          connected_at?: string | null
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          last_error_code?: string | null
+          last_sync_status?: Database["public"]["Enums"]["sync_status"] | null
+          last_synced_at?: string | null
+          provider_code: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          scopes?: string[]
+          status?: Database["public"]["Enums"]["data_connection_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backfill_completed_at?: string | null
+          connected_at?: string | null
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          last_error_code?: string | null
+          last_sync_status?: Database["public"]["Enums"]["sync_status"] | null
+          last_synced_at?: string | null
+          provider_code?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          scopes?: string[]
+          status?: Database["public"]["Enums"]["data_connection_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_connections_provider_code_fkey"
+            columns: ["provider_code"]
+            isOneToOne: false
+            referencedRelation: "data_providers"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      data_providers: {
+        Row: {
+          code: string
+          created_at: string
+          description_fr: string
+          display_order: number
+          is_available: boolean
+          kind: string
+          label_fr: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description_fr: string
+          display_order?: number
+          is_available?: boolean
+          kind: string
+          label_fr: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description_fr?: string
+          display_order?: number
+          is_available?: boolean
+          kind?: string
+          label_fr?: string
+        }
+        Relationships: []
+      }
       decision_traces: {
         Row: {
           category: string
@@ -456,6 +586,42 @@ export type Database = {
         }
         Relationships: []
       }
+      external_sport_mappings: {
+        Row: {
+          default_session_type: Database["public"]["Enums"]["session_type"]
+          external_code: string
+          provider_code: string
+          sport_id: string | null
+        }
+        Insert: {
+          default_session_type?: Database["public"]["Enums"]["session_type"]
+          external_code: string
+          provider_code: string
+          sport_id?: string | null
+        }
+        Update: {
+          default_session_type?: Database["public"]["Enums"]["session_type"]
+          external_code?: string
+          provider_code?: string
+          sport_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_sport_mappings_provider_code_fkey"
+            columns: ["provider_code"]
+            isOneToOne: false
+            referencedRelation: "data_providers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "external_sport_mappings_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       free_access_events: {
         Row: {
           accessed_on: string
@@ -479,6 +645,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      hybrid_scores: {
+        Row: {
+          by_day: Json
+          by_discipline: Json
+          components: Json
+          computed_for: string
+          created_at: string
+          disciplines_counted: number
+          engine_run_id: string | null
+          explanation_id: string | null
+          id: string
+          inputs_digest: string
+          load_units_total: number
+          provenance: Json
+          ruleset_version: string
+          score: number | null
+          sessions_counted: number
+          status: Database["public"]["Enums"]["hybrid_score_status"]
+          user_id: string
+          weeks_available: number
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          by_day?: Json
+          by_discipline?: Json
+          components?: Json
+          computed_for: string
+          created_at?: string
+          disciplines_counted: number
+          engine_run_id?: string | null
+          explanation_id?: string | null
+          id?: string
+          inputs_digest: string
+          load_units_total: number
+          provenance?: Json
+          ruleset_version: string
+          score?: number | null
+          sessions_counted: number
+          status: Database["public"]["Enums"]["hybrid_score_status"]
+          user_id: string
+          weeks_available: number
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          by_day?: Json
+          by_discipline?: Json
+          components?: Json
+          computed_for?: string
+          created_at?: string
+          disciplines_counted?: number
+          engine_run_id?: string | null
+          explanation_id?: string | null
+          id?: string
+          inputs_digest?: string
+          load_units_total?: number
+          provenance?: Json
+          ruleset_version?: string
+          score?: number | null
+          sessions_counted?: number
+          status?: Database["public"]["Enums"]["hybrid_score_status"]
+          user_id?: string
+          weeks_available?: number
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hybrid_scores_engine_run_id_fkey"
+            columns: ["engine_run_id"]
+            isOneToOne: false
+            referencedRelation: "engine_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hybrid_scores_explanation_id_fkey"
+            columns: ["explanation_id"]
+            isOneToOne: false
+            referencedRelation: "explanations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hybrid_scores_ruleset_version_fkey"
+            columns: ["ruleset_version"]
+            isOneToOne: false
+            referencedRelation: "rulesets"
+            referencedColumns: ["version"]
+          },
+        ]
       }
       job_queue: {
         Row: {
@@ -1344,6 +1601,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          app_enrolled: boolean
           created_at: string
           display_name: string | null
           id: string
@@ -1355,6 +1613,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          app_enrolled?: boolean
           created_at?: string
           display_name?: string | null
           id: string
@@ -1366,6 +1625,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          app_enrolled?: boolean
           created_at?: string
           display_name?: string | null
           id?: string
@@ -1483,23 +1743,126 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_incidents: {
+        Row: {
+          acknowledged_at: string | null
+          blocked_from: string
+          blocked_slot: Database["public"]["Enums"]["day_slot"]
+          blocked_to: string
+          closed_out_at: string | null
+          closeout_outcome:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at: string
+          id: string
+          invalidated_placement_id: string | null
+          planned_session_id: string | null
+          reported_at: string
+          reported_for_date: string
+          resolution: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id: string | null
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          blocked_from: string
+          blocked_slot: Database["public"]["Enums"]["day_slot"]
+          blocked_to: string
+          closed_out_at?: string | null
+          closeout_outcome?:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at?: string
+          id?: string
+          invalidated_placement_id?: string | null
+          planned_session_id?: string | null
+          reported_at?: string
+          reported_for_date: string
+          resolution: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id?: string | null
+          scope?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          blocked_from?: string
+          blocked_slot?: Database["public"]["Enums"]["day_slot"]
+          blocked_to?: string
+          closed_out_at?: string | null
+          closeout_outcome?:
+            | Database["public"]["Enums"]["incident_closeout_outcome"]
+            | null
+          created_at?: string
+          id?: string
+          invalidated_placement_id?: string | null
+          planned_session_id?: string | null
+          reported_at?: string
+          reported_for_date?: string
+          resolution?: Database["public"]["Enums"]["incident_resolution"]
+          resulting_session_log_id?: string | null
+          scope?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_incidents_invalidated_placement_fk"
+            columns: ["invalidated_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_resulting_session_log_id_fkey"
+            columns: ["resulting_session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_incidents_resulting_session_log_id_fkey"
+            columns: ["resulting_session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_logs: {
         Row: {
           actual_duration_min: number | null
           comment: string | null
           completion: Database["public"]["Enums"]["completion_status"]
           created_at: string
+          data_connection_id: string | null
+          distance_m: number | null
+          elevation_gain_m: number | null
+          excluded_at: string | null
+          exclusion_reason: string | null
+          external_activity_id: string | null
           freshness: number | null
           id: string
+          load_units: number | null
           logged_date: string
+          match_evidence: Json | null
           not_done_reason: string | null
           pain: Database["public"]["Enums"]["pain_level"]
           pain_at_rest: boolean
           pain_zone: Database["public"]["Enums"]["body_zone"] | null
           planned_session_id: string | null
           rpe: number | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           source: Database["public"]["Enums"]["data_source"]
           sport_id: string | null
+          started_at: string | null
+          superseded_by_log_id: string | null
           user_id: string
         }
         Insert: {
@@ -1507,17 +1870,28 @@ export type Database = {
           comment?: string | null
           completion: Database["public"]["Enums"]["completion_status"]
           created_at?: string
+          data_connection_id?: string | null
+          distance_m?: number | null
+          elevation_gain_m?: number | null
+          excluded_at?: string | null
+          exclusion_reason?: string | null
+          external_activity_id?: string | null
           freshness?: number | null
           id?: string
+          load_units?: number | null
           logged_date: string
+          match_evidence?: Json | null
           not_done_reason?: string | null
           pain?: Database["public"]["Enums"]["pain_level"]
           pain_at_rest?: boolean
           pain_zone?: Database["public"]["Enums"]["body_zone"] | null
           planned_session_id?: string | null
           rpe?: number | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
           source?: Database["public"]["Enums"]["data_source"]
           sport_id?: string | null
+          started_at?: string | null
+          superseded_by_log_id?: string | null
           user_id: string
         }
         Update: {
@@ -1525,20 +1899,38 @@ export type Database = {
           comment?: string | null
           completion?: Database["public"]["Enums"]["completion_status"]
           created_at?: string
+          data_connection_id?: string | null
+          distance_m?: number | null
+          elevation_gain_m?: number | null
+          excluded_at?: string | null
+          exclusion_reason?: string | null
+          external_activity_id?: string | null
           freshness?: number | null
           id?: string
+          load_units?: number | null
           logged_date?: string
+          match_evidence?: Json | null
           not_done_reason?: string | null
           pain?: Database["public"]["Enums"]["pain_level"]
           pain_at_rest?: boolean
           pain_zone?: Database["public"]["Enums"]["body_zone"] | null
           planned_session_id?: string | null
           rpe?: number | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
           source?: Database["public"]["Enums"]["data_source"]
           sport_id?: string | null
+          started_at?: string | null
+          superseded_by_log_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "session_logs_data_connection_id_fkey"
+            columns: ["data_connection_id"]
+            isOneToOne: false
+            referencedRelation: "data_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_logs_planned_session_id_fkey"
             columns: ["planned_session_id"]
@@ -1551,6 +1943,129 @@ export type Database = {
             columns: ["sport_id"]
             isOneToOne: false
             referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_superseded_by_log_id_fkey"
+            columns: ["superseded_by_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_superseded_by_log_id_fkey"
+            columns: ["superseded_by_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_placements: {
+        Row: {
+          created_at: string
+          guardrails_checked: string[]
+          id: string
+          incident_id: string | null
+          origin_date: string
+          origin_time: string | null
+          plan_version_id: string
+          planned_session_id: string
+          previous_placement_id: string | null
+          reason: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version: string
+          scheduled_date: string | null
+          scheduled_time: string | null
+          slot: Database["public"]["Enums"]["day_slot"]
+          status: Database["public"]["Enums"]["placement_status"]
+          superseded_at: string | null
+          superseded_by_placement_id: string | null
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          guardrails_checked?: string[]
+          id?: string
+          incident_id?: string | null
+          origin_date: string
+          origin_time?: string | null
+          plan_version_id: string
+          planned_session_id: string
+          previous_placement_id?: string | null
+          reason: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          slot?: Database["public"]["Enums"]["day_slot"]
+          status: Database["public"]["Enums"]["placement_status"]
+          superseded_at?: string | null
+          superseded_by_placement_id?: string | null
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          guardrails_checked?: string[]
+          id?: string
+          incident_id?: string | null
+          origin_date?: string
+          origin_time?: string | null
+          plan_version_id?: string
+          planned_session_id?: string
+          previous_placement_id?: string | null
+          reason?: Database["public"]["Enums"]["placement_reason"]
+          ruleset_version?: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          slot?: Database["public"]["Enums"]["day_slot"]
+          status?: Database["public"]["Enums"]["placement_status"]
+          superseded_at?: string | null
+          superseded_by_placement_id?: string | null
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_placements_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_plan_version_id_fkey"
+            columns: ["plan_version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_previous_placement_id_fkey"
+            columns: ["previous_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_placements_ruleset_version_fkey"
+            columns: ["ruleset_version"]
+            isOneToOne: false
+            referencedRelation: "rulesets"
+            referencedColumns: ["version"]
+          },
+          {
+            foreignKeyName: "session_placements_superseded_by_placement_id_fkey"
+            columns: ["superseded_by_placement_id"]
+            isOneToOne: false
+            referencedRelation: "session_placements"
             referencedColumns: ["id"]
           },
         ]
@@ -1733,11 +2248,211 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_runs: {
+        Row: {
+          data_connection_id: string
+          error_code: string | null
+          error_message: string | null
+          external_cursor: string | null
+          finished_at: string | null
+          id: string
+          items_failed: number
+          items_imported: number
+          items_merged: number
+          items_seen: number
+          items_skipped: number
+          rate_limit: Json | null
+          started_at: string
+          status: Database["public"]["Enums"]["sync_status"]
+          trigger: Database["public"]["Enums"]["sync_trigger"]
+          user_id: string
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          data_connection_id: string
+          error_code?: string | null
+          error_message?: string | null
+          external_cursor?: string | null
+          finished_at?: string | null
+          id?: string
+          items_failed?: number
+          items_imported?: number
+          items_merged?: number
+          items_seen?: number
+          items_skipped?: number
+          rate_limit?: Json | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["sync_status"]
+          trigger: Database["public"]["Enums"]["sync_trigger"]
+          user_id: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          data_connection_id?: string
+          error_code?: string | null
+          error_message?: string | null
+          external_cursor?: string | null
+          finished_at?: string | null
+          id?: string
+          items_failed?: number
+          items_imported?: number
+          items_merged?: number
+          items_seen?: number
+          items_skipped?: number
+          rate_limit?: Json | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["sync_status"]
+          trigger?: Database["public"]["Enums"]["sync_trigger"]
+          user_id?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_runs_data_connection_id_fkey"
+            columns: ["data_connection_id"]
+            isOneToOne: false
+            referencedRelation: "data_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      session_logs_counted: {
+        Row: {
+          actual_duration_min: number | null
+          comment: string | null
+          completion: Database["public"]["Enums"]["completion_status"] | null
+          created_at: string | null
+          data_connection_id: string | null
+          distance_m: number | null
+          elevation_gain_m: number | null
+          excluded_at: string | null
+          exclusion_reason: string | null
+          external_activity_id: string | null
+          freshness: number | null
+          id: string | null
+          load_units: number | null
+          logged_date: string | null
+          match_evidence: Json | null
+          not_done_reason: string | null
+          pain: Database["public"]["Enums"]["pain_level"] | null
+          pain_at_rest: boolean | null
+          pain_zone: Database["public"]["Enums"]["body_zone"] | null
+          planned_session_id: string | null
+          rpe: number | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
+          source: Database["public"]["Enums"]["data_source"] | null
+          sport_id: string | null
+          started_at: string | null
+          superseded_by_log_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          actual_duration_min?: number | null
+          comment?: string | null
+          completion?: Database["public"]["Enums"]["completion_status"] | null
+          created_at?: string | null
+          data_connection_id?: string | null
+          distance_m?: number | null
+          elevation_gain_m?: number | null
+          excluded_at?: string | null
+          exclusion_reason?: string | null
+          external_activity_id?: string | null
+          freshness?: number | null
+          id?: string | null
+          load_units?: number | null
+          logged_date?: string | null
+          match_evidence?: Json | null
+          not_done_reason?: string | null
+          pain?: Database["public"]["Enums"]["pain_level"] | null
+          pain_at_rest?: boolean | null
+          pain_zone?: Database["public"]["Enums"]["body_zone"] | null
+          planned_session_id?: string | null
+          rpe?: number | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
+          source?: Database["public"]["Enums"]["data_source"] | null
+          sport_id?: string | null
+          started_at?: string | null
+          superseded_by_log_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          actual_duration_min?: number | null
+          comment?: string | null
+          completion?: Database["public"]["Enums"]["completion_status"] | null
+          created_at?: string | null
+          data_connection_id?: string | null
+          distance_m?: number | null
+          elevation_gain_m?: number | null
+          excluded_at?: string | null
+          exclusion_reason?: string | null
+          external_activity_id?: string | null
+          freshness?: number | null
+          id?: string | null
+          load_units?: number | null
+          logged_date?: string | null
+          match_evidence?: Json | null
+          not_done_reason?: string | null
+          pain?: Database["public"]["Enums"]["pain_level"] | null
+          pain_at_rest?: boolean | null
+          pain_zone?: Database["public"]["Enums"]["body_zone"] | null
+          planned_session_id?: string | null
+          rpe?: number | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
+          source?: Database["public"]["Enums"]["data_source"] | null
+          sport_id?: string | null
+          started_at?: string | null
+          superseded_by_log_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_logs_data_connection_id_fkey"
+            columns: ["data_connection_id"]
+            isOneToOne: false
+            referencedRelation: "data_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_superseded_by_log_id_fkey"
+            columns: ["superseded_by_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_logs_superseded_by_log_id_fkey"
+            columns: ["superseded_by_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      claim_connection_refresh: {
+        Args: { p_connection_id: string; p_lease_seconds: number }
+        Returns: boolean
+      }
       claim_job_queue: {
         Args: { p_limit: number }
         Returns: {
@@ -1771,9 +2486,27 @@ export type Database = {
         Args: { p_retention_days?: number }
         Returns: number
       }
+      read_data_connection_secret: {
+        Args: { p_connection_id: string; p_key: string }
+        Returns: {
+          access_token: string
+          access_token_expires_at: string
+          refresh_token: string
+        }[]
+      }
       requeue_stuck_job_queue: {
         Args: { p_stuck_after_seconds?: number }
         Returns: number
+      }
+      store_data_connection_secret: {
+        Args: {
+          p_access_token: string
+          p_connection_id: string
+          p_expires_at: string
+          p_key: string
+          p_refresh_token: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
@@ -1802,12 +2535,20 @@ export type Database = {
         | "other"
       completion_status: "done" | "partial" | "not_done"
       confidence_level: "high" | "calibrating" | "unknown"
+      data_connection_status: "pending" | "active" | "needs_reauth" | "revoked"
       data_regime: "cold" | "declared" | "connected"
       data_source: "declared" | "connected"
       day_slot: "am" | "pm" | "unspecified"
       detail_level: "detailed" | "intent" | "macro"
       explanation_source: "template" | "llm"
       feasibility_status: "realistic" | "stretch" | "unrealistic"
+      hybrid_score_status: "calibration" | "available"
+      incident_closeout_outcome:
+        | "log_created"
+        | "already_logged"
+        | "skipped_no_consent"
+        | "skipped_session_absent"
+      incident_resolution: "rescheduled" | "cancelled_week"
       job_status: "pending" | "running" | "done" | "failed" | "abandoned"
       muscle_group:
         | "quads"
@@ -1844,6 +2585,13 @@ export type Database = {
         | "completed"
       pain_level: "none" | "light" | "pain"
       pain_protocol_level: "none" | "light" | "persistent" | "acute"
+      placement_reason:
+        | "initial"
+        | "plan_regenerated"
+        | "availability_changed"
+        | "incident_reported"
+        | "no_slot_available"
+      placement_status: "scheduled" | "moved" | "cancelled_week"
       plan_trigger:
         | "onboarding"
         | "objective_renegotiation"
@@ -1853,6 +2601,7 @@ export type Database = {
         | "stagnation"
         | "objective_end"
         | "manual_admin"
+        | "hybrid_score"
       risk_flag_type:
         | "minor"
         | "pregnancy"
@@ -1877,6 +2626,12 @@ export type Database = {
         | "inconclusive"
       stagnation_status: "calibration" | "no_stagnation" | "stagnation"
       subscription_tier: "free" | "premium"
+      sync_status: "running" | "succeeded" | "partial" | "failed"
+      sync_trigger:
+        | "initial_backfill"
+        | "webhook"
+        | "scheduled_reconcile"
+        | "manual"
       user_role: "athlete" | "staff"
     }
     CompositeTypes: {
@@ -2035,12 +2790,21 @@ export const Constants = {
       ],
       completion_status: ["done", "partial", "not_done"],
       confidence_level: ["high", "calibrating", "unknown"],
+      data_connection_status: ["pending", "active", "needs_reauth", "revoked"],
       data_regime: ["cold", "declared", "connected"],
       data_source: ["declared", "connected"],
       day_slot: ["am", "pm", "unspecified"],
       detail_level: ["detailed", "intent", "macro"],
       explanation_source: ["template", "llm"],
       feasibility_status: ["realistic", "stretch", "unrealistic"],
+      hybrid_score_status: ["calibration", "available"],
+      incident_closeout_outcome: [
+        "log_created",
+        "already_logged",
+        "skipped_no_consent",
+        "skipped_session_absent",
+      ],
+      incident_resolution: ["rescheduled", "cancelled_week"],
       job_status: ["pending", "running", "done", "failed", "abandoned"],
       muscle_group: [
         "quads",
@@ -2080,6 +2844,14 @@ export const Constants = {
       ],
       pain_level: ["none", "light", "pain"],
       pain_protocol_level: ["none", "light", "persistent", "acute"],
+      placement_reason: [
+        "initial",
+        "plan_regenerated",
+        "availability_changed",
+        "incident_reported",
+        "no_slot_available",
+      ],
+      placement_status: ["scheduled", "moved", "cancelled_week"],
       plan_trigger: [
         "onboarding",
         "objective_renegotiation",
@@ -2089,6 +2861,7 @@ export const Constants = {
         "stagnation",
         "objective_end",
         "manual_admin",
+        "hybrid_score",
       ],
       risk_flag_type: [
         "minor",
@@ -2117,6 +2890,13 @@ export const Constants = {
       ],
       stagnation_status: ["calibration", "no_stagnation", "stagnation"],
       subscription_tier: ["free", "premium"],
+      sync_status: ["running", "succeeded", "partial", "failed"],
+      sync_trigger: [
+        "initial_backfill",
+        "webhook",
+        "scheduled_reconcile",
+        "manual",
+      ],
       user_role: ["athlete", "staff"],
     },
   },

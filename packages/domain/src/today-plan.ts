@@ -10,9 +10,10 @@
 
 import { z } from "zod";
 
-import { ADHERENCE_LEVELS, BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS } from "./enums";
+import { ADHERENCE_LEVELS, BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "./enums";
 import type { BodyZone, PainProtocolLevel } from "./enums";
 import type { ExplanationView, TodayNutritionView, TodaySessionView } from "./onboarding";
+import { SportCodeSchema } from "./onboarding";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date ISO attendue (YYYY-MM-DD).");
 
@@ -88,6 +89,15 @@ export const CreateSessionLogInputSchema = z
     painZone: z.enum(BODY_ZONES).optional(),
     painAtRest: z.boolean().optional(),
     comment: z.string().max(1000).optional(),
+    // US-02, AC3 — « séance hors plan » : `plannedSessionId` reste `null`, ces trois champs
+    // portent alors ce que la séance planifiée aurait sinon fourni. `sportCode` est REQUIS dans ce
+    // cas précis (superRefine ci-dessous) : sans lui, `finalizeSessionLogLoad()` ne peut calculer
+    // aucune charge réalisée (ADR-015 §1) — une séance hors plan sans discipline resterait invisible
+    // du score hybride et des agrégats de volume.
+    sportCode: SportCodeSchema.nullable().optional(),
+    sessionType: z.enum(SESSION_TYPES).optional(),
+    /** ISO 8601 datetime — heure réelle de début (F3, `08-architecture.md` §13.8, point de contact). */
+    startedAt: z.string().datetime({ offset: true }).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.pain !== "none" && !value.painZone) {
@@ -97,8 +107,37 @@ export const CreateSessionLogInputSchema = z
         message: "La localisation de la gêne/douleur est requise dès que `pain` n'est pas 'none'.",
       });
     }
+    // AC3, ADR-015 §5 — une séance HORS PLAN (`plannedSessionId === null`) qui n'est pas un jour de
+    // repos manqué (`completion !== 'not_done'`) doit porter sa discipline ET sa durée réelle : sans
+    // séance planifiée pour les fournir, ce sont les SEULES sources possibles pour
+    // `finalizeSessionLogLoad()` (ADR-015 §1, tableau — « Log libre : actualDurationMin obligatoire
+    // dans ce cas »).
+    if (value.plannedSessionId === null && value.completion !== "not_done") {
+      if (!value.sportCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["sportCode"],
+          message: "La discipline (`sportCode`) est requise pour une séance hors plan.",
+        });
+      }
+      if (value.actualDurationMin === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["actualDurationMin"],
+          message: "La durée réelle (`actualDurationMin`) est requise pour une séance hors plan.",
+        });
+      }
+    }
   });
 export type CreateSessionLogInput = z.infer<typeof CreateSessionLogInputSchema>;
+
+/** AC5 — résultat de `reconcileSessionLogs()`, exposé au client pour `ReconciliationNotice`. */
+export interface SessionLogReconciliationView {
+  /** `true` si CETTE saisie a été fusionnée avec une séance importée existante (ou l'inverse). */
+  merged: boolean;
+  /** Identifiant de la ligne PORTANTE après fusion (peut différer de `logId` si `logId` a été exclu). */
+  survivingLogId: string | null;
+}
 
 export interface CreateSessionLogResponse {
   logId: string;
@@ -116,7 +155,46 @@ export interface CreateSessionLogResponse {
     referral: { required: boolean; message: string } | null;
   };
   nextSession: TodaySessionView | null;
+  /** US-02, AC5 — `null` tant que L2 n'est pas branché ; jamais lu par la F1. */
+  reconciliation: SessionLogReconciliationView | null;
 }
+
+// ---------------------------------------------------------------------------
+// PATCH /session-logs/:id (F3, `11-design-notes.md` §3.3 — parcours de correction `?log=<id>`,
+// amendement ADR-017 §9). Toujours PARTIEL : seuls les champs fournis sont modifiés
+// (`applySessionLogCorrection()` ne construit son `UPDATE` qu'à partir des clés définies).
+// `plannedSessionId`/`loggedDate`/`sportCode`/`sessionType`/`startedAt` ne sont volontairement PAS
+// repris ici : la correction porte sur le RESSENTI d'une séance déjà identifiée, jamais sur son
+// rattachement — un changement de séance rattachée n'a pas de sens dans ce parcours.
+// ---------------------------------------------------------------------------
+
+export const UpdateSessionLogInputSchema = z
+  .object({
+    completion: z.enum(COMPLETION_STATUSES).optional(),
+    notDoneReason: z.string().max(500).optional(),
+    actualDurationMin: z.number().int().min(0).max(1440).optional(),
+    rpe: z.number().int().min(1).max(10).optional(),
+    freshness: z.number().int().min(1).max(5).optional(),
+    pain: z.enum(PAIN_LEVELS).optional(),
+    painZone: z.enum(BODY_ZONES).optional(),
+    painAtRest: z.boolean().optional(),
+    comment: z.string().max(1000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.pain !== undefined && value.pain !== "none" && !value.painZone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["painZone"],
+        message: "La localisation de la gêne/douleur est requise dès que `pain` n'est pas 'none'.",
+      });
+    }
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "Au moins un champ est requis pour corriger une saisie." });
+export type UpdateSessionLogInput = z.infer<typeof UpdateSessionLogInputSchema>;
+
+/** Même forme que `CreateSessionLogResponse` : les deux chemins d'écriture du réalisé partagent le
+ * même pipeline post-persistance (`runSessionLogSignalPipeline()`), donc la même réponse. */
+export type UpdateSessionLogResponse = CreateSessionLogResponse;
 
 // ---------------------------------------------------------------------------
 // POST /nutrition-checkins (AC4, AC11) — saisie légère uniquement, pas de carnet détaillé.

@@ -16,26 +16,26 @@ type ProfileRecapProps = {
 export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRecapProps) {
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">Ton profil, avant de générer ton plan</h1>
-      <p className="text-sm text-neutral-600">
+      <h1 className="font-serif text-title text-foreground">Ton profil, avant de générer ton plan</h1>
+      <p className="text-body text-foreground-muted">
         Vérifie ce que le coach a compris. Rien n&apos;est enregistré tant que tu n&apos;as pas validé.
       </p>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Objectif</CardTitle>
+          <CardTitle>Objectif</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-neutral-700">
+        <CardContent className="text-body text-foreground-muted">
           <p>{profile.objective.label || "Non précisé"}</p>
-          {profile.objective.targetDate ? <p className="text-neutral-500">Date cible : {profile.objective.targetDate}</p> : null}
+          {profile.objective.targetDate ? <p className="text-small">Date cible : {profile.objective.targetDate}</p> : null}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Niveau et historique</CardTitle>
+          <CardTitle>Niveau et historique</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-neutral-700">
+        <CardContent className="text-body text-foreground-muted">
           <p>Niveau : {profile.experienceLevel}</p>
           {profile.declaredWeeklySessions !== null ? <p>Séances/semaine : {profile.declaredWeeklySessions}</p> : null}
           {profile.declaredWeeklyHours !== null ? <p>Heures/semaine : {profile.declaredWeeklyHours}</p> : null}
@@ -44,11 +44,11 @@ export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRec
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Sport(s) pratiqué(s)</CardTitle>
+          <CardTitle>Sport(s) pratiqué(s)</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-neutral-700">
+        <CardContent className="text-body text-foreground-muted">
           {profile.sports.length === 0 ? (
-            <p className="text-neutral-500">Aucun sport déclaré.</p>
+            <p className="text-small">Aucun sport déclaré.</p>
           ) : (
             <ul className="list-inside list-disc">
               {profile.sports.map((sport) => (
@@ -65,21 +65,21 @@ export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRec
       {profile.riskFlags.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Profil à risque déclaré</CardTitle>
+            <CardTitle>Profil à risque déclaré</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-neutral-700">
+          <CardContent className="text-body text-foreground-muted">
             <p>Le coach adaptera son comportement en conséquence (fiche AC3).</p>
           </CardContent>
         </Card>
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
 
-      <Button onClick={onValidate} disabled={pending}>
+      <Button onClick={onValidate} disabled={pending} loading={pending}>
         {pending ? "Génération de ton plan…" : "Valider mon profil et générer mon plan"}
       </Button>
     </div>

@@ -26,11 +26,11 @@ export function UpdatePasswordForm() {
         />
       </div>
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} loading={isPending}>
         {isPending ? "Enregistrement..." : "Enregistrer le nouveau mot de passe"}
       </Button>
     </form>

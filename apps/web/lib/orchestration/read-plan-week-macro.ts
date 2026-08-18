@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@hybride/db";
-import type { MacroPlanResponse, WeekPlanResponse } from "@hybride/domain";
+import type { MacroPlanResponse, Ruleset, WeekPlanResponse } from "@hybride/domain";
 
 import { addDaysIso } from "../dates";
 import { fetchTodayNutritionView, fetchTodaySessionView } from "./read-today-plan";
@@ -12,12 +12,19 @@ import { fetchTodayNutritionView, fetchTodaySessionView } from "./read-today-pla
  * (`read-today-plan.ts`) jour par jour : la vue d'une séance/journée nutrition ne dépend pas de
  * savoir si `date === now` (ces fonctions résolvent déjà un repli neutre quand `explanation_id`
  * est absent — semaines "intention" J+8→J+14, `04-build-macro-blocks.ts`).
+ *
+ * US-03 — `days[].sessions[]` (pluriel) : rupture de contrat ASSUMÉE (`08-architecture.md` §14.5).
+ * Un jour ne porte aujourd'hui au plus qu'une séance par construction du moteur F1
+ * (`09-build-sessions.ts`, `order_in_day` toujours 1), mais le placement F3 peut en poser deux le
+ * même jour lors d'un replacement — la forme reste un tableau pour ne pas devoir la refaire évoluer.
+ * `now` est le moment RÉEL (`nowPartsInTimezone()`), distinct de chaque `date` de la boucle —
+ * nécessaire à `SessionPlacementView.canReportIncident` (ADR-016 §7).
  */
 export async function fetchWeekPlan(
   admin: SupabaseClient<Database>,
-  args: { userId: string; planVersionId: string; weekStart: string },
+  args: { userId: string; planVersionId: string; weekStart: string; now: { date: string; time: string }; ruleset: Ruleset },
 ): Promise<WeekPlanResponse | null> {
-  const { userId, planVersionId, weekStart } = args;
+  const { userId, planVersionId, weekStart, now, ruleset } = args;
 
   const { data: weekRow, error } = await admin
     .from("plan_weeks")
@@ -32,10 +39,10 @@ export async function fetchWeekPlan(
   const days = await Promise.all(
     dates.map(async (date) => {
       const [session, nutrition] = await Promise.all([
-        fetchTodaySessionView(admin, { userId, planVersionId, date }),
+        fetchTodaySessionView(admin, { userId, planVersionId, date, now, ruleset }),
         fetchTodayNutritionView(admin, { userId, planVersionId, date }),
       ]);
-      return { date, session, nutrition };
+      return { date, sessions: session ? [session] : [], nutrition };
     }),
   );
 

@@ -4,6 +4,7 @@ import type { TodayPlanResponse } from "@hybride/domain";
 import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
 import {
   fetchActiveMedicalClearanceNotice,
   fetchActivePainNotice,
@@ -11,7 +12,7 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
-import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,13 @@ export async function GET(request: Request) {
 
     const [session, nutrition] = planVersionId
       ? await Promise.all([
-          fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now }),
+          fetchTodaySessionView(admin, {
+            userId: user.id,
+            planVersionId,
+            date: now,
+            now: nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris"),
+            ruleset: await getActiveRuleset(admin),
+          }),
           fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
         ])
       : [null, null];

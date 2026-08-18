@@ -17,7 +17,13 @@ import type { TodayNutritionView, TodaySessionView } from "./onboarding";
 
 export interface WeekPlanDayView {
   date: string; // ISO date
-  session: TodaySessionView | null; // null = jour de repos
+  /**
+   * US-03 — pluriel, `08-architecture.md` §14.5 : rupture de contrat ASSUMÉE (`session` singulier
+   * → `sessions[]`). Le placement peut poser deux séances le même jour (design F3 §1.3, « gap
+   * entre deux séances d'un même jour »), ce que la forme précédente rendait inexprimable.
+   * `[]` = jour de repos.
+   */
+  sessions: TodaySessionView[];
   nutrition: TodayNutritionView | null;
 }
 

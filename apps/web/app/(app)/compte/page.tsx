@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AccountDataSourcesRow } from "@/components/account/data-sources-row";
 import { DeleteAccountForm } from "@/components/account/delete-account-form";
 import { ExportAccountButton } from "@/components/account/export-account-button";
 import { HealthConsentManager } from "@/components/account/health-consent-manager";
@@ -41,31 +42,38 @@ export default async function AccountPage() {
     .maybeSingle();
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
+    <main className="mx-auto flex max-w-md flex-col gap-6 px-5 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Mon compte</h1>
-        <Link href="/dashboard" className="text-sm text-neutral-500 underline-offset-4 hover:underline">
+        <h1 className="font-serif text-title text-foreground">Mon compte</h1>
+        <Link href="/dashboard" className="text-small text-foreground-muted hover:text-foreground hover:underline">
           Dashboard
         </Link>
       </div>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-neutral-700">Consentements</h2>
+        <h2 className="text-label text-foreground-subtle">Consentements</h2>
         <HealthConsentManager active={healthConsentActive} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-neutral-700">Mon profil physique</h2>
+        <h2 className="text-label text-foreground-subtle">Mon profil physique</h2>
         <WeightEntryForm latestWeightKg={latestMetric?.weight_kg ?? null} measuredOn={now} />
       </section>
 
+      {/* US-02, AC1 — accès permanent, quel que soit le régime de données (§1.2 des notes de
+          design). Route vers `/donnees`, qui porte aussi la déconnexion d'une source (AC10). */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-neutral-700">Mes données</h2>
+        <h2 className="text-label text-foreground-subtle">Données</h2>
+        <AccountDataSourcesRow userId={user.id} />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-label text-foreground-subtle">Mes données</h2>
         <ExportAccountButton />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-neutral-700">Zone de danger</h2>
+        <h2 className="text-label text-warning">Zone de danger</h2>
         <DeleteAccountForm email={user.email ?? ""} />
       </section>
     </main>

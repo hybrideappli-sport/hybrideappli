@@ -38,4 +38,7 @@ export type ExplanationSubjectType =
   | "stagnation_diagnosis"
   | "objective_feasibility"
   | "pain_episode"
-  | "plan_version";
+  | "plan_version"
+  // US-02 — ADR-014 §5 : explication rendue pour un score hybride 'available'. Jamais pour un
+  // état 'calibration' (message templaté fixe, pas de rendu LLM/template, `08-architecture.md` §13.3).
+  | "hybrid_score";

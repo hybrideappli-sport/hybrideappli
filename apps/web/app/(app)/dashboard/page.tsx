@@ -7,6 +7,8 @@ import type { EntitlementView } from "@hybride/domain";
 import { signOutAction } from "@/app/(auth)/actions";
 import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { CoachPlanCard } from "@/components/dashboard/coach-plan-card";
+import { ConnectInviteCard } from "@/components/dashboard/connect-invite-card";
+import { DataCard } from "@/components/dashboard/data-card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { FreeAccessMeter } from "@/components/dashboard/free-access-meter";
 import { UpsellBanner } from "@/components/dashboard/upsell-banner";
@@ -17,10 +19,12 @@ import { DailyLogForm } from "@/components/today/daily-log-form";
 import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { Button } from "@/components/ui/button";
-import { startOfIsoWeekIso } from "@/lib/dates";
+import { NotDoneNotice } from "@/components/planning/notdone-notice";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
+import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
+import { fetchGlidingWeekPreview } from "@/lib/orchestration/read-gliding-week";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
-import { fetchMacroPlan, fetchWeekPlan } from "@/lib/orchestration/read-plan-week-macro";
+import { fetchMacroPlan } from "@/lib/orchestration/read-plan-week-macro";
 import {
   fetchActiveMedicalClearanceNotice,
   fetchActivePainNotice,
@@ -28,7 +32,8 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
-import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { readNotDoneNotices } from "@/lib/planning/read-notdone-notices";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard — Hybride Club" };
@@ -78,9 +83,9 @@ export default async function DashboardPage() {
 
   const header = (
     <div className="flex items-center justify-between">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <h1 className="font-serif text-title text-foreground">Dashboard</h1>
       <div className="flex items-center gap-2">
-        <Link href="/compte" className="text-sm text-neutral-500 underline-offset-4 hover:underline" data-testid="account-link">
+        <Link href="/compte" className="text-small text-foreground-muted hover:text-foreground hover:underline" data-testid="account-link">
           Mon compte
         </Link>
         <form action={signOutAction}>
@@ -94,16 +99,18 @@ export default async function DashboardPage() {
 
   if (blocked) {
     return (
-      <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
         {header}
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
         {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
-        <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-600" data-testid="paywall-blocked">
-          <p className="font-medium text-neutral-800">Tu as utilisé tous tes accès libres cette semaine</p>
-          <p className="mt-1">
+        {/* Quota atteint : le contenu reste visible, seul le CTA bascule vers l'abonnement
+            (docs/design-system.md §4.11 — jamais tout l'écran grisé). */}
+        <div className="rounded-lg bg-surface p-6 text-center" data-testid="paywall-blocked">
+          <p className="text-body-strong font-semibold text-foreground">Tu as utilisé tous tes accès libres cette semaine</p>
+          <p className="mt-1 text-body text-foreground-muted">
             Reviens le {entitlement.freeAccess.resetsAt} pour un nouvel accès gratuit, ou{" "}
-            <Link href="/abonnement" className="font-medium text-orange-500 underline underline-offset-2" data-testid="paywall-upgrade-link">
+            <Link href="/abonnement" className="text-body-strong font-semibold text-accent underline underline-offset-2" data-testid="paywall-upgrade-link">
               passe en illimité
             </Link>{" "}
             pour continuer dès maintenant — ton coach reste disponible 24/7 avec une adaptation continue.
@@ -118,27 +125,31 @@ export default async function DashboardPage() {
     );
   }
 
-  const planVersionId = await getActivePlanVersionId(admin, user.id);
-  const [session, nutrition] = planVersionId
-    ? await Promise.all([
-        fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now }),
-        fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
-      ])
-    : [null, null];
+  const ruleset = await getActiveRuleset(admin);
+  const nowParts = nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris");
 
-  // AC13, finding B4 — contenu RÉEL de `WeeklyPreviewCard` (`plan_weeks`/`plan_blocks`, déjà
-  // matérialisés), pas un texte annonçant une fonctionnalité qui n'existait pas encore. Chargé
-  // uniquement pour les abonnés : un utilisateur `free` voit `WeeklyPreviewLocked`, jamais ce fetch.
-  const [weekPlan, macroPlan] = entitlement.canViewWeek && planVersionId
+  const planVersionId = await getActivePlanVersionId(admin, user.id);
+  const [session, nutrition, notDoneNotices] = planVersionId
     ? await Promise.all([
-        fetchWeekPlan(admin, { userId: user.id, planVersionId, weekStart: startOfIsoWeekIso(now) }),
+        fetchTodaySessionView(admin, { userId: user.id, planVersionId, date: now, now: nowParts, ruleset }),
+        fetchTodayNutritionView(admin, { userId: user.id, planVersionId, date: now }),
+        readNotDoneNotices(admin, user.id),
+      ])
+    : [null, null, []];
+
+  // AC13, finding B4 — contenu RÉEL de `D-planning-card` (`session_placements`, déjà matérialisés),
+  // pas un texte annonçant une fonctionnalité qui n'existait pas encore. Chargé uniquement pour les
+  // abonnés : un utilisateur `free` voit `WeeklyPreviewLocked`, jamais ce fetch (AC6).
+  const [glidingWeek, macroPlan] = entitlement.canViewWeek && planVersionId
+    ? await Promise.all([
+        fetchGlidingWeekPreview(admin, { userId: user.id, planVersionId, now: nowParts, ruleset }),
         fetchMacroPlan(admin, { planVersionId }),
       ])
-    : [null, null];
+    : [[], null];
   const macroFocus = macroPlan ? macroFocusForToday(macroPlan, now) : null;
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+    <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
       {header}
 
       {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
@@ -146,9 +157,21 @@ export default async function DashboardPage() {
 
       {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
 
+      {/* US-03, amendement ADR-017 §8-§9 — `D-notdone-notice` : immédiatement après le plan du jour,
+          avant tout le reste (design §3.1). `notDoneNotices` porte la plus récente ; le composant
+          dérive lui-même « + N autre(s) ». */}
+      {notDoneNotices.length > 0 ? <NotDoneNotice notice={notDoneNotices[0]!} extraCount={notDoneNotices.length - 1} /> : null}
+
+      {/* US-03 — `D-planning-card` : ordre éditorial ARRÊTÉ (`08-architecture.md` §14.4). Le même
+          objet que le plan du jour, à une autre échelle : la séance du jour, puis la semaine qui la
+          contient. Vient AVANT les deux cartes d'enrichissement F2. */}
       <PaywallGate entitled={entitlement.canViewWeek} fallback={<WeeklyPreviewLocked />}>
-        <WeeklyPreviewCard week={weekPlan} macroFocus={macroFocus} />
+        <WeeklyPreviewCard days={glidingWeek} macroFocus={macroFocus} />
       </PaywallGate>
+
+      {/* US-02 — `ConnectInviteCard` se masque elle-même hors régime froid. */}
+      <ConnectInviteCard userId={user.id} />
+      <DataCard userId={user.id} />
 
       <WeeklyReviewBadge userId={user.id} />
       {entitlement.tier === "free" ? <FreeAccessMeter freeAccess={entitlement.freeAccess} /> : null}

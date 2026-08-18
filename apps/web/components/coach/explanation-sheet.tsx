@@ -40,16 +40,16 @@ export function ExplanationSheet({ explanationId }: { explanationId: string }) {
       <button
         type="button"
         onClick={handleToggle}
-        className="text-xs font-medium text-orange-500 underline-offset-4 hover:underline"
+        className="text-body-strong font-semibold text-accent underline-offset-4 hover:underline"
         data-testid="explanation-more-link"
       >
-        {open ? "Replier" : "En savoir plus"}
+        {open ? "Replier" : "En savoir plus →"}
       </button>
       {open ? (
-        <div className="mt-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700" data-testid="explanation-sheet">
+        <div className="mt-2 rounded-md bg-surface-raised p-3 text-small text-foreground-muted" data-testid="explanation-sheet">
           {loading ? <p>Chargement du raisonnement…</p> : null}
           {error ? (
-            <p role="alert" className="text-red-600">
+            <p role="alert" className="text-danger">
               {error}
             </p>
           ) : null}

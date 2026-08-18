@@ -59,6 +59,10 @@ export {
   ONBOARDING_STEPS,
   ONBOARDING_CHAT_STEPS,
   CONSENT_CODES,
+  PLACEMENT_STATUSES,
+  PLACEMENT_REASONS,
+  INCIDENT_RESOLUTIONS,
+  INCIDENT_CLOSEOUT_OUTCOMES,
 } from "./enums";
 export type {
   BodyZone,
@@ -90,6 +94,10 @@ export type {
   FreeAccessWindowStrategy,
   OnboardingStep,
   ConsentCode,
+  PlacementStatus,
+  PlacementReason,
+  IncidentResolution,
+  IncidentCloseoutOutcome,
 } from "./enums";
 
 // ---------------------------------------------------------------------------
@@ -104,6 +112,7 @@ export type {
   StagnationParams,
   NutritionParams,
   FreeAccessParams,
+  PlanningParams,
   RulesetParams,
   SourceConfidence,
   RulesetSourceRef,
@@ -221,7 +230,7 @@ export type { SessionLogSummary, NutritionCheckinSummary } from "./session-log";
 // today-plan.ts — boucle quotidienne (Lot L4)
 // ---------------------------------------------------------------------------
 
-export { CreateSessionLogInputSchema, NutritionCheckinInputSchema, BodyMetricInputSchema } from "./today-plan";
+export { CreateSessionLogInputSchema, UpdateSessionLogInputSchema, NutritionCheckinInputSchema, BodyMetricInputSchema } from "./today-plan";
 export type {
   PainNoticeView,
   MedicalClearanceNoticeView,
@@ -230,6 +239,9 @@ export type {
   TodayPlanResponse,
   CreateSessionLogInput,
   CreateSessionLogResponse,
+  UpdateSessionLogInput,
+  UpdateSessionLogResponse,
+  SessionLogReconciliationView,
   NutritionCheckinInput,
   NutritionCheckinResponse,
   BodyMetricInput,
@@ -290,3 +302,65 @@ export type { ObjectiveEndProposalView, ObjectiveEndResponse } from "./objective
 
 export { PushSubscriptionInputSchema } from "./push";
 export type { PushSubscriptionInput, PushSubscriptionResponse } from "./push";
+
+// ---------------------------------------------------------------------------
+// data-sources.ts — US-02, `/data/*` (AC1, AC2, AC6, AC10)
+// ---------------------------------------------------------------------------
+
+export { ActivitiesQuerySchema } from "./data-sources";
+export type {
+  DataSourceStatus,
+  DataSourceView,
+  DataSourcesView,
+  AuthorizeConnectionResponse,
+  DisconnectDataConnectionResponse,
+  ActivitiesQuery,
+  ActivityFeedItem,
+  DataOverviewCell,
+  DataOverviewSync,
+  DataOverviewView,
+} from "./data-sources";
+
+// ---------------------------------------------------------------------------
+// planning.ts — US-03, ADR-016/ADR-017
+// ---------------------------------------------------------------------------
+
+export { ReportIncidentInputSchema } from "./planning";
+export type {
+  PlacementCalendarWindowInput,
+  PlacementIncidentWindowInput,
+  PlacementFrozenOccupancyInput,
+  PlacementSessionOriginInput,
+  PlacementSessionInput,
+  PlacementTriggerReason,
+  PlacementInput,
+  PlacementDecision,
+  PlacementResult,
+  SessionPlacementOriginView,
+  SessionPlacementView,
+  ReportIncidentInput,
+  ReportIncidentResponse,
+  AcknowledgeIncidentResponse,
+} from "./planning";
+
+// ---------------------------------------------------------------------------
+// hybrid-score.ts — US-02, ADR-014 — uniquement des types
+// ---------------------------------------------------------------------------
+
+export type {
+  HybridScoreSessionInput,
+  HybridScoreContext,
+  HybridScoreStatus,
+  HybridScoreSubcomponent,
+  HybridScoreComponents,
+  HybridScoreByDisciplineItem,
+  HybridScoreByDayItem,
+  HybridScoreResult,
+  HybridScoreVolumeDayView,
+  HybridScoreVolumeView,
+  HybridScoreSplitItemView,
+  HybridScoreSplitView,
+  HybridScoreComponentView,
+  HybridScoreNextStepView,
+  HybridScoreResponse,
+} from "./hybrid-score";

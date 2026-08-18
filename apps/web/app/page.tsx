@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 // dans le périmètre de cette US.
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-4 text-center">
-      <h1 className="text-2xl font-semibold">Hybride Club</h1>
-      <p className="text-neutral-600">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-5 text-center">
+      <h1 className="font-serif text-display text-foreground">Hybride Club</h1>
+      <p className="text-body text-foreground-muted">
         Un coach IA qui construit et ajuste en continu votre plan d&apos;entraînement et de
         nutrition.
       </p>
-      <div className="flex gap-3">
+      <div className="flex w-full flex-col gap-3">
         <Button asChild>
           <Link href="/inscription">Créer un compte</Link>
         </Button>

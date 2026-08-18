@@ -34,22 +34,22 @@ export default async function ObjectiveEndPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
-      <h1 className="text-xl font-semibold" data-testid="objective-end-title">
+    <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+      <h1 className="font-serif text-title text-foreground" data-testid="objective-end-title">
         Ton objectif est arrivé à échéance
       </h1>
-      <p className="text-sm text-neutral-600" data-testid="objective-end-explanation">
+      <p className="text-body text-foreground-muted" data-testid="objective-end-explanation">
         {offer.explanation.short}
       </p>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {offer.proposals.map((proposal) => (
-          <div key={proposal.kind} className="rounded-lg border border-neutral-200 p-4" data-testid={`objective-end-proposal-${proposal.kind}`}>
-            <p className="font-medium text-neutral-900">{proposal.label}</p>
-            <p className="mt-1 text-sm text-neutral-600">{proposal.rationale}</p>
+          <div key={proposal.kind} className="rounded-lg bg-surface p-4" data-testid={`objective-end-proposal-${proposal.kind}`}>
+            <p className="font-medium text-foreground">{proposal.label}</p>
+            <p className="mt-1 text-body text-foreground-muted">{proposal.rationale}</p>
             <Link
               href={proposal.kind === "new_objective" ? "/onboarding/chat" : "/dashboard"}
-              className="mt-2 inline-block text-sm font-medium text-orange-500 underline underline-offset-2"
+              className="mt-2 inline-block text-body-strong font-semibold text-accent underline underline-offset-2"
               data-testid={`objective-end-cta-${proposal.kind}`}
             >
               {proposal.kind === "new_objective" ? "Définir mon nouvel objectif" : "Continuer avec ce plan"}

@@ -18,17 +18,15 @@ export function ChatBubble({ role, content, isReformulation = false }: ChatBubbl
         data-role={role}
         data-reformulation={isReformulation}
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
+          "max-w-[80%] whitespace-pre-wrap rounded-lg px-4 py-2.5 text-body",
           isCoach
-            ? isReformulation
-              ? "border border-orange-300 bg-orange-50 text-orange-900"
-              : "bg-white border border-neutral-200 text-neutral-900"
-            : "bg-orange-400 text-white",
+            ? "rounded-bl-[4px] bg-surface text-foreground"
+            : "rounded-br-[4px] bg-accent text-on-accent",
         )}
       >
         {isReformulation ? (
-          <p className="mb-1 text-xs font-medium text-orange-600" role="status">
-            Je n&apos;ai pas bien compris, je reformule :
+          <p className="text-label mb-1 text-warning" role="status">
+            Je n&apos;ai pas bien compris
           </p>
         ) : null}
         {content}

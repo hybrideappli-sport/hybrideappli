@@ -72,10 +72,15 @@ export async function buildPlanningContext(
     admin.from("plans").select("id, current_version_id").eq("user_id", userId).eq("status", "active").maybeSingle(),
     admin
       .from("session_logs")
-      .select("id, logged_date, sport_id, planned_session_id, completion, actual_duration_min, rpe, freshness, pain, pain_zone, pain_at_rest")
+      .select("id, logged_date, sport_id, planned_session_id, completion, actual_duration_min, load_units, rpe, freshness, pain, pain_zone, pain_at_rest")
       .eq("user_id", userId)
       .gte("logged_date", windowStart)
       .lte("logged_date", now)
+      // US-02, ADR-015 §2/§4 — une séance FUSIONNÉE (doublon résolu, AC5) ne doit apparaître dans
+      // AUCUN agrégat, `PlanningContext` compris : c'est le même prédicat que `session_logs_counted`
+      // (`docs/db-schema.md` §10.6). Filtré ici plutôt qu'en lisant la vue, pour garder la sélection
+      // de colonnes existante inchangée et explicite.
+      .is("excluded_at", null)
       .order("logged_date", { ascending: true }),
     admin
       .from("nutrition_checkins")
@@ -178,10 +183,13 @@ export async function buildPlanningContext(
   }));
 
   // AC4, AC9 — Lot L4 : nécessaire à `hasActiveNegativeSignal()` (asymétrie hausse/baisse) et à
-  // `evaluatePainProtocol()`. `actualLoadUnits`/`plannedLoadUnits` restent `null` : aucune règle du
-  // Lot L2/L4 ne les lit encore (grep confirmé) — leur calcul (`session_logs` ne porte pas de
-  // charge propre ; il faudrait la dériver de `planned_sessions.load_units` × ratio de complétion)
-  // est un travail dédié à l'agrégation hebdomadaire AC6 du Lot L5, pas dupliqué ici par anticipation.
+  // `evaluatePainProtocol()`. `actualLoadUnits` cesse d'être `null` en dur depuis l'US-02
+  // (`08-architecture.md` §13.6 point 2) : `session_logs.load_units` est désormais renseigné par
+  // `finalizeSessionLogLoad()` (chemin d'écriture UNIQUE, service_role, ADR-015 §1). Toujours AUCUNE
+  // règle du moteur ne lit ce champ à ce jour (grep vérifié, R10 du plan US-02) : le changement reste
+  // inerte à court terme, mais devient une entrée réelle du moteur dès qu'une règle future s'en sert.
+  // `plannedLoadUnits` reste `null` : hors périmètre de l'US-02 (dérivation depuis `planned_sessions`,
+  // non traitée ici).
   const sessionLogs: SessionLogSnapshot[] = (sessionLogsRes.data ?? []).map((row) => ({
     id: row.id,
     loggedDate: row.logged_date,
@@ -189,7 +197,7 @@ export async function buildPlanningContext(
     plannedSessionId: row.planned_session_id,
     completion: row.completion,
     actualDurationMin: row.actual_duration_min,
-    actualLoadUnits: null,
+    actualLoadUnits: row.load_units,
     plannedLoadUnits: null,
     rpe: row.rpe,
     freshness: row.freshness,

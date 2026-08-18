@@ -4,11 +4,11 @@
 export function CoachTypingIndicator() {
   return (
     <div data-testid="coach-typing-indicator" className="flex justify-start" role="status" aria-live="polite">
-      <div className="flex items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
+      <div className="flex items-center gap-1 rounded-lg rounded-bl-[4px] bg-surface px-4 py-3">
         <span className="sr-only">Le coach écrit sa réponse…</span>
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-400 [animation-delay:-0.3s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-400 [animation-delay:-0.15s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-400" />
+        <span className="h-1.5 w-1.5 motion-safe:animate-bounce rounded-full bg-foreground-subtle [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 motion-safe:animate-bounce rounded-full bg-foreground-subtle [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 motion-safe:animate-bounce rounded-full bg-foreground-subtle" />
       </div>
     </div>
   );

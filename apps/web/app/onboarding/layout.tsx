@@ -16,8 +16,8 @@ export default async function OnboardingLayout({ children }: { children: React.R
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-6">{children}</main>
+    <div className="min-h-screen bg-background">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col px-5 py-6">{children}</main>
     </div>
   );
 }

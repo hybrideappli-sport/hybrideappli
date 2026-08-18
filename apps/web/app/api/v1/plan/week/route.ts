@@ -5,9 +5,10 @@ import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
 import { startOfIsoWeekIso } from "@/lib/dates";
 import { getEntitlement } from "@/lib/entitlements";
+import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
 import { getActivePlanVersionId } from "@/lib/orchestration/read-today-plan";
 import { fetchWeekPlan } from "@/lib/orchestration/read-plan-week-macro";
-import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
+import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,8 @@ export async function GET(request: Request) {
   const planVersionId = await getActivePlanVersionId(admin, user.id);
   if (!planVersionId) return apiError(409, "CONFLICT", "Aucun plan actif — termine l'onboarding avant de consulter ta semaine.");
 
-  const week = await fetchWeekPlan(admin, { userId: user.id, planVersionId, weekStart });
+  const [ruleset, nowParts] = [await getActiveRuleset(admin), nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris")];
+  const week = await fetchWeekPlan(admin, { userId: user.id, planVersionId, weekStart, now: nowParts, ruleset });
   if (!week) return apiError(404, "NOT_FOUND", "Aucune semaine planifiée pour cette date.");
 
   return apiJson<WeekPlanResponse>(week, { headers: { "Cache-Control": "no-store" } });

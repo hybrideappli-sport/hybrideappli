@@ -9,6 +9,8 @@ import { createTraceFactory, evaluateObjectiveFeasibility, generatePlan } from "
 import type { FeasibilityProposalView, PlanTrigger, TodayPlanView } from "@hybride/domain";
 
 import { getLlmProvider } from "../coach-llm-provider";
+import { placeAndMaterializeVersion } from "../planning/place-plan-version";
+import { fetchCurrentPlacementBySessionId, toSessionPlacementView } from "../planning/read-session-placements";
 import { buildPlanningContext } from "./build-planning-context";
 import { getActiveRuleset } from "./get-active-ruleset";
 import { materializePlanVersion } from "./materialize-plan-version";
@@ -87,10 +89,36 @@ export async function regeneratePlan(
     .update({ status: "active" })
     .eq("id", objectiveId);
 
+  // US-03 — `materializeSessionPlacements()` tourne DANS LA MÊME LOGIQUE DE TRANSACTION, APRÈS
+  // `materializePlanVersion()` (`08-architecture.md` §14.2). `trigger === 'onboarding'` est la
+  // toute première version d'un plan pour cet objectif ⇒ `initial` ; toute autre régénération
+  // (weekly_review, negative_signal, pain_protocol, objective_renegotiation…) écrit de nouvelles
+  // lignes `planned_sessions` fraîches ⇒ `plan_regenerated` (ADR-016 §2). `time: "00:00"` : sans
+  // conséquence ici, `isFreshWeek` (aucun placement existant à geler) ne consulte jamais l'heure.
+  await placeAndMaterializeVersion(admin, {
+    userId,
+    planVersionId: materialized.planVersionId,
+    now: { date: now, time: "00:00" },
+    triggerReason: trigger === "onboarding" ? "initial" : "plan_regenerated",
+    ruleset,
+  });
+
+  const todaySessionId = materialized.today.session?.id ?? null;
+  const todayPlacement = todaySessionId
+    ? await fetchCurrentPlacementBySessionId(admin, { userId, plannedSessionId: todaySessionId })
+    : null;
+
   return {
     outcome: "plan_generated",
     planVersionId: materialized.planVersionId,
-    today: { date: now, session: materialized.today.session, nutrition: materialized.today.nutrition },
+    today: {
+      date: now,
+      session:
+        materialized.today.session && todayPlacement
+          ? { ...materialized.today.session, placement: toSessionPlacementView(todayPlacement, { date: now, time: "00:00" }, ruleset) }
+          : materialized.today.session,
+      nutrition: materialized.today.nutrition,
+    },
   };
 }
 

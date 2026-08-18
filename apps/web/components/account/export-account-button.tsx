@@ -35,11 +35,11 @@ export function ExportAccountButton() {
   return (
     <div className="flex flex-col gap-2">
       {error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-small text-danger">
           {error}
         </p>
       ) : null}
-      <Button variant="secondary" size="sm" onClick={handleExport} disabled={pending} data-testid="export-account-button">
+      <Button variant="secondary" size="sm" onClick={handleExport} disabled={pending} loading={pending} data-testid="export-account-button">
         {pending ? "Génération…" : "Télécharger mes données (JSON)"}
       </Button>
     </div>

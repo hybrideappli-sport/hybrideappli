@@ -104,6 +104,104 @@ const FreeAccessParamsSchema = z.object({
 });
 export type FreeAccessParams = z.infer<typeof FreeAccessParamsSchema>;
 
+/**
+ * US-02 — ADR-014 §1/§3 : formule du score hybride. Contrairement aux autres sections, AUCUN de
+ * ces paramètres n'est un garde-fou de sécurité bloquant (`null` volontaire, ADR-007) : ce sont
+ * des valeurs par défaut concrètes, une pondération mal calibrée dégrade un affichage, elle ne
+ * blesse personne. La section entière est optionnelle et intégralement par défaut
+ * (`.default({})`, cascadant sur chaque champ) pour que le ruleset `0.1.0-dev` de la F1, qui ne la
+ * publie pas, reste valide au rejeu — ADR-014 §3.
+ *
+ * Valeurs par défaut = celles tranchées par le fondateur le 2026-08-12 (ADR-014, questions
+ * ouvertes §1), reprises telles quelles dans la migration `0021_seed_data_sources.sql`
+ * (`rulesets.version = '0.2.0-dev'`).
+ */
+const HybridScoreWeightsSchema = z.object({
+  volume: z.number().finite().nonnegative().default(0.5),
+  consistency: z.number().finite().nonnegative().default(0.3),
+  diversity: z.number().finite().nonnegative().default(0.2),
+});
+
+const HybridScoreParamsSchema = z.object({
+  weights: HybridScoreWeightsSchema.default({}),
+  /** ADR-014 §1 — "≈ 10-12 h hebdomadaires d'entraînement mixte", calé sur les maquettes. */
+  chronic_load_reference_units: z.number().finite().positive().default(700),
+  /** ADR-014 §1 — 5 jours actifs par semaine. */
+  target_active_days_per_28d: z.number().finite().positive().default(20),
+  /** ADR-014 §1 — trois disciplines équilibrées = hybridité pleine (D = 1). */
+  diversity_reference_disciplines: z.number().finite().positive().default(3),
+  /** ADR-014 §2 — fenêtre d'AFFICHAGE (volume, delta), distincte de la fenêtre de calcul. */
+  acute_window_days: z.number().int().positive().default(7),
+  /** ADR-014 §2 — fenêtre de CALCUL du score (lisse les semaines de décharge imposées par AC8). */
+  chronic_window_days: z.number().int().positive().default(28),
+  /** ADR-014 §4 — paramètre PROPRE à l'AC8 du score, initialisé à la même valeur que
+   * `stagnation.calibration_min_weeks` sans y être lié. */
+  calibration_min_weeks: z.number().int().positive().default(4),
+  /** ADR-014 §4 — "quatre semaines écoulées avec deux séances ne sont pas des données comparables". */
+  min_sessions_for_score: z.number().int().positive().default(4),
+});
+export type HybridScoreParams = z.infer<typeof HybridScoreParamsSchema>;
+
+/**
+ * US-03 — ADR-016 §4 : granularité horaire (grille de 30 min, bornes de créneau, préférences
+ * d'affichage) et paramètres de replacement (marge de blocage d'un imprévu, préavis minimal,
+ * densité journalière). Comme `hybrid_score` ci-dessus, AUCUN de ces paramètres n'est un
+ * garde-fou bloquant au sens d'ADR-007 §4 (le pire cas est une annulation perçue comme
+ * arbitraire, jamais une mise en danger) — **à l'exception des trois paramètres de densité
+ * journalière** (`max_sessions_per_day`, `min_minutes_between_sessions_same_day`,
+ * `allow_two_intense_sessions_same_day`), marqués `to_validate` dans `source_refs`
+ * (`supabase/migrations/0025_seed_planning_ruleset.sql`) : ils touchent à la sécurité (AC8) sans
+ * être eux-mêmes un `guardrails.*`, à confirmer avant un ruleset `1.0.0` (ADR-016, question
+ * ouverte n°1). Section entière optionnelle et intégralement par défaut (`.default({})`), pour
+ * que `0.1.0-dev`/`0.2.0-dev`, qui ne la publient pas, restent valides au rejeu.
+ *
+ * `incident_soft_limit_per_week` reste `number | null` — `null` = "aucune limite appliquée",
+ * état par défaut tant que la question produit §7 de la fiche US-03 (`08-architecture.md` §12
+ * question 16) n'est pas tranchée par le fondateur. Ce `null` n'est PAS de la même famille que
+ * les `null` bloquants d'ADR-007 §4 : il ne vit jamais dans `params.guardrails`, et
+ * `ProductionRulesetParamsSchema` ne le contraint donc jamais.
+ */
+const SlotWindowSchema = z.object({
+  start: z.string().regex(/^\d{2}:\d{2}$/, "Heure 'HH:MM' attendue."),
+  end: z.string().regex(/^\d{2}:\d{2}$/, "Heure 'HH:MM' attendue."),
+});
+
+const SlotWindowsSchema = z.object({
+  am: SlotWindowSchema.default({ start: "06:30", end: "11:30" }),
+  pm: SlotWindowSchema.default({ start: "16:30", end: "21:30" }),
+  unspecified: SlotWindowSchema.default({ start: "06:30", end: "21:30" }),
+});
+
+const PreferredStartTimesSchema = z.object({
+  am: z.array(z.string().regex(/^\d{2}:\d{2}$/)).default(["07:00", "06:30", "08:00", "09:00"]),
+  pm: z.array(z.string().regex(/^\d{2}:\d{2}$/)).default(["18:30", "19:00", "17:30", "20:00"]),
+  unspecified: z.array(z.string().regex(/^\d{2}:\d{2}$/)).default(["18:30", "07:00", "12:30"]),
+});
+
+const PlanningParamsSchema = z.object({
+  slot_windows: SlotWindowsSchema.default({}),
+  /** ADR-016 §4 — sous-créneaux fixes, ni le minute-près ni le choix libre. */
+  grid_minutes: z.number().int().positive().default(30),
+  preferred_start_times: PreferredStartTimesSchema.default({}),
+  /** Si `availability_slots.max_minutes` est `null`. */
+  default_slot_capacity_min: z.number().int().positive().default(120),
+  /** Jamais un replacement « dans 10 minutes » (ADR-016 §7). */
+  min_lead_time_min: z.number().int().nonnegative().default(60),
+  /** `to_validate` — densité journalière, touche AC8 sans être un `guardrails.*`. */
+  min_minutes_between_sessions_same_day: nullableNumber.default(360),
+  max_sessions_per_day: nullableNumber.default(2),
+  allow_two_intense_sessions_same_day: z.boolean().default(false),
+  /** Largeur de la fenêtre neutralisée par un imprévu, de part et d'autre du créneau occupé. */
+  incident_block_margin_min: z.number().int().nonnegative().default(120),
+  /** AC4 — jamais de report cumulatif : corollaire technique direct. */
+  reschedule_scope: z.literal("current_week").default("current_week"),
+  /** ADR-017 §1 — fenêtre de grâce avant l'écriture du `not_done` automatique. */
+  closeout_local_hour: z.number().int().min(0).max(23).default(3),
+  /** Question produit NON tranchée (fiche §7) — `null` = aucune limite appliquée. */
+  incident_soft_limit_per_week: nullableNumber.default(null),
+});
+export type PlanningParams = z.infer<typeof PlanningParamsSchema>;
+
 /** Schéma structurel complet — accepte les `null` (ruleset de développement). */
 export const RulesetParamsSchema = z.object({
   guardrails: GuardrailsParamsSchema,
@@ -112,6 +210,8 @@ export const RulesetParamsSchema = z.object({
   stagnation: StagnationParamsSchema,
   nutrition: NutritionParamsSchema,
   free_access: FreeAccessParamsSchema,
+  hybrid_score: HybridScoreParamsSchema.default({}),
+  planning: PlanningParamsSchema.default({}),
 });
 export type RulesetParams = z.infer<typeof RulesetParamsSchema>;
 

@@ -5,6 +5,7 @@ import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
 import { hashIp, getUserAgent } from "@/lib/api/ip-hash";
 import { purgeHealthDataOnConsentRevoke } from "@/lib/orchestration/purge-health-data-on-revoke";
+import { disconnectAllDataConnections } from "@/lib/data/disconnect-data-connection";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return apiError(500, "INTERNAL_ERROR", `Retrait enregistré mais purge des données de santé échouée : ${message}`);
+    }
+  }
+
+  // US-02, ADR-013 §5 — retrait de `third_party_data_import` : révocation EN CASCADE de TOUTES les
+  // connexions actives/en attente (jetons supprimés localement, révocation tentée chez le
+  // fournisseur). Les données déjà importées sont CONSERVÉES (AC10) — même comportement qu'une
+  // déconnexion individuelle, `disconnectDataConnection()` est le chemin unique.
+  if (code === "third_party_data_import") {
+    try {
+      await disconnectAllDataConnections(admin, user.id, "consent_withdrawn");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return apiError(500, "INTERNAL_ERROR", `Retrait enregistré mais révocation des connexions échouée : ${message}`);
     }
   }
 
