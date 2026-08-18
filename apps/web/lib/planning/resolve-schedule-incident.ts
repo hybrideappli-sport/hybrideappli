@@ -102,15 +102,10 @@ export async function resolveScheduleIncident(
     return { kind: "placement_failed", message: error instanceof Error ? error.message : String(error) };
   }
 
-  await materializeSessionPlacements(admin, {
-    userId,
-    planVersionId,
-    weekStart,
-    rulesetVersion: ruleset.version,
-    decisions: [decision],
-    slotBySessionId,
-  });
-
+  // `schedule_incidents` DOIT être inséré AVANT `materializeSessionPlacements()` : la nouvelle ligne
+  // `session_placements` porte `incident_id`, contraint par `session_placements_incident_id_fkey` —
+  // la ligne qu'elle référence doit déjà exister (finding, couverture de test Lot F2/F3 I5 : ce
+  // chemin n'avait jamais été exercé, l'ordre inverse échouait systématiquement).
   const resolution = decision.status === "cancelled_week" ? "cancelled_week" : "rescheduled";
   const { error: incidentInsertError } = await admin.from("schedule_incidents").insert({
     id: incidentId,
@@ -124,6 +119,31 @@ export async function resolveScheduleIncident(
     resolution,
   });
   if (incidentInsertError) throw new Error(`resolveScheduleIncident: schedule_incidents (insert) — ${incidentInsertError.message}`);
+
+  try {
+    await materializeSessionPlacements(admin, {
+      userId,
+      planVersionId,
+      weekStart,
+      rulesetVersion: ruleset.version,
+      decisions: [decision],
+      slotBySessionId,
+    });
+  } catch (error) {
+    // Action compensatoire — sans elle, un échec ici laisse l'incident orphelin de tout placement
+    // (`materializeSessionPlacements()` s'exécute après l'insertion de l'incident, par contrainte de
+    // FK) : l'utilisateur se retrouve verrouillé (tout signalement futur échoue en
+    // `SESSION_NOT_REPORTABLE`, `invalidated_placement_id` déjà consommé) et le job de clôture peut
+    // fabriquer un `not_done` sur une séance jamais concernée. On supprime l'incident tout juste
+    // inséré avant de propager l'erreur, pour que l'appel soit rejouable proprement.
+    const { error: deleteError } = await admin.from("schedule_incidents").delete().eq("id", incidentId);
+    if (deleteError) {
+      throw new Error(
+        `resolveScheduleIncident: materializeSessionPlacements a échoué (${error instanceof Error ? error.message : String(error)}) ET la compensation schedule_incidents.delete a échoué (${deleteError.message})`,
+      );
+    }
+    throw error;
+  }
 
   const currentPlacementLike: CurrentPlacementRow = {
     id: incidentId,

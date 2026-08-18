@@ -50,8 +50,11 @@ export function CoachPlanCard({ session, nutrition }: { session: TodaySessionVie
           </div>
         ) : null}
 
+        {/* `11-design-notes.md` §2.3 — le libellé passe à « Enregistrer une séance » quand rien
+            n'est prévu (jour de repos) : c'est le point d'entrée du Cas B, `S-offplan-block` déplié
+            d'emblée sur `/aujourdhui` (AC3, jamais bloqué faute d'intégration pour son sport). */}
         <Link href="/aujourdhui" className="text-body-strong font-semibold text-accent underline-offset-4 hover:underline">
-          Ouvrir ma séance / mon repas du jour →
+          {session === null ? "Enregistrer une séance →" : "Ouvrir ma séance / mon repas du jour →"}
         </Link>
       </CardContent>
     </Card>

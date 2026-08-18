@@ -16,7 +16,7 @@ import type {
 } from "@hybride/domain";
 
 import { addDaysIso } from "../dates";
-import { fetchCurrentPlacementsBySessionId, type CurrentPlacementRow } from "./read-session-placements";
+import { fetchCurrentPlacementsBySessionId, isWithinReportableWindow, type CurrentPlacementRow } from "./read-session-placements";
 
 /**
  * Charge séances, disponibilités, imprévus, placements gelés → entrée de `placeWeekSessions()`
@@ -192,6 +192,13 @@ export async function buildPlacementInputForIncident(
     reason: placementRow.reason,
     incidentId: placementRow.incident_id,
   };
+
+  // Contrôle d'admission — `08-architecture.md` §14.5 : une séance déjà passée, ou à moins de
+  // `min_lead_time_min` de l'instant courant, n'est plus signalable (`409 SESSION_NOT_REPORTABLE`).
+  // Même fenêtre que `canReportIncident` côté lecture (`isWithinReportableWindow`,
+  // `read-session-placements.ts`) — sans ce contrôle ici, l'écriture acceptait un signalement que la
+  // lecture aurait pourtant refusé d'afficher comme signalable.
+  if (!isWithinReportableWindow(currentPlacement, now, ruleset.params.planning.min_lead_time_min)) return null;
 
   const planVersionId = placementRow.plan_version_id;
   const weekStart = placementRow.week_start;

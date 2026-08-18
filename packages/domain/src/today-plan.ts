@@ -160,6 +160,43 @@ export interface CreateSessionLogResponse {
 }
 
 // ---------------------------------------------------------------------------
+// PATCH /session-logs/:id (F3, `11-design-notes.md` §3.3 — parcours de correction `?log=<id>`,
+// amendement ADR-017 §9). Toujours PARTIEL : seuls les champs fournis sont modifiés
+// (`applySessionLogCorrection()` ne construit son `UPDATE` qu'à partir des clés définies).
+// `plannedSessionId`/`loggedDate`/`sportCode`/`sessionType`/`startedAt` ne sont volontairement PAS
+// repris ici : la correction porte sur le RESSENTI d'une séance déjà identifiée, jamais sur son
+// rattachement — un changement de séance rattachée n'a pas de sens dans ce parcours.
+// ---------------------------------------------------------------------------
+
+export const UpdateSessionLogInputSchema = z
+  .object({
+    completion: z.enum(COMPLETION_STATUSES).optional(),
+    notDoneReason: z.string().max(500).optional(),
+    actualDurationMin: z.number().int().min(0).max(1440).optional(),
+    rpe: z.number().int().min(1).max(10).optional(),
+    freshness: z.number().int().min(1).max(5).optional(),
+    pain: z.enum(PAIN_LEVELS).optional(),
+    painZone: z.enum(BODY_ZONES).optional(),
+    painAtRest: z.boolean().optional(),
+    comment: z.string().max(1000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.pain !== undefined && value.pain !== "none" && !value.painZone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["painZone"],
+        message: "La localisation de la gêne/douleur est requise dès que `pain` n'est pas 'none'.",
+      });
+    }
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "Au moins un champ est requis pour corriger une saisie." });
+export type UpdateSessionLogInput = z.infer<typeof UpdateSessionLogInputSchema>;
+
+/** Même forme que `CreateSessionLogResponse` : les deux chemins d'écriture du réalisé partagent le
+ * même pipeline post-persistance (`runSessionLogSignalPipeline()`), donc la même réponse. */
+export type UpdateSessionLogResponse = CreateSessionLogResponse;
+
+// ---------------------------------------------------------------------------
 // POST /nutrition-checkins (AC4, AC11) — saisie légère uniquement, pas de carnet détaillé.
 // ---------------------------------------------------------------------------
 

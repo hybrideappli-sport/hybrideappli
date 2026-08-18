@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import { apiError, apiJson } from "@/lib/api/respond";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { getStravaConfig } from "@/lib/providers/strava/config";
+import { FixedWindowRateLimiter } from "@/lib/rate-limit/fixed-window-limiter";
 
 export const dynamic = "force-dynamic";
 // Corps brut requis à la validation ; l'Edge Runtime réécrirait potentiellement le flux (même
@@ -19,7 +20,29 @@ export const runtime = "nodejs";
  * payload n'est JAMAIS cru : seuls `object_id`/`aspect_type`/`object_type`/`owner_id` sont lus,
  * l'activité est intégralement RE-récupérée avec notre propre jeton dans le job
  * (`sync-data-connection.ts`).
+ *
+ * I3 — limitation de débit (ADR-013 §1, défense complémentaire jamais implémentée jusqu'ici).
+ * Instance PARTAGÉE au niveau du module (persiste tant que le process/l'instance serverless reste
+ * chaud) — voir `fixed-window-limiter.ts` pour le choix « en mémoire, pas en base ». Appliquée
+ * APRÈS `verifyPathSecret()` : une requête sans le bon secret est déjà rejetée en `403`, gratuite à
+ * refuser, et ne doit pas pouvoir épuiser le budget réservé aux appels correctement authentifiés
+ * (c'est CE budget que ce lot protège — « au-delà du secret de chemin déjà vérifié »). Une seule
+ * clé globale par verbe : ce endpoint sert UNE SEULE souscription webhook Strava, tous athlètes
+ * confondus (ADR-013 §1), il n'y a donc pas de notion de « par utilisateur » à ce stade.
  */
+const stravaWebhookPostRateLimiter = new FixedWindowRateLimiter({
+  windowMs: Number(process.env.STRAVA_WEBHOOK_RATE_LIMIT_WINDOW_MS ?? 60_000),
+  max: Number(process.env.STRAVA_WEBHOOK_RATE_LIMIT_MAX ?? 120),
+});
+const stravaWebhookGetRateLimiter = new FixedWindowRateLimiter({
+  windowMs: Number(process.env.STRAVA_WEBHOOK_RATE_LIMIT_WINDOW_MS ?? 60_000),
+  max: Number(process.env.STRAVA_WEBHOOK_SUBSCRIBE_RATE_LIMIT_MAX ?? 20),
+});
+
+function rateLimitResponse(retryAfterMs: number) {
+  console.warn(`[strava-webhook] limite de débit atteinte — requête refusée, retry dans ${Math.ceil(retryAfterMs / 1000)}s.`);
+  return apiError(429, "RATE_LIMITED", "Trop de requêtes — réessaie plus tard.", undefined, { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) });
+}
 function verifyPathSecret(pathSecret: string): boolean {
   const config = getStravaConfig();
   // Comparaison en temps constant (finding I4, revue post-`aaba499`) : `===` sur des chaînes fuit
@@ -39,6 +62,9 @@ function verifyPathSecret(pathSecret: string): boolean {
 export async function GET(request: Request, { params }: { params: Promise<{ pathSecret: string }> }) {
   const { pathSecret } = await params;
   if (!verifyPathSecret(pathSecret)) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
+
+  const getRateLimit = stravaWebhookGetRateLimiter.consume("strava-webhook-get");
+  if (!getRateLimit.allowed) return rateLimitResponse(getRateLimit.retryAfterMs);
 
   const { searchParams } = new URL(request.url);
   const config = getStravaConfig();
@@ -65,6 +91,9 @@ interface StravaWebhookEvent {
 export async function POST(request: Request, { params }: { params: Promise<{ pathSecret: string }> }) {
   const { pathSecret } = await params;
   if (!verifyPathSecret(pathSecret)) return apiError(403, "FORBIDDEN", "Requête webhook refusée.");
+
+  const postRateLimit = stravaWebhookPostRateLimiter.consume("strava-webhook-post");
+  if (!postRateLimit.allowed) return rateLimitResponse(postRateLimit.retryAfterMs);
 
   const rawBody: unknown = await request.json().catch(() => null);
   if (!rawBody || typeof rawBody !== "object") return apiJson({ received: true }); // corps illisible — acquitté, rien à traiter

@@ -64,8 +64,13 @@ export async function fetchCurrentPlacementBySessionId(
   return rows.get(args.plannedSessionId) ?? null;
 }
 
-/** `true` si le créneau (date, heure) est encore à au moins `min_lead_time_min` de `now`. */
-function isWithinReportableWindow(row: CurrentPlacementRow, now: { date: string; time: string }, minLeadTimeMin: number): boolean {
+/**
+ * `true` si le créneau (date, heure) est encore à au moins `min_lead_time_min` de `now` — contrôle
+ * d'admission au signalement d'imprévu (`08-architecture.md` §14.5, `409 SESSION_NOT_REPORTABLE`).
+ * Exporté : réutilisé par `buildPlacementInputForIncident()` (`build-placement-input.ts`) pour que
+ * l'écriture applique exactement la même fenêtre que la lecture (`canReportIncident`).
+ */
+export function isWithinReportableWindow(row: CurrentPlacementRow, now: { date: string; time: string }, minLeadTimeMin: number): boolean {
   if (row.status === "cancelled_week" || !row.scheduledDate || !row.scheduledTime) return false;
   if (row.scheduledDate < now.date) return false;
   if (row.scheduledDate > now.date) return true;

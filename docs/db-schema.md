@@ -1604,8 +1604,13 @@ create table session_placements (
     check (status <> 'moved'
            or scheduled_date is distinct from origin_date
            or scheduled_time is distinct from origin_time),
+  -- À sens unique (`0028_session_placements_supersede_two_phase.sql`) : un successeur connu exige
+  -- un horodatage, mais un horodatage n'exige plus IMMÉDIATEMENT un successeur connu — nécessaire à
+  -- l'écriture en DEUX temps de `materializeSessionPlacements()` (superséder avant d'insérer, pour
+  -- l'index unique partiel `session_placements_current` ; rattacher le successeur seulement après,
+  -- pour la FK `superseded_by_placement_id`). L'inverse (successeur sans horodatage) reste interdit.
   constraint session_placements_supersede_coherent
-    check ((superseded_at is null) = (superseded_by_placement_id is null)),
+    check (superseded_by_placement_id is null or superseded_at is not null),
   constraint session_placements_incident_requires_reason
     check (incident_id is null or reason in ('incident_reported','no_slot_available'))
 );
@@ -1877,7 +1882,7 @@ imprévus **signalés** sont clôturés (§6).
 | **T32** | `authenticated` tente `insert`/`update`/`delete` sur `session_placements` | Refusé : aucune policy d'écriture, `revoke insert, delete`. Un utilisateur ne se replace pas lui-même une séance |
 | **T33** | `authenticated` tente `insert into schedule_incidents (…, resolution) values (…)` | Refusé : `resolution` est le verdict du serveur, pas une donnée de saisie (patron `consents`, ADR-012 §1) |
 | **T34** | `service_role` tente `update session_placements set scheduled_time = …` | Rejeté par `session_placements_supersede_only()` — **y compris en `service_role`** : un replacement est une nouvelle ligne, jamais une réécriture |
-| **T35** | `service_role` renseigne `superseded_at` + `superseded_by_placement_id` | Accepté (seule mutation permise) ; renseigner l'un sans l'autre viole `session_placements_supersede_coherent` |
+| **T35** | `service_role` renseigne `superseded_by_placement_id` sans `superseded_at` | Rejeté par `session_placements_supersede_coherent` ; l'inverse (`superseded_at` seul, en attendant l'insertion de la ligne remplaçante) est en revanche ACCEPTÉ depuis `0028` — c'est la séquence réelle de `materializeSessionPlacements()` (superséder avant d'insérer, rattacher le successeur après) |
 | **T36** | Deux placements courants pour la même `planned_session_id` | Rejeté par `session_placements_current` (index unique partiel) |
 | **T37** | `status = 'cancelled_week'` avec une `scheduled_date` ou une `scheduled_time` | Rejeté par `session_placements_cancelled_has_no_schedule` — AC4 |
 | **T38** | `status = 'moved'` avec `(scheduled_date, scheduled_time) = (origin_date, origin_time)` | Rejeté par `session_placements_moved_differs_from_origin` : le badge « DÉPLACÉE » ne peut pas mentir |

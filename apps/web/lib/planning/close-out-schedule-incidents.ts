@@ -5,7 +5,7 @@ import type { Database } from "@hybride/db";
 import type { IncidentCloseoutOutcome } from "@hybride/domain";
 
 import { finalizeSessionLogLoad } from "../data/finalize-session-log-load";
-import { isHealthConsentActive } from "../orchestration/health-consent-status";
+import { hasActiveConsentAsService } from "../orchestration/check-consents";
 import { fetchCurrentPlacementBySessionId } from "./read-session-placements";
 
 /**
@@ -15,6 +15,14 @@ import { fetchCurrentPlacementBySessionId } from "./read-session-placements";
  *
  * Quatre issues, toutes journalisées (`schedule_incidents.closeout_outcome`) — jamais un effet de
  * bord silencieux.
+ *
+ * Finding (couverture de test Lot F2/F3 I5) : le consentement santé est vérifié via
+ * `hasActiveConsentAsService()`, PAS `isHealthConsentActive()`/`has_active_consent()` (RPC) — cette
+ * dernière est restreinte à `p_user = auth.uid()` (`0012_privilege_hardening.sql`, finding I11) et
+ * renvoie donc TOUJOURS `false` pour un appelant `service_role` sans session (ce job n'en a jamais).
+ * Avant correction, `closeOutOne()` atteignait systématiquement `skipped_no_consent`, quel que soit
+ * l'état réel du consentement — `log_created` n'était jamais atteignable en pratique. Voir
+ * `check-consents.ts` pour le détail.
  */
 
 const NOT_DONE_REASON: Record<"rescheduled" | "cancelled_week", string> = {
@@ -105,7 +113,7 @@ async function closeOutOne(
     }
   }
 
-  if (!(await isHealthConsentActive(admin, userId))) {
+  if (!(await hasActiveConsentAsService(admin, userId, "health_data_processing"))) {
     await admin.from("schedule_incidents").update({ closeout_outcome: "skipped_no_consent", closed_out_at: now }).eq("id", incident.id);
     return "skipped_no_consent";
   }

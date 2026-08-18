@@ -21,8 +21,8 @@ export type ApiErrorCode =
   | "PLACEMENT_FAILED"
   | "INTERNAL_ERROR";
 
-export function apiError(status: number, code: ApiErrorCode, message: string, details?: unknown) {
-  return NextResponse.json({ error: { code, message, details } }, { status });
+export function apiError(status: number, code: ApiErrorCode, message: string, details?: unknown, headers?: HeadersInit) {
+  return NextResponse.json({ error: { code, message, details } }, { status, headers });
 }
 
 export function apiJson<T>(data: T, init?: ResponseInit) {

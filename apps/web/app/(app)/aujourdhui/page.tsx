@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { X } from "lucide-react";
 
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
@@ -20,11 +21,25 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
+import { fetchSessionLogForCorrection } from "@/lib/orchestration/read-session-log-for-correction";
 import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Séance et repas du jour — Hybride Club" };
 export const dynamic = "force-dynamic";
+
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  endurance: "Endurance",
+  tempo: "Tempo",
+  interval: "Fractionné",
+  long: "Sortie longue",
+  strength: "Renforcement",
+  power: "Puissance",
+  mobility: "Mobilité",
+  technique: "Technique",
+  cross_training: "Cross-training",
+  rest: "Repos",
+};
 
 /**
  * `TodayPage` — AC4, AC9, AC11 (`08-architecture.md` §6.3-6.4, `04-flow.md`). État vide « jour de
@@ -32,8 +47,14 @@ export const dynamic = "force-dynamic";
  * séance a quand même des cibles nutritionnelles moduléees (`modulation_reason = 'rest'`), voir
  * `buildNutritionDays` (Lot L2) qui construit la nutrition pour toute la fenêtre détaillée J→J+6,
  * séance ou pas.
+ *
+ * `?log=<id>` — F3, `11-design-notes.md` §3.3 : variante « corriger une séance », cible du lien
+ * « Je l'ai faite quand même » (`notdone-notice.tsx`, `session-card.tsx`). Jamais bloquée par le
+ * paywall (une correction est une SAISIE, ADR-008 §5, comme la saisie initiale ci-dessous).
  */
-export default async function TodayPage() {
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ log?: string }> }) {
+  const { log: correctionLogId } = await searchParams;
+
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
@@ -47,6 +68,46 @@ export default async function TodayPage() {
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
   const medicalClearanceNotice = await fetchActiveMedicalClearanceNotice(admin, user.id);
   const healthConsentActive = await isHealthConsentActive(supabase, user.id);
+
+  if (correctionLogId) {
+    const correctionTarget = await fetchSessionLogForCorrection(admin, { userId: user.id, logId: correctionLogId });
+
+    return (
+      <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
+        <div className="flex items-center justify-between">
+          <h1 className="font-serif text-title text-foreground">Corriger une séance</h1>
+          <Link href="/aujourdhui" aria-label="Fermer" className="flex size-11 items-center justify-center text-foreground-muted hover:text-foreground">
+            <X aria-hidden="true" className="size-5" />
+          </Link>
+        </div>
+
+        {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
+        {!healthConsentActive ? <DegradedModeBanner /> : null}
+
+        {correctionTarget ? (
+          <>
+            <div className="flex flex-col gap-1 rounded-lg bg-surface p-4">
+              <p className="text-body-strong font-semibold text-foreground">
+                {SESSION_TYPE_LABELS[correctionTarget.sessionType ?? ""] ?? correctionTarget.sessionType ?? "Séance"}
+              </p>
+              <div className="flex gap-4 text-small text-foreground-subtle">
+                {correctionTarget.sportCode ? <span>{correctionTarget.sportCode.replace(/_/g, " ")}</span> : null}
+                {correctionTarget.durationMin ? <span>{correctionTarget.durationMin} min</span> : null}
+              </div>
+            </div>
+            <DailyLogForm mode="correction" plannedSessionId={null} loggedDate={correctionTarget.loggedDate} logId={correctionTarget.id} />
+          </>
+        ) : (
+          <div className="rounded-lg bg-surface p-6 text-center" data-testid="correction-not-found">
+            <p className="text-body text-foreground-muted">Cette séance est introuvable.</p>
+            <Link href="/aujourdhui" className="mt-2 inline-block text-body-strong font-semibold text-accent underline-offset-4 hover:underline">
+              Retour à ma séance du jour
+            </Link>
+          </div>
+        )}
+      </main>
+    );
+  }
 
   // AC9, ADR-008 §5 — le référentiel douleur reste visible même paywallé : lu AVANT le contrôle
   // d'entitlement, jamais conditionné à son résultat. `PaywallRequiredError` est résolue ici, hors
@@ -74,8 +135,10 @@ export default async function TodayPage() {
           <p className="mt-1 text-body text-foreground-muted">Le détail de ta séance et de tes repas revient demain (ou passe en illimité) — mais ta saisie du jour reste possible ci-dessous.</p>
         </div>
         {/* AC13/ADR-008 §5 — `POST /session-logs` ne consomme jamais d'accès libre : seul le
-            CONTENU (séance/nutrition détaillés) est derrière le quota, jamais la saisie. */}
-        <DailyLogForm plannedSessionId={null} loggedDate={now} />
+            CONTENU (séance/nutrition détaillés) est derrière le quota, jamais la saisie. Le plan du
+            jour reste masqué ici : pas de `plannedSessionId` à rattacher, donc `offplan-only` (AC3
+            — Discipline/Durée demandées explicitement plutôt qu'un rattachement invisible). */}
+        <DailyLogForm mode="offplan-only" plannedSessionId={null} loggedDate={now} />
         <Link href="/dashboard" className="text-body-strong font-semibold text-accent underline-offset-4 hover:underline">
           Retour au Dashboard
         </Link>
@@ -112,13 +175,26 @@ export default async function TodayPage() {
       {session ? <SessionDetail session={session} /> : <RestDayEmptyState />}
       {nutrition ? <NutritionTargets nutrition={nutrition} /> : null}
 
+      {/* AC3, `11-design-notes.md` §2.2-§2.3 — trois configurations distinctes de la boucle de
+          saisie : (1) une séance est prévue et pas encore loguée → formulaire « planifié » + lien
+          tertiaire hors plan (Cas A) ; (2) rien à rattacher (jour de repos, ou paywall plus haut) →
+          bloc hors plan déplié d'emblée, requis (Cas B) ; (3) la séance prévue est déjà loguée →
+          message existant CONSERVÉ, complété du même bloc (Cas B) pour permettre une séance
+          supplémentaire non prévue le même jour. */}
       {session || nutrition ? (
-        session?.log ? (
-          <div className="rounded-lg bg-surface-raised p-4 text-body text-foreground-muted" data-testid="already-logged">
-            <p>Tu as déjà enregistré ta saisie du jour.</p>
-          </div>
+        session ? (
+          session.log ? (
+            <>
+              <div className="rounded-lg bg-surface-raised p-4 text-body text-foreground-muted" data-testid="already-logged">
+                <p>Tu as déjà enregistré ta saisie du jour.</p>
+              </div>
+              <DailyLogForm mode="offplan-only" plannedSessionId={null} loggedDate={now} />
+            </>
+          ) : (
+            <DailyLogForm mode="planned" plannedSessionId={session.id} loggedDate={now} />
+          )
         ) : (
-          <DailyLogForm plannedSessionId={session?.id ?? null} loggedDate={now} />
+          <DailyLogForm mode="offplan-only" plannedSessionId={null} loggedDate={now} />
         )
       ) : null}
     </main>

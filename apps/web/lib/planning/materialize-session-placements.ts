@@ -19,6 +19,16 @@ import { fetchCurrentPlacementsBySessionId } from "./read-session-placements";
  * marquée `superseded_at`/`superseded_by_placement_id` — jamais un `UPDATE` de son contenu (le
  * trigger `session_placements_supersede_only` l'interdirait de toute façon, y compris en
  * `service_role`).
+ *
+ * Finding (couverture de test Lot F2/F3 I5) : la supersession doit être écrite AVANT l'insertion de
+ * la nouvelle ligne, jamais après. `session_placements_current` est un index unique PARTIEL sur
+ * `(planned_session_id) where superseded_at is null` — sur les deux appelants qui redécident des
+ * séances DÉJÀ placées (`resolveScheduleIncident()`, et le job `refresh_placements` via
+ * `triggerReason: 'availability_changed'`), la ligne courante existe encore au moment de l'insert :
+ * insérer avant de superséder viole systématiquement cette contrainte (`duplicate key value…`), et
+ * ces deux chemins échouaient donc à 100 % avant correction — jamais atteint par aucun test jusque
+ * là. `regeneratePlan()` (séances FRAÎCHES, aucun placement existant pour ces ids) n'est pas
+ * concerné, ce qui explique que le bug soit resté invisible.
  */
 export async function materializeSessionPlacements(
   admin: SupabaseClient<Database>,
@@ -65,10 +75,29 @@ export async function materializeSessionPlacements(
     };
   });
 
+  const now = new Date().toISOString();
+  const existingIdsToSupersede = decisions.map((d) => existingBySessionId.get(d.sessionId)?.id).filter((id): id is string => id !== undefined);
+
+  // 1) Supersession D'ABORD (voir en-tête), SANS `superseded_by_placement_id` pour l'instant — la
+  // ligne qu'elle doit référencer n'existe pas encore, et `superseded_by_placement_id_fkey`
+  // l'interdirait. Libère `session_placements_current` pour l'insertion ci-dessous.
+  // `.is("superseded_at", null)` garde cet UPDATE idempotent : sans elle, un retry ou une course
+  // réécrirait inconditionnellement `superseded_at` sur une ligne déjà supersédée par un appel
+  // concurrent.
+  if (existingIdsToSupersede.length > 0) {
+    const { error: supersedeError } = await admin
+      .from("session_placements")
+      .update({ superseded_at: now })
+      .in("id", existingIdsToSupersede)
+      .is("superseded_at", null);
+    if (supersedeError) throw new Error(`materializeSessionPlacements: session_placements (supersession) — ${supersedeError.message}`);
+  }
+
+  // 2) Insertion des nouvelles lignes courantes — `session_placements_current` est maintenant libre.
   const { error: insertError } = await admin.from("session_placements").insert(rows);
   if (insertError) throw new Error(`materializeSessionPlacements: session_placements (insert) — ${insertError.message}`);
 
-  const now = new Date().toISOString();
+  // 3) Rattache chaque ancienne ligne à celle qui l'a remplacée, maintenant qu'elle existe.
   await Promise.all(
     decisions.map((decision) => {
       const existing = existingBySessionId.get(decision.sessionId);
@@ -76,10 +105,10 @@ export async function materializeSessionPlacements(
       const newId = newPlacementIdBySessionId.get(decision.sessionId)!;
       return admin
         .from("session_placements")
-        .update({ superseded_at: now, superseded_by_placement_id: newId })
+        .update({ superseded_by_placement_id: newId })
         .eq("id", existing.id)
         .then(({ error }) => {
-          if (error) throw new Error(`materializeSessionPlacements: session_placements (supersession) — ${error.message}`);
+          if (error) throw new Error(`materializeSessionPlacements: session_placements (rattachement) — ${error.message}`);
         });
     }),
   );

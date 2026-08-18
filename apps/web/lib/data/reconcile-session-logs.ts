@@ -266,3 +266,78 @@ export async function reconcileSessionLogs(admin: SupabaseClient<Database>, args
 
   return { merged: true, survivingLogId: winner.id };
 }
+
+export interface ReplayEnrichmentResult {
+  /** `true` si la ligne était bien le produit d'une fusion (`merged_duplicate`) — sinon rien à rejouer. */
+  replayed: boolean;
+  survivingLogId: string | null;
+}
+
+/**
+ * ADR-015 « Conséquences » : « Un utilisateur qui modifie une saisie déjà fusionnée modifie une
+ * ligne EXCLUE. […] L'enrichissement de la ligne portante est REJOUÉ à chaque `PATCH` d'une ligne
+ * exclue. » Appelée par `PATCH /session-logs/:id` (`applySessionLogCorrection()`) APRÈS que la
+ * ligne cible (perdante, `excluded_at` non nul) a déjà été mise à jour : relit son état à jour, le
+ * transfère vers la ligne portante avec la même règle « jamais un écrasement » que la fusion
+ * initiale (`buildEnrichmentPayload`). La ligne cible reste exclue — seul `unmerge` la restaure.
+ */
+export async function replayEnrichmentOnExcludedLogUpdate(admin: SupabaseClient<Database>, args: { userId: string; logId: string }): Promise<ReplayEnrichmentResult> {
+  const { userId, logId } = args;
+
+  const { data: target, error: targetError } = await admin
+    .from("session_logs")
+    .select("id, excluded_at, exclusion_reason, superseded_by_log_id, rpe, freshness, pain, pain_zone, pain_at_rest, comment, not_done_reason")
+    .eq("id", logId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (targetError) throw new Error(`replayEnrichmentOnExcludedLogUpdate: lecture de la ligne cible — ${targetError.message}`);
+  if (!target) throw new Error(`replayEnrichmentOnExcludedLogUpdate: ligne ${logId} introuvable (utilisateur ${userId}).`);
+
+  if (target.excluded_at === null || target.exclusion_reason !== "merged_duplicate" || !target.superseded_by_log_id) {
+    return { replayed: false, survivingLogId: null };
+  }
+
+  const { data: winnerRow, error: winnerError } = await admin
+    .from("session_logs")
+    .select("id, rpe, freshness, pain, pain_zone, pain_at_rest, comment, not_done_reason")
+    .eq("id", target.superseded_by_log_id)
+    .maybeSingle();
+  if (winnerError) throw new Error(`replayEnrichmentOnExcludedLogUpdate: lecture de la ligne portante — ${winnerError.message}`);
+  if (!winnerRow) throw new Error(`replayEnrichmentOnExcludedLogUpdate: ligne portante ${target.superseded_by_log_id} introuvable.`);
+
+  const loser: EnrichableFields = {
+    rpe: target.rpe,
+    freshness: target.freshness,
+    pain: target.pain,
+    painZone: target.pain_zone,
+    painAtRest: target.pain_at_rest,
+    comment: target.comment,
+    notDoneReason: target.not_done_reason,
+  };
+  const winner: EnrichableFields = {
+    rpe: winnerRow.rpe,
+    freshness: winnerRow.freshness,
+    pain: winnerRow.pain,
+    painZone: winnerRow.pain_zone,
+    painAtRest: winnerRow.pain_at_rest,
+    comment: winnerRow.comment,
+    notDoneReason: winnerRow.not_done_reason,
+  };
+
+  const enrichment = buildEnrichmentPayload(winner, loser);
+  if (Object.keys(enrichment).length > 0) {
+    const { error: enrichError } = await admin
+      .from("session_logs")
+      .update({
+        ...(enrichment.rpe !== undefined ? { rpe: enrichment.rpe } : {}),
+        ...(enrichment.freshness !== undefined ? { freshness: enrichment.freshness } : {}),
+        ...(enrichment.comment !== undefined ? { comment: enrichment.comment } : {}),
+        ...(enrichment.notDoneReason !== undefined ? { not_done_reason: enrichment.notDoneReason } : {}),
+        ...(enrichment.pain !== undefined ? { pain: enrichment.pain, pain_zone: enrichment.painZone, pain_at_rest: enrichment.painAtRest } : {}),
+      })
+      .eq("id", winnerRow.id);
+    if (enrichError) throw new Error(`replayEnrichmentOnExcludedLogUpdate: enrichissement de la ligne portante ${winnerRow.id} — ${enrichError.message}`);
+  }
+
+  return { replayed: true, survivingLogId: winnerRow.id };
+}
