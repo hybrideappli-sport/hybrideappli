@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
 import { apiError, apiJson } from "@/lib/api/respond";
+import { DRAIN_BATCH_SIZE, drainJobsBestEffort } from "@/lib/jobs/drain";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { getStravaConfig } from "@/lib/providers/strava/config";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit/fixed-window-limiter";
@@ -11,15 +12,22 @@ export const dynamic = "force-dynamic";
 // Corps brut requis à la validation ; l'Edge Runtime réécrirait potentiellement le flux (même
 // rationale que `webhooks/stripe/route.ts`).
 export const runtime = "nodejs";
+/** Aligné sur `drain-jobs/route.ts` (ADR-011 §7) : le drain synchrone déclenché après l'enrôlement
+ * (voir plus bas) peut exécuter jusqu'à `DRAIN_BATCH_SIZE` jobs dans la même invocation — largement
+ * au-delà du budget `maxDuration = 10` par défaut du plan Vercel Hobby. */
+export const maxDuration = 60;
 
 /**
  * `GET/POST /api/v1/webhooks/strava/:pathSecret` — ADR-013 §1. Le segment `pathSecret` n'est JAMAIS
  * journalisé (aucun `console.log`/`console.error` de ce module ne l'inclut).
  *
- * `POST` : « enrôle un job et rend la main. < 2 s. Aucun appel réseau, aucune écriture métier. » Le
- * payload n'est JAMAIS cru : seuls `object_id`/`aspect_type`/`object_type`/`owner_id` sont lus,
- * l'activité est intégralement RE-récupérée avec notre propre jeton dans le job
- * (`sync-data-connection.ts`).
+ * `POST` : enrôle un job, puis déclenche immédiatement son traitement (`drainJobsBestEffort()`,
+ * ADR-011, mise à jour « drain synchrone ») — le cron `/cron/drain-jobs` n'est plus qu'un filet de
+ * sécurité quotidien (plan Vercel Hobby, 1 exécution/jour max), un délai de traitement de plus de
+ * 24 h pour une synchro Strava reçue par webhook n'est plus acceptable. Le payload n'est JAMAIS cru
+ * : seuls `object_id`/`aspect_type`/`object_type`/`owner_id` sont lus, l'activité est intégralement
+ * RE-récupérée avec notre propre jeton dans le job (`sync-data-connection.ts`). Le drain est
+ * best-effort : une exception inattendue ne fait jamais échouer la réponse `200` du webhook.
  *
  * I3 — limitation de débit (ADR-013 §1, défense complémentaire jamais implémentée jusqu'ici).
  * Instance PARTAGÉE au niveau du module (persiste tant que le process/l'instance serverless reste
@@ -158,6 +166,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pat
         payload: { connectionId: connection.id },
         scheduledFor: new Date().toISOString(),
       });
+      // Drain synchrone best-effort (ADR-011, mise à jour) — traite la déautorisation sans
+      // attendre le prochain passage quotidien de `/cron/drain-jobs`.
+      await drainJobsBestEffort(admin, DRAIN_BATCH_SIZE, "strava-webhook:athlete");
     }
     return apiJson({ received: true });
   }
@@ -170,6 +181,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pat
     payload: { connectionId: connection.id, activityId: String(event.object_id), aspectType: event.aspect_type },
     scheduledFor: new Date().toISOString(),
   });
+  // Drain synchrone best-effort (ADR-011, mise à jour) — traite la synchronisation d'activité sans
+  // attendre le prochain passage quotidien de `/cron/drain-jobs`.
+  await drainJobsBestEffort(admin, DRAIN_BATCH_SIZE, "strava-webhook:activity");
 
   return apiJson({ received: true });
 }

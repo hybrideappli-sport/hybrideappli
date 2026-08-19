@@ -1,3 +1,11 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/v1/cron/enqueue-weekly-reviews", "schedule": "0 20 * * *" },
+    { "path": "/api/v1/cron/enqueue-objective-checks", "schedule": "0 6 * * *" },
+    { "path": "/api/v1/cron/drain-jobs", "schedule": "0 4 * * *" },
+    { "path": "/api/v1/cron/purge-stripe-events", "schedule": "30 3 * * *" },
+    { "path": "/api/v1/cron/reconcile-data-sources", "schedule": "15 3 * * *" },
+    { "path": "/api/v1/cron/enqueue-schedule-closeouts", "schedule": "0 5 * * *" }
+  ]
 }

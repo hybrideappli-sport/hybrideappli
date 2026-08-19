@@ -66,7 +66,7 @@ Trois contraintes produit structurent tout le reste, et sont traitées comme non
 | Données tierces | **Strava** — OAuth 2.0 serveur + Webhook Events, import minimisé | US-02 ; ADR-013 |
 | E-mail | **Brevo** | Standard agence, opérateur UE ; repli notification (limite Web Push iOS) |
 | Push | **Web Push (VAPID)** | ADR-001, ADR-011 |
-| Jobs | **Workflows GitHub Actions planifiés (plan Vercel Hobby) + file `job_queue` Postgres** (`SKIP LOCKED`) | ADR-011 (mise à jour 2026-08-18) |
+| Jobs | **Vercel Cron quotidien (plan Vercel Hobby) + file `job_queue` Postgres** (`SKIP LOCKED`), drain synchrone à l'enrôlement | ADR-011 (mise à jour 2026-08-19) |
 | Hébergement | **Vercel**, fonctions en région UE (`cdg1`/`fra1`) | Standard agence ; contrainte de localisation ADR-010 |
 | Monorepo | **pnpm workspaces + Turborepo** | Rend l'isolation du moteur vérifiable en CI ; ADR-003 |
 | Tests | **Vitest** (unit/intégration) + **fast-check** (property-based sur les garde-fous) + **Playwright** (E2E) | Les bornes dures de l'AC8 sont des invariants : le property-based testing est l'outil adapté |
@@ -531,22 +531,25 @@ entendre initialement. `POST` est conservé pour un rejeu manuel ou un test. Les
 partagent la même garde `CRON_SECRET`, fail-closed si la variable est absente
 (`isAuthorizedCronRequest()`).
 
-**Mise à jour (2026-08-18, `devops`)** : le déclencheur périodique n'est plus Vercel Cron mais des
-**workflows GitHub Actions planifiés** (`.github/workflows/cron-*.yml`, un par route), qui appellent
-chacun la route en `GET` avec le même en-tête `Authorization`. Raison : le projet reste sur le plan
-Vercel **Hobby** (décision du fondateur), qui plafonne les cron jobs à une exécution quotidienne —
-trois des six routes ci-dessous ont une fréquence plus élevée (horaire ou toutes les 5 min), ce qui
-faisait échouer le déploiement `main`. `apps/web/vercel.json` ne définit plus de clé `crons`. Voir
-ADR-011 (mise à jour).
+**Mise à jour (2026-08-19, décision du fondateur)** : une tentative (2026-08-18) de bascule du
+déclencheur vers des workflows GitHub Actions planifiés a été **abandonnée** (complexité
+d'exploitation disproportionnée). Le déclencheur reste **Vercel Cron**, sur le plan **Hobby** — qui
+plafonne chaque cron à une exécution quotidienne — avec deux changements pour absorber cette
+contrainte : toutes les fréquences passent à 1×/jour, et le **drain devient synchrone à
+l'enrôlement** (`drainJobsBestEffort()` appelé par chaque route juste après avoir enrôlé un job,
+plutôt que d'attendre le prochain passage de `/cron/drain-jobs`, qui devient un simple filet de
+sécurité pour les jobs ratés/en échec). Voir ADR-011 (mise à jour 2026-08-19) pour le détail complet,
+notamment l'élargissement de la fenêtre de détection de `/cron/enqueue-weekly-reviews` (dimanche 18h
+→ lundi 20h locale), nécessaire pour qu'un passage unique par jour capte bien chaque fuseau horaire.
 
 | Route | Méthode | Fréquence | Rôle |
 |---|---|---|---|
-| `/cron/enqueue-weekly-reviews` | GET, POST | horaire | Enrôle les utilisateurs dont l'heure locale atteint dimanche soir (ADR-011) ; pagination et fenêtre `hour >= 18` (correction I4) |
+| `/cron/enqueue-weekly-reviews` | GET, POST | quotidienne | Enrôle les utilisateurs dont l'heure locale se trouve dans la fenêtre dimanche 18h → lundi 20h (ADR-011, mise à jour 2026-08-19) ; pagination (correction I4) |
 | `/cron/enqueue-objective-checks` | GET, POST | quotidienne | AC14 — dates cibles atteintes |
-| `/cron/drain-jobs` | GET, POST | toutes les 5 min | Exécute les lots (`FOR UPDATE SKIP LOCKED`, `claim_job_queue()`/`requeue_stuck_job_queue()` — `0011_job_queue_claim.sql`) |
+| `/cron/drain-jobs` | GET, POST | quotidienne (filet de sécurité) | Exécute les jobs ratés/en échec/abandonnés (`FOR UPDATE SKIP LOCKED`, `claim_job_queue()`/`requeue_stuck_job_queue()` — `0011_job_queue_claim.sql`) ; le chemin principal est le drain synchrone à l'enrôlement (ADR-011) |
 | `/cron/purge-stripe-events` | GET, POST | quotidienne | Purge `stripe_events` au-delà de 60 jours (`purge_stale_stripe_events()` — `0013_billing_robustness.sql`, correction I3, §5.3 question 9 close) |
 | `/cron/reconcile-data-sources` | GET, POST | quotidienne | **US-02** — filet de sécurité de la synchronisation : rejoue une fenêtre de 7 jours par connexion active (ADR-013 §1) |
-| `/cron/enqueue-schedule-closeouts` | GET, POST | horaire | **US-03** — enrôle les clôtures d'imprévu des utilisateurs dont l'heure locale atteint 03:00 (ADR-017 §1) |
+| `/cron/enqueue-schedule-closeouts` | GET, POST | quotidienne | **US-03** — enrôle les clôtures d'imprévu des utilisateurs dont l'heure locale atteint 03:00 (ADR-017 §1) ; tolère nativement le passage à 1×/jour (pas de fenêtre par jour de semaine) |
 
 ---
 
@@ -555,10 +558,10 @@ ADR-011 (mise à jour).
 Voir ADR-011 pour la décision complète. Séquence de la révision hebdomadaire :
 
 ```
-Cron horaire ──► enqueue-weekly-reviews ──► job_queue (clé 'weekly_review:{user}:2026-W32')
+Vercel Cron (quotidien) ──► enqueue-weekly-reviews ──► job_queue (clé 'weekly_review:{user}:2026-W32')
                                                 │
-                        drain-jobs (5 min) ─────┘
-                                │
+                    drainJobsBestEffort() ──────┘  (synchrone, appelé par la route elle-même ;
+                                │                    drain-jobs quotidien = filet de sécurité)
                                 ├─ buildPlanningContext            (8 semaines d'historique)
                                 ├─ evaluateStagnation              AC6 / AC7 → stagnation_diagnoses
                                 ├─ generatePlan(trigger='weekly_review')  ← seul trigger autorisant une hausse
@@ -745,7 +748,7 @@ L'anticipation posée en F1 s'est vérifiée sur trois points, et a manqué sur 
 3. **Mineur** : refus d'inscription (recommandé) ou parcours dégradé ? Non tranché (ADR-010).
 4. **Mode dégradé après retrait du consentement santé** : parcours non spécifié par les 14 AC — toujours à formaliser avec `spec-writer` en tant que parcours produit à part entière (ADR-010, « Conséquences »), mais **implémenté** depuis la revue de fin de projet (finding B1) : `POST /api/v1/consents/:code/revoke` insère une nouvelle ligne `granted = false` (jamais un `UPDATE`), purge `session_logs`/`nutrition_checkins`/`body_metrics`/`pain_episodes`, et le blocage est explicité côté UI par `DegradedModeBanner` (`/dashboard`, `/aujourdhui`, `/compte`) plutôt que subi silencieusement. Le retrait ferme aussi la **modification** des données de santé existantes (ADR-012 §2). **Précision post-contre-revue (interaction B1 × B6)** : les `risk_flags` de type `pathology`/`minor` ne sont **plus** purgés au retrait — ils portent l'avertissement médical fixe de l'AC3, qui doit survivre pour un utilisateur qui garde l'usage de son plan déjà généré ; seuls `pregnancy`/`eating_disorder_history`/`other` le sont toujours (`purge-health-data-on-revoke.ts`). Le document `health_data_processing` a été mis à jour en conséquence (version `1.1.0`, voir point 10 ci-dessous et ADR-010 §10) : la base légale précise de cette conservation partielle **reste une question ouverte pour le conseil juridique**, explicitée comme telle dans le texte lui-même plutôt que masquée par une citation d'article RGPD approximative.
 5. ~~**Fournisseur LLM** : à choisir avec contrainte UE + DPA + non-entraînement (ADR-010).~~ **Tranché le 2026-08-06 : Mistral AI** (voir ADR-010, mise à jour). Impacte le budget par onboarding, à chiffrer par `devops`.
-6. ~~**Plan Vercel Pro requis** pour la planification du rituel dominical (ADR-011) — **budget pas encore validé par le fondateur (2026-08-06)**, non bloquant pour démarrer le développement, à trancher avant la mise en production du rituel hebdomadaire (lot L5).~~ **Résolu (2026-08-18)** : le fondateur choisit de rester sur le plan Vercel Hobby et de remplacer les cron Vercel par des workflows GitHub Actions planifiés (`.github/workflows/cron-*.yml`), qui n'ont pas de limite de fréquence — voir ADR-011 (mise à jour) et §6.8. Plus aucune dépendance au plan Pro. **Précision (2026-08-12, US-03)** : l'US-03 avait ajouté une seconde dépendance au cron **horaire** (`/cron/enqueue-schedule-closeouts`, ADR-017 §1), également couverte par cette bascule.
+6. ~~**Plan Vercel Pro requis** pour la planification du rituel dominical (ADR-011) — **budget pas encore validé par le fondateur (2026-08-06)**, non bloquant pour démarrer le développement, à trancher avant la mise en production du rituel hebdomadaire (lot L5).~~ **Tranché définitivement (2026-08-19)** : une tentative (2026-08-18) de contourner la limite via des workflows GitHub Actions a été abandonnée (complexité disproportionnée). Le fondateur choisit de rester sur le plan Vercel Hobby **et** sur Vercel Cron, en passant toutes les fréquences à 1×/jour et en déplaçant l'exécution réelle vers un drain synchrone à l'enrôlement (`drainJobsBestEffort()`) — voir ADR-011 (mise à jour 2026-08-19) et §6.8. Plus aucune dépendance au plan Pro. **Précision (2026-08-12, US-03)** : l'US-03 avait ajouté une seconde dépendance au cron **horaire** (`/cron/enqueue-schedule-closeouts`, ADR-017 §1), également couverte par cette résolution.
 7. ~~**Écran « Connexion données »** (n°3 du flow) : il appartient à la Feature 2 mais est **positionné dans le funnel d'onboarding** de la F1 (`04-flow.md`).~~ **Résolu (2026-08-06)** : retiré du funnel V1 — l'onboarding route directement vers le Dashboard. Voir `04-flow.md`, révision du 2026-08-06. **Repris par l'US-02** : point d'entrée Dashboard (invitation non bloquante) + Compte/Profil (permanent), AC1 de la fiche US-02.
 8. **Conservation du registre de consentement après suppression de compte** (2026-08-07). L'architecture décide de le conserver, pseudonymisé, comme preuve du consentement recueilli (ADR-010 §8). **Tranché par le fondateur (2026-08-09) : 5 ans** à compter du dernier événement de consentement (voir ADR-010, question ouverte n°4). **Toujours ouvert** : le job de purge programmée à cette échéance n'est **pas implémenté** (confirmé à la contre-revue de fin de projet, finding I3 « partiel ») — le registre grossit sans purge automatique. Non bloquant pour le développement, bloquant pour l'ouverture commerciale.
 9. **Rétention de `stripe_events`** (2026-08-07). **Résolu (2026-08-09, correction I3)** : rétention tranchée à 60 jours (au-delà de l'idempotence webhook et de la fenêtre de nouvelle tentative Stripe), purgée par `purge_stale_stripe_events()` (`0013_billing_robustness.sql`) via le cron quotidien `/cron/purge-stripe-events` (§6.8).
