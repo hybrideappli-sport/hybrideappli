@@ -19,10 +19,26 @@ export interface DrainSummary {
 }
 
 /**
- * `POST /api/v1/cron/drain-jobs` (toutes les 5 min, `maxDuration = 60`, ADR-011 §3/§7) : réserve un
- * lot borné (`claimJobs`, `FOR UPDATE SKIP LOCKED`) puis exécute chaque job selon son `kind`. Un
- * job en échec ne fait jamais échouer le lot entier — chacun est traité indépendamment, avec son
- * propre back-off/abandon (`markJobFailed`).
+ * Taille de lot partagée par tous les appelants de `drainJobs()`/`drainJobsBestEffort()` (cron
+ * `drain-jobs` et drain synchrone à l'enrôlement) — une seule constante, jamais un nombre magique
+ * dupliqué par appelant. Calibrée pour rester sous `maxDuration = 60` avec marge (ADR-011 §7).
+ */
+export const DRAIN_BATCH_SIZE = 10;
+
+/**
+ * Réserve un lot borné (`claimJobs`, `FOR UPDATE SKIP LOCKED`) puis exécute chaque job selon son
+ * `kind`. Un job en échec ne fait jamais échouer le lot entier — chacun est traité indépendamment,
+ * avec son propre back-off/abandon (`markJobFailed`).
+ *
+ * Deux appelants (ADR-011, mise à jour « drain synchrone ») :
+ *   - `POST/GET /api/v1/cron/drain-jobs` (Vercel Cron, 1×/jour, `maxDuration = 60`) : filet de
+ *     sécurité qui rattrape les jobs ratés/en échec/abandonnés (retry/back-off) — plus le chemin
+ *     principal de traitement depuis le passage à des cron quotidiens (plan Vercel Hobby).
+ *   - Chaque point qui enrôle un job (`enqueueJob`) l'appelle désormais lui-même juste après
+ *     l'enrôlement (webhook Strava, routes `/cron/enqueue-*`) pour traiter immédiatement ce qui
+ *     vient d'être mis en file, sans attendre le prochain passage quotidien de `drain-jobs`. Ces
+ *     appels sont best-effort côté appelant : une exception inattendue de `drainJobs()` ne doit
+ *     jamais faire échouer la réponse HTTP de la route qui enrôle.
  */
 export async function drainJobs(admin: SupabaseClient<Database>, limit: number): Promise<DrainSummary> {
   const jobs = await claimJobs(admin, limit);
@@ -84,4 +100,23 @@ export async function drainJobs(admin: SupabaseClient<Database>, limit: number):
   }
 
   return summary;
+}
+
+/**
+ * Variante best-effort de `drainJobs()` pour les appelants qui déclenchent un drain synchrone juste
+ * après un enrôlement (webhook Strava, routes `/cron/enqueue-*` — ADR-011, mise à jour « drain
+ * synchrone »). Chaque job du lot est déjà protégé individuellement par `drainJobs()` (un job en
+ * échec n'interrompt pas le lot) ; cette fonction protège en plus contre une exception INATTENDUE
+ * de `drainJobs()` lui-même (ex. `claimJobs()` qui échoue) — jamais de propagation vers l'appelant :
+ * la réponse HTTP de la route qui enrôle ne doit jamais échouer à cause du drain. Le cron
+ * `drain-jobs` quotidien reste le filet de sécurité qui rattrape ce qui n'a pas pu être traité ici.
+ */
+export async function drainJobsBestEffort(admin: SupabaseClient<Database>, limit: number, context: string): Promise<DrainSummary | null> {
+  try {
+    return await drainJobs(admin, limit);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[drain] drain synchrone (${context}) a échoué : ${message}`);
+    return null;
+  }
 }

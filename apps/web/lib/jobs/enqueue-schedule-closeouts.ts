@@ -30,12 +30,19 @@ async function fetchAllProfiles(admin: SupabaseClient<Database>): Promise<Array<
 }
 
 /**
- * `POST /api/v1/cron/enqueue-schedule-closeouts` (cron HORAIRE, ADR-017 §1) : enrôle chaque
- * utilisateur dont l'heure locale vient d'atteindre `planning.closeout_local_hour` (défaut 03:00).
- * Idempotent par construction (`idempotency_key = 'schedule_closeout:{user}:{date locale J-1}'`) :
- * rejouer ce cron plusieurs fois dans l'heure n'enrôle jamais deux fois la même date de clôture.
- * Fenêtre `hour >= closeoutLocalHour` (jamais une égalité stricte) : même rationale qu'ADR-011 §1 /
- * finding I4 — un cron manqué à l'heure pile est rattrapé aux passages suivants de la même heure.
+ * `POST /api/v1/cron/enqueue-schedule-closeouts` (Vercel Cron QUOTIDIEN, ADR-017 §1 — mise à jour
+ * ADR-011 « retour à Vercel Cron ») : enrôle chaque utilisateur dont l'heure locale vient
+ * d'atteindre `planning.closeout_local_hour` (défaut 03:00). Idempotent par construction
+ * (`idempotency_key = 'schedule_closeout:{user}:{date locale J-1}'`) : rejouer ce cron plusieurs
+ * fois n'enrôle jamais deux fois la même date de clôture. Fenêtre `hour >= closeoutLocalHour`
+ * (jamais une égalité stricte) : même rationale qu'ADR-011 §1 / finding I4 — un cron manqué à
+ * l'heure pile est rattrapé au passage suivant.
+ *
+ * **Ne nécessite pas la fenêtre élargie d'`enqueue-weekly-reviews.ts`** : contrairement à la
+ * révision hebdomadaire, cette condition n'a AUCUNE restriction de jour (`hour >= closeoutLocalHour`
+ * seul, sans `isoWeekday`) et son idempotence est indexée sur la **date locale** (jamais une semaine
+ * ISO) — un passage quotidien unique couvre donc nativement chaque utilisateur sans perte, quel que
+ * soit son fuseau.
  */
 export async function enqueueScheduleCloseouts(admin: SupabaseClient<Database>, now: Date = new Date()): Promise<{ scanned: number; enqueued: number }> {
   const ruleset = await getActiveRuleset(admin);
