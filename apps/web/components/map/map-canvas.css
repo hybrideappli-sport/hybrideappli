@@ -1,0 +1,31 @@
+/*
+ * Correctifs de lisibilité du contrôle d'attribution MapLibre — ADR-018 §9, lot L1.
+ *
+ * L'attribution ODbL est une OBLIGATION DE LICENCE : elle doit être lisible, pas seulement
+ * présente dans le DOM. Deux règles de `maplibre-gl.css` l'en empêchent dans cette application :
+ *
+ * 1. `.maplibregl-ctrl-attrib` pose un fond blanc à 50 % mais ne définit AUCUNE couleur de texte.
+ *    La seule règle `color: #000` du fichier vise `.maplibregl-ctrl-attrib.maplibregl-compact`,
+ *    variante que nous n'utilisons pas (`compact: false`, exigé par « non repliable »). Notre
+ *    `customAttribution` étant du texte brut et non un lien, il hérite du `color` de
+ *    l'application — blanc, thème sombre oblige. Résultat : blanc sur blanc. Les liens
+ *    d'attribution du style, eux, restent noirs via `.maplibregl-ctrl-attrib a`, ce qui rend le
+ *    défaut d'autant plus trompeur : une partie du bloc s'affiche, l'autre non.
+ *
+ * 2. Le fond à 50 % d'opacité laisse transparaître la carte. Sur le style clair de développement
+ *    le texte noir passe, mais sur le style sombre outdoor visé en L4 le contraste deviendrait
+ *    insuffisant. On fixe donc un fond franc plutôt que de dépendre du fond de carte.
+ *
+ * Sélecteur volontairement à deux classes (spécificité 0,2,0) : `globals.css` est injecté AVANT la
+ * feuille de MapLibre, importée depuis un module chargé dynamiquement. À spécificité égale MapLibre
+ * gagnerait — la même mécanique qui avait déjà mis `position: relative` sur le conteneur.
+ */
+
+.maplibregl-map .maplibregl-ctrl-attrib {
+  color: rgba(0, 0, 0, 0.85);
+  background-color: hsla(0, 0%, 100%, 0.9);
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: rgba(0, 0, 0, 0.85);
+}

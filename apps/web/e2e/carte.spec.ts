@@ -42,6 +42,38 @@ test.describe("Carte (ADR-018, lot L1)", () => {
     await expect(attribution).toBeVisible();
     await expect(attribution).toContainText(/OpenStreetMap/);
 
+    // `toBeVisible()` ne regarde que `display`/`visibility`/`opacity` et la taille : il a laissé
+    // passer une attribution rendue EN BLANC SUR BLANC (MapLibre pose un fond blanc à 50 % sans
+    // définir de couleur de texte hors variante `compact` ; notre `customAttribution`, texte brut
+    // et non lien, héritait donc du blanc de l'application). L'obligation ODbL porte sur la
+    // LISIBILITÉ, pas sur la présence dans le DOM : on vérifie donc le contraste effectif.
+    const contrast = await attribution.evaluate((node) => {
+      const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).map(Number);
+      // Luminance relative WCAG, en supposant l'élément composé sur un fond blanc (le fond du
+      // contrôle est lui-même clair et semi-transparent).
+      const luminance = ([r, g, b]: number[]) => {
+        const channel = (c: number) => {
+          const s = c / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+      };
+      const composite = (fg: number[], bg: number[]) => {
+        const alpha = fg[3] ?? 1;
+        return [0, 1, 2].map((i) => fg[i] * alpha + bg[i] * (1 - alpha));
+      };
+      const style = getComputedStyle(node);
+      const inner = node.querySelector(".maplibregl-ctrl-attrib-inner") ?? node;
+      const bg = composite(parse(style.backgroundColor), [255, 255, 255]);
+      const fg = composite(parse(getComputedStyle(inner).color), bg);
+      const [lighter, darker] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+      return (lighter + 0.05) / (darker + 0.05);
+    });
+
+    // Seuil WCAG AA pour du petit texte. Sans le correctif de `components/map/map-canvas.css`,
+    // ce rapport vaut 1 (blanc sur blanc) et l'assertion échoue.
+    expect(contrast).toBeGreaterThanOrEqual(4.5);
+
     // Bouton flottant de recentrage présent.
     await expect(page.getByTestId("map-recenter-button")).toBeVisible();
 

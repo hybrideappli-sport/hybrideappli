@@ -5,6 +5,9 @@ import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
 import { LocateFixed } from "lucide-react";
 
 import "maplibre-gl/dist/maplibre-gl.css";
+// APRÈS la feuille de MapLibre, jamais avant : elle en corrige la lisibilité de l'attribution
+// (obligation ODbL, ADR-018 §9). Voir l'en-tête du fichier.
+import "./map-canvas.css";
 
 import { MAP_ATTRIBUTION_TEXT } from "@/lib/map/attribution";
 import { MAPLIBRE_WORKER_URL } from "@/lib/map/worker-url";
