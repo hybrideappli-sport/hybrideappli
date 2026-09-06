@@ -15,8 +15,11 @@ const LOCALE = "fr";
  * bloquant AVANT ce point d'entrée (`/donnees/consentement`) : cette route est la garde SERVEUR de
  * ce même verrou (défense en profondeur), pas la seule.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { provider } = await params;
+export async function POST(request: Request, { params }: { params: Promise<{ connection: string }> }) {
+  // Segment dynamique nommé `[connection]` (contrainte Next.js : un seul nom de slug par niveau —
+  // la route soeur `../route.ts` y lit un UUID de connexion). Ici il porte un identifiant de
+  // fournisseur : renommé localement pour que la suite du fichier reste explicite.
+  const { connection: provider } = await params;
   const { supabase, user } = await requireUser();
   if (!user) return apiError(401, "UNAUTHORIZED", "Authentification requise.");
 
