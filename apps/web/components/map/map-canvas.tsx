@@ -119,7 +119,20 @@ export function MapCanvas({ styleUrl }: MapCanvasProps) {
 
   return (
     <div className="relative h-full w-full" data-testid="map-canvas">
-      <div ref={containerRef} className="absolute inset-0" data-testid="map-container" />
+      {/*
+        `h-full w-full` et NON `absolute inset-0` : au montage, MapLibre ajoute sa classe
+        `maplibregl-map` sur ce conteneur, et sa feuille déclare `.maplibregl-map { position:
+        relative }`. Même spécificité que le `.absolute` de Tailwind (une classe), mais elle est
+        importée depuis ce module chargé dynamiquement, donc injectée APRÈS — et elle gagne. Le
+        conteneur repassait alors en `position: relative`, `inset-0` cessait de le dimensionner, sa
+        hauteur retombait à `auto` (tous ses enfants sont positionnés) donc à 0, et MapLibre
+        retombait sur son repli `_containerDimensions()` de 300 px de haut, masqué par son propre
+        `overflow: hidden`. Symptôme : un écran noir, sans interaction et sans la moindre erreur.
+
+        Dimensionner en pourcentage rend la taille INDÉPENDANTE de `position`, donc immunisée à cet
+        écrasement. Ne pas revenir à un positionnement par `inset` ici.
+      */}
+      <div ref={containerRef} className="h-full w-full" data-testid="map-container" />
 
       {loadState === "loading" ? (
         <div className="absolute inset-0 flex items-center justify-center bg-background" data-testid="map-loading">
