@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Map as MapLibreMap } from "maplibre-gl";
+import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
 import { LocateFixed } from "lucide-react";
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { MAP_ATTRIBUTION_TEXT } from "@/lib/map/attribution";
+import { MAPLIBRE_WORKER_URL } from "@/lib/map/worker-url";
 import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
@@ -46,6 +47,12 @@ export function MapCanvas({ styleUrl }: MapCanvasProps) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // L'auto-détection du worker par MapLibre ne survit pas au bundling (elle renvoie une chaîne
+    // vide, et le worker se charge alors depuis la page courante, qui répond du HTML) : on lui
+    // fournit l'URL réelle. AVANT toute instanciation de `Map` — le worker est créé avec la
+    // première. Voir `lib/map/worker-url.ts` pour le détail du mécanisme.
+    setWorkerUrl(MAPLIBRE_WORKER_URL);
 
     // Question ouverte n°2, 3ᵉ levier : plafond de tuiles par session, le seul point par lequel
     // passent TOUTES les requêtes de tuiles côté client. Créé AVANT la `Map` : `transformRequest`
