@@ -1,31 +1,30 @@
 /**
- * URL du worker MapLibre, résolue explicitement par le bundler — ADR-018, lot L1.
+ * URL du worker MapLibre — ADR-018, lot L1.
  *
- * POURQUOI CE MODULE EXISTE
+ * POURQUOI UNE URL EN DUR PLUTÔT QU'UNE RÉSOLUTION PAR LE BUNDLER
  *
- * `maplibre-gl` (ESM, v6) localise son worker tout seul, relativement à son propre module :
+ * `maplibre-gl` v6 localise son worker relativement à son propre module, et l'heuristique ne
+ * survit pas au bundling :
  *
- *     function getWorkerUrl() {
- *       let base = import.meta.url;
- *       if (!/^https?:/.test(base)) return "";            // <-- le piège
- *       return new URL("./maplibre-gl-worker.mjs", base).href;
- *     }
+ *     let base = import.meta.url;
+ *     if (!/^https?:/.test(base)) return "";            // renvoie "" une fois bundlé
+ *     return new URL("./maplibre-gl-worker.mjs", base).href;
  *
- * Cette heuristique suppose que `maplibre-gl.mjs` est servi tel quel, avec son worker en fichier
- * frère. Après passage par le bundler de Next.js, aucune des deux hypothèses ne tient : le module
- * est fondu dans un chunk de `/_next/static/chunks/`, le worker est émis à part dans
- * `/_next/static/media/` avec un hash de contenu dans son nom, et `import.meta.url` n'est plus une
- * URL `http(s)`. La garde ci-dessus renvoie donc `""`, et `new Worker("", { type: "module" })`
- * résout vers l'URL de la PAGE COURANTE (`/carte`), qui répond du HTML.
+ * Sans URL explicite, `new Worker("", { type: "module" })` charge l'URL de la PAGE COURANTE, qui
+ * répond du HTML — d'où l'erreur « non-JavaScript MIME type of 'text/html' » sur une requête qui
+ * n'a jamais visé un fichier JavaScript.
  *
- * Symptôme observé, et il n'est pas parlant du tout : la carte reste bloquée sur son état de
- * chargement, et la console affiche « Failed to load module script: The server responded with a
- * non-JavaScript MIME type of 'text/html' » — sans jamais nommer MapLibre ni le worker.
+ * Laisser le bundler résoudre le chemin (`new URL("maplibre-gl/dist/…", import.meta.url)`) corrige
+ * ce premier point mais pas le suivant : le worker importe `./maplibre-gl-shared.mjs`
+ * relativement à lui-même, et cet import RESTE INTACT dans l'asset copié — le fichier émis, lui,
+ * porte un hash de contenu. Le worker se charge alors correctement… puis échoue en 404 sur son
+ * module partagé, et la carte reste bloquée sur son état de chargement.
  *
- * `new URL(<littéral>, import.meta.url)` est en revanche un motif que le bundler reconnaît
- * STATIQUEMENT : il résout le spécificateur, émet l'asset et réécrit l'expression en URL servie
- * réelle. C'est la forme documentée pour référencer un worker, et la raison pour laquelle le
- * littéral ci-dessous ne doit jamais devenir une variable — l'analyse statique ne suivrait plus,
- * et la panne reviendrait silencieusement.
+ * Le worker et son module partagé sont donc servis depuis `public/maplibre/`, côte à côte et sans
+ * hash, où l'import relatif est correct par construction. Ils y sont copiés à chaque `dev` et
+ * chaque `build` par `scripts/copy-maplibre-worker.mjs` — voir ce fichier pour le détail.
+ *
+ * Cette URL et le chemin de sortie du script doivent rester cohérents : les modifier séparément
+ * remet la carte en panne, sans erreur de build.
  */
-export const MAPLIBRE_WORKER_URL = new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href;
+export const MAPLIBRE_WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
