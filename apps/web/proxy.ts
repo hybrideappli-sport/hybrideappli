@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@hybride/db";
 
+import { isMapTilesPlanProductionReady } from "@/lib/map/tiles-plan-guard";
+
 // Next.js 16 : le fichier `middleware.ts` est renommé `proxy.ts`, la fonction
 // exportée `proxy` (anciennement `middleware`). Runtime nodejs uniquement,
 // non configurable — voir node_modules/next/dist/docs (upgrade guide v16).
@@ -9,11 +11,33 @@ import { createSupabaseServerClient } from "@hybride/db";
 // protéger les routes authentifiées. Aucune logique métier (ADR-001) — le
 // paywall (`requireEntitlement()`) est une couche serveur distincte, plus
 // bas dans la pile (08-architecture.md §3.3), pas ce fichier.
+//
+// Exception ADR-018 §8 (lot L1) : garde FAIL-CLOSED `MAP_TILES_PLAN` sur `/carte`. « Avant tout
+// travail » veut dire ici : avant même le rafraîchissement de session Supabase — testé isolément
+// dans `proxy.test.ts` en s'assurant que `createSupabaseServerClient` n'est JAMAIS appelé quand la
+// garde refuse.
+const MAP_PLAN_GATED_PATHS = ["/carte"];
+
+function mapTilesPlanUnavailableResponse(): NextResponse {
+  return new NextResponse(
+    "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\" /><title>Carte indisponible</title></head>" +
+      '<body style="background:#0A0A0A;color:#fff;font-family:sans-serif;padding:24px;">' +
+      "<h1>Carte indisponible</h1><p>Cette fonctionnalité n'est pas encore activée en production (palier commercial requis, ADR-018 §8).</p>" +
+      "</body></html>",
+    { status: 503, headers: { "content-type": "text/html; charset=utf-8" } },
+  );
+}
 
 const AUTH_PATHS = ["/connexion", "/inscription", "/mot-de-passe-oublie", "/auth"];
-const PROTECTED_PREFIXES = ["/dashboard", "/aujourdhui", "/onboarding", "/abonnement", "/facturation", "/revision"];
+const PROTECTED_PREFIXES = ["/dashboard", "/aujourdhui", "/onboarding", "/abonnement", "/facturation", "/revision", "/carte"];
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (MAP_PLAN_GATED_PATHS.includes(pathname) && !isMapTilesPlanProductionReady()) {
+    return mapTilesPlanUnavailableResponse();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createSupabaseServerClient({
@@ -35,7 +59,6 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
   const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path));
   const isProtectedPath = PROTECTED_PREFIXES.some((path) => pathname.startsWith(path));
 

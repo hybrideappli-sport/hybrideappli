@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Map } from "lucide-react";
 
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
@@ -22,6 +24,10 @@ export const dynamic = "force-dynamic";
  * toute construction du contenu détaillé. Aucune route de lecture nouvelle : `fetchWeekPlan()` est
  * la MÊME lecture que le Dashboard (AC5 — « même semaine, mêmes placements, pas de double source
  * de vérité »).
+ *
+ * ADR-018, lot L1 — point d'entrée de `/carte` : la tab bar reste à 4 items (question ouverte n°1,
+ * tranchée par le fondateur le 2026-09-06), `/carte` s'atteint donc par un lien depuis cet écran,
+ * pas par un cinquième item. Livrable vérifiable du lot — voir `e2e/carte.spec.ts`.
  */
 export default async function PlanningPage() {
   const supabase = await getSupabaseServerClient();
@@ -80,6 +86,21 @@ export default async function PlanningPage() {
       <p className="text-label text-foreground-muted">PLANNING · SEMAINE</p>
       <h1 className="font-serif text-display text-foreground">Ta semaine.</h1>
       <p className="text-body text-foreground-muted">Placée autour de tes créneaux disponibles.</p>
+
+      <Link
+        href="/carte"
+        data-testid="planning-carte-link"
+        className="mt-6 flex items-center gap-3 rounded-lg bg-surface p-5 hover:bg-surface-raised"
+      >
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-raised text-accent-text">
+          <Map aria-hidden="true" size={20} />
+        </span>
+        <span className="flex flex-col">
+          <span className="text-body font-semibold text-foreground">Carte des tracés</span>
+          <span className="text-small text-foreground-muted">Explore les sentiers et parcours autour de toi</span>
+        </span>
+      </Link>
+
       <div className="mt-8">{content}</div>
     </main>
   );
