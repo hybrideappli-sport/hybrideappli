@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Code tiers minifié, copié depuis `node_modules` par `scripts/copy-maplibre-worker.mjs` à
+    // chaque `dev`/`build` (ADR-018, lot L1) : ni écrit ni modifiable ici, et le linter y produit
+    // des centaines de faux positifs sur une seule ligne minifiée.
+    "public/maplibre/**",
   ]),
 ]);
 
