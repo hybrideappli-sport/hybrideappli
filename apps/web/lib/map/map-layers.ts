@@ -34,6 +34,14 @@ import {
 
 export const TRAILS_SOURCE_ID = "trails";
 
+/** §5.2 point 3 — les couches de TRAIT s'insèrent sous la 1ʳᵉ couche `symbol` du style (les
+ * toponymes du fond restent au-dessus). `undefined` si le style n'en a vraiment aucune (cas
+ * dégénéré, défensif : aucun basemap réel connu n'est dans ce cas) — l'appelant ajoute alors les
+ * couches au sommet de la pile plutôt que d'échouer. */
+export function findFirstSymbolLayerId(style: { layers: ReadonlyArray<{ id: string; type: string }> }): string | undefined {
+  return style.layers.find((layer) => layer.type === "symbol")?.id;
+}
+
 export const TRAILS_LAYER_IDS = {
   casing: "trails-casing",
   hike: "trails-line-hike",

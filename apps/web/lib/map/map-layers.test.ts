@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MAP_SPORTS, type MapSport } from "@hybride/domain";
 
-import { buildRouteLabelsLayer, buildTrailLineLayers, selectedLineDynamicStyle, TRAILS_LAYER_IDS } from "./map-layers";
+import { buildRouteLabelsLayer, buildTrailLineLayers, findFirstSymbolLayerId, selectedLineDynamicStyle, TRAILS_LAYER_IDS } from "./map-layers";
 
 /**
  * Petit évaluateur, RÉSERVÉ AUX TESTS, des seules formes d'expression produites par `map-layers.ts`
@@ -125,6 +125,17 @@ describe("buildRouteLabelsLayer (§5.7.4)", () => {
     const layer = buildRouteLabelsLayer(["Stadia Semibold"]);
     expect(layer.layout["text-allow-overlap"]).toBe(false);
     expect(layer.layout["text-ignore-placement"]).toBe(false);
+  });
+});
+
+describe("findFirstSymbolLayerId (§5.2 point 3)", () => {
+  it("renvoie l'id de la 1ʳᵉ couche symbol, jamais une couche line/fill placée avant", () => {
+    const style = { layers: [{ id: "background", type: "background" }, { id: "water", type: "fill" }, { id: "place-labels", type: "symbol" }, { id: "poi-labels", type: "symbol" }] };
+    expect(findFirstSymbolLayerId(style)).toBe("place-labels");
+  });
+
+  it("style sans aucune couche symbol (cas dégénéré) ⟹ undefined", () => {
+    expect(findFirstSymbolLayerId({ layers: [{ id: "background", type: "background" }] })).toBeUndefined();
   });
 });
 
