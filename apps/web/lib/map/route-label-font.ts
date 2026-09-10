@@ -32,7 +32,13 @@ const ULTIMATE_FALLBACK_FONT_STACK: readonly string[] = ["Noto Sans Regular"];
 
 export interface StyleLayerLike {
   type: string;
-  layout?: { "text-font"?: string[] };
+  // Volontairement large (`Record<string, unknown>`, pas `{ "text-font"?: string[] }`) : le style
+  // RÉEL de MapLibre (`StyleSpecification`) type chaque variante de couche avec un `layout`
+  // DIFFÉRENT (une couche `fill` n'a structurellement AUCUNE propriété en commun avec une couche
+  // `symbol`), ce qui rendrait `LayerSpecification[]` non assignable à un `layout` étroit ici — la
+  // détection TypeScript des types "sans propriété en commun" (erreur TS2345) l'interdirait tel
+  // quel. Le rétrécissement vers `string[] | undefined` se fait donc AU POINT DE LECTURE.
+  layout?: Record<string, unknown>;
 }
 
 export interface StyleLike {
@@ -46,7 +52,7 @@ function collectAvailableFontStacks(style: StyleLike): string[][] {
   const stacks: string[][] = [];
   for (const layer of style.layers) {
     if (layer.type !== "symbol") continue;
-    const font = layer.layout?.["text-font"];
+    const font = layer.layout?.["text-font"] as string[] | undefined;
     if (!font || font.length === 0) continue;
     const key = font.join(",");
     if (seen.has(key)) continue;
