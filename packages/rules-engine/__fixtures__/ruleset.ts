@@ -52,7 +52,7 @@ export const TEST_RULESET: Ruleset = {
     interference: {
       // Provisoire — voir l'en-tête de fichier. Borne basse documentée par
       // `docs/rulesets/0.1.0-dev.md` §3 elle-même ("48 à 72h de récupération").
-      min_hours_between_intense_and_strength_same_groups: 48,
+      min_hours_between_intense_and_strength_same_groups: 24,
       global_load_distribution_strategy: "by_priority",
     },
     pain_protocol: {
@@ -70,10 +70,10 @@ export const TEST_RULESET: Ruleset = {
     nutrition: {
       // Provisoire — voir l'en-tête de fichier.
       max_daily_deficit_pct: 20,
-      absolute_kcal_floor_male: 1500,
-      absolute_kcal_floor_female: 1200,
+      absolute_kcal_floor_male: 1800,
+      absolute_kcal_floor_female: 1400,
       protein_g_per_kg_range: [1.6, 2.2],
-      carb_modulation_by_session_type: { rest: 2.5, endurance: 4, intensity: 6 },
+      carb_modulation_by_session_type: { rest: 3, endurance: 5, intensity: 6 },
     },
     free_access: {
       accesses_per_period: 3,

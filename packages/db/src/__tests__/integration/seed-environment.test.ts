@@ -10,6 +10,13 @@ import { withPgClient } from "./support/pg-client";
  * `rulesets_single_active` (global, `(is_active) where is_active`) le jour où une migration de
  * production publie une version de document juridiquement validée / un ruleset `1.x` actif.
  *
+ * **Ce jour est arrivé côté ruleset, le 2026-09-10** : `0029_publish_ruleset_1_0_0.sql` publie ET
+ * active `1.0.0` (ADR-007 §5, `docs/rulesets/1.0.0.md`). Le mécanisme défensif de `seed.sql` a
+ * fonctionné exactement comme prévu — sa clause `not exists (...)` ne réactive plus aucun `0.x-dev`
+ * une fois `1.0.0` actif, donc l'index unique n'est jamais mis en défaut. Côté consentements, en
+ * revanche, aucune migration d'activation juridique n'existe encore : cette moitié du contrat reste
+ * dans l'état d'origine.
+ *
  * T15 et T16 manipulent l'état de la base à l'intérieur d'une transaction jamais commitée
  * (`begin` / `rollback`) : les autres suites de ce paquet ne voient jamais ces écritures
  * intermédiaires (isolation Postgres standard), et `fileParallelism: false`
@@ -34,7 +41,7 @@ const EXPECTED_CURRENT_VERSION: Record<(typeof CONSENT_CODES)[number], string> =
 };
 
 describe("seed.sql — activation défensive de is_current / is_active (docs/db-schema.md §9.3)", () => {
-  it("T14 — après `supabase db reset` local : exactement une ligne is_current par (code, locale) et le ruleset 0.1.0-dev actif", async () => {
+  it("T14 — après `supabase db reset` local : exactement une ligne is_current par (code, locale) et le ruleset 1.0.0 actif", async () => {
     await withPgClient(async (client) => {
       for (const code of CONSENT_CODES) {
         const { rows } = await client.query<{ version: string }>(
@@ -49,17 +56,25 @@ describe("seed.sql — activation défensive de is_current / is_active (docs/db-
         "select version from rulesets where is_active",
       );
       expect(activeRulesets, "un seul ruleset actif attendu en local").toHaveLength(1);
-      expect(activeRulesets[0]?.version).toBe("0.1.0-dev");
+      // Depuis `0029_publish_ruleset_1_0_0.sql` (2026-09-10), c'est le ruleset de PRODUCTION qui est
+      // actif, y compris en local : la migration désactive les `0.x-dev` et `seed.sql` ne les
+      // réactive pas (sa clause `not exists (...)` ne se déclenche que si plus rien n'est actif).
+      // Développement et production tournent donc sur les mêmes valeurs — c'est l'intention, pas un
+      // effet de bord : un plan généré en local est désormais celui que verrait un utilisateur.
+      expect(activeRulesets[0]?.version).toBe("1.0.0");
     });
   });
 
-  it("T15 — migrations seules, sans `seed.sql` (simulation production) : zéro is_current, zéro ruleset actif", async () => {
+  it("T15 — état antérieur à toute migration d'activation : zéro is_current, zéro ruleset actif", async () => {
     await withPgClient(async (client) => {
       await client.query("begin");
       try {
-        // Défait ce que `seed.sql` a posé au dernier `db reset`, pour retomber sur l'état que
-        // `0010_seed_referentials.sql` produit à lui seul — exactement ce qu'une base de
-        // production voit, puisque `seed.sql` n'y est structurellement jamais rejoué.
+        // Défait ce que `seed.sql` ET `0029` ont posé, pour retomber sur l'état que
+        // `0010_seed_referentials.sql` produit à lui seul. Ce n'est plus l'état d'une base de
+        // production — depuis `0029`, les migrations activent `1.0.0` — mais c'est celui qui compte
+        // ici : il vérifie que l'application se comporte correctement quand RIEN n'est activé, ce
+        // qui reste la situation réelle côté consentements (aucune migration d'activation juridique
+        // n'existe) et celle de toute base rejouée avant `0029`.
         await client.query("update consent_documents set is_current = false");
         await client.query("update rulesets set is_active = false");
 
