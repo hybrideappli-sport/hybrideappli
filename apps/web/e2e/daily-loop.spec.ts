@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/test";
 
 import { completeOnboardingToDashboard, historyMessageWithSessionToday } from "./support/daily-loop-flow";
 
