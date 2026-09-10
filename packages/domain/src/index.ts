@@ -364,3 +364,19 @@ export type {
   HybridScoreNextStepView,
   HybridScoreResponse,
 } from "./hybrid-score";
+
+// ---------------------------------------------------------------------------
+// map-trails.ts — ADR-018, lot L2 (`GET /api/v1/map/trails`, classement pur des 4 sports)
+// ---------------------------------------------------------------------------
+
+export { MAP_SPORTS, MapSportSchema, CLASSIFIER_VERSION, classifySports, MapTrailsResponseStatusSchema, MapTrailsQuerySchema } from "./map-trails";
+export type {
+  MapSport,
+  OsmTags,
+  MapTrailProperties,
+  MapTrailGeometry,
+  MapTrailFeature,
+  MapTrailsResponseStatus,
+  MapTrailsResponse,
+  MapTrailsQuery,
+} from "./map-trails";

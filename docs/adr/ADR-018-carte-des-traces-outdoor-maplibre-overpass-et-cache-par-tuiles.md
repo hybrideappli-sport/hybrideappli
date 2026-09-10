@@ -343,6 +343,35 @@ Deux exigences complémentaires, portées par `devops` au moment de la souscript
 | CTA « Utiliser pour ma séance » en phase 1 | Décision du fondateur. Impliquerait une écriture en base, une table, un lien vers `planned_sessions` et donc une interaction avec ADR-004 et ADR-016 — c'est-à-dire une tout autre feature. |
 | Réutiliser `--color-success` / `--color-info` / `--color-warning` pour les sports | Casserait la sémantique métier de `docs/design-system.md` §1.4 (**orange = douleur/gêne/alerte**). Décision du fondateur : famille de tokens dédiée. |
 | Cinquième item dans la tab bar | Le design system fixe 4 items (§4.9). **Écarté par le fondateur le 2026-09-06**, au même titre que le remplacement d'un item existant : la tab bar reste à 4 et `/carte` s'atteint depuis `/planning` (lot L1). |
+| **N'extraire que les relations `type=route`** (itinéraires nommés) au lieu des segments | **Chiffré puis écarté par le fondateur le 2026-09-09** — voir le chiffrage ci-dessous. Ne pas y revenir sans refaire la mesure. |
+
+### Chiffrage de la bascule « relations `type=route` seules » (2026-09-09)
+
+La piste était séduisante : les 86 % de segments sans nom appauvrissent la bottom sheet, alors que
+les relations d'itinéraire sont nommées et balisées. Elle a été mesurée sur une bbox réelle de
+Toulon (centre-ville, rade, Mont Faron — 6 tuiles z12), avec exactement le filtre de relations déjà
+en place (`hiking|foot|running|bicycle`) :
+
+| | Segments + relations (retenu) | Relations seules |
+|---|---|---|
+| Tracés | **7 115** | **5** |
+| Portant un nom | 14 % | 100 % |
+| Latence à froid | 19,3 s (6 requêtes) | 0,6 s (1 requête) |
+| Route / Trail / Rando / Vélo | 3 109 / 2 659 / 3 737 / 592 | **0 / 0** / 2 / 3 |
+
+**Ce qui tranche** : sur les 221 relations `type=route` de la zone, **216 sont des transports**
+(180 bus, 17 ferry, 14 train, 2 railway, 1 aerialway, 2 road). Le gisement outdoor réel est de
+**cinq** itinéraires. Et comme **aucune relation `running` n'existe dans la zone**, le mapping §5.5
+(`running`→Route, `hiking`/`foot`→Rando, `bicycle`→Vélo, rien vers Trail) laisserait **deux
+pastilles sur quatre entièrement vides**. L'écran serait quasi vide.
+
+Les cinq itinéraires sont par ailleurs d'excellente qualité (« Le sentier du Littoral – Toulon »,
+« V65 - Parcours cyclable du littoral »…). La conclusion n'est donc pas « les relations sont
+inutiles » mais **« elles ne portent pas la couverture, elles portent la qualité éditoriale »** —
+d'où leur mise en avant visuelle en L3 plutôt que leur substitution aux segments.
+
+**Le chiffre est local à Toulon** : la densité de relations OSM varie fortement d'une région à
+l'autre. Toute reprise de cette piste doit refaire la mesure, pas citer ce tableau.
 
 ---
 
@@ -357,7 +386,7 @@ Deux exigences complémentaires, portées par `devops` au moment de la souscript
 | **L1 — Socle carte** | Dépendance `maplibre-gl` ; route `/carte` (Server Component) + `<MapCanvas>` (Client, `next/dynamic` `ssr: false`) ; style `alidade_smooth_dark` via `MAP_TILES_STYLE_URL` ; **attribution ODbL non repliable** ; bouton flottant de recentrage + `navigator.geolocation` (permission refusée = état explicite, jamais un écran vide) ; états `loading` et `zoom_required` ; garde fail-closed `MAP_TILES_PLAN` ; `.env.local.example` ; **point d'entrée : lien vers `/carte` depuis `/planning`** (la tab bar n'est pas touchée — voir §Contexte constat 5) ; `/carte` est un **sous-écran** au sens du patron `Yf6zY` : pas de tab bar, fermeture explicite qui ramène à `/planning` | La carte s'affiche en plein écran au thème sombre, l'attribution est visible sans interaction, **aucune requête réseau ne part vers Overpass** ; **`/carte` est atteignable depuis `/planning` et on en revient** ; `TAB_ITEMS` reste à 4 entrées | Clé Stadia de développement (`devops`) |
 | **L2 — Extraction, cache et classement** | `GET /api/v1/map/trails` ; arrondi serveur sur la grille `TILE_ZOOM` ; `unstable_cache` sur les **données brutes** (clé `['overpass', OVERPASS_QUERY_VERSION, tuile]`, `revalidate: 86400`) ; `overpass-client.ts` en `server-only` ; élagage de tags, simplification, `MAX_FEATURES_PER_TILE`, dédoublonnage inter-tuiles ; limiteurs d'entrée et de sortie ; **`classifySports()` pur dans `@hybride/domain`** + `CLASSIFIER_VERSION` ; contrats Zod ; codes `OVERPASS_UNAVAILABLE` / `degraded` / `truncated` | ① deux requêtes sur la même tuile ⟹ **un seul** appel Overpass ; ② **changer `CLASSIFIER_VERSION` ne déclenche aucun appel Overpass** ; ③ aucun module client n'atteint l'URL Overpass ; ④ table de cas du §5.3 couverte, **dont les chevauchements Trail ⊂ Rando et Route ∩ Vélo** | L1 |
 | **⛔** | **Point de validation humaine recommandé** — volume réel par tuile, pertinence du classement sur le terrain du fondateur, taux de hit. Juger sur pièces `TILE_ZOOM`, le TTL, les seuils de §5.2 et le périmètre de « Route ». C'est le moment prévu pour se tromper sans coût : le classement se règle sans retoucher le cache. | | |
-| **L3 — Rendu, filtres, bottom sheet** | Sources et couches MapLibre par sport ; **filtrage 100 % client** sur `properties.sports` (zéro requête réseau) ; dédoublonnage par `osmId` et **règle de teinte pour un chemin multi-sports** ; 4 pastilles pill (`docs/design-system.md` §4.4) ; tokens `--color-map-route` / `-trail` / `-hike` / `-bike` ; bottom sheet **à trois champs : nom, distance, surface** (« non renseignée » si `surfaceInferred`) — **aucun champ dénivelé, pas même vide** (question 6) ; états `empty`, `error`, `truncated` ; accessibilité (cibles ≥ 44 px, focus visible, `aria-live`, **alternative clavier au tap sur un tracé**, `prefers-reduced-motion`) | Décocher une pastille filtre les tracés **sans aucune requête réseau** ; un chemin appartenant à deux filtres actifs est dessiné **une seule fois** ; l'état « aucun résultat » est atteignable et lisible | L2 + **`designer`** : teintes des 4 tokens (hors palette sémantique) **et règle de rendu du chevauchement** |
+| **L3 — Rendu, filtres, bottom sheet** | Sources et couches MapLibre par sport ; **filtrage 100 % client** sur `properties.sports` (zéro requête réseau) ; dédoublonnage par `osmId` et **règle de teinte pour un chemin multi-sports** ; 4 pastilles pill (`docs/design-system.md` §4.4) ; tokens `--color-map-route` / `-trail` / `-hike` / `-bike` ; **mise en avant visuelle des itinéraires nommés** (relations `type=route`, déjà présentes dans la réponse) par un trait plus marqué — décision du fondateur du 2026-09-09 : ce sont les points d'entrée reconnaissables de la carte, cinq sur Toulon mais tous nommés et balisés (voir le chiffrage en Alternatives écartées) ; bottom sheet **à trois champs : nom, distance, surface** (« non renseignée » si `surfaceInferred`) — **aucun champ dénivelé, pas même vide** (question 6) — et **conçue pour le cas MAJORITAIRE mesuré : un segment sans nom (86 %) et sans surface (73 %), donc réduit à sa seule distance** (question 8) ; états `empty`, `error`, `truncated` ; accessibilité (cibles ≥ 44 px, focus visible, `aria-live`, **alternative clavier au tap sur un tracé**, `prefers-reduced-motion`) | Décocher une pastille filtre les tracés **sans aucune requête réseau** ; un chemin appartenant à deux filtres actifs est dessiné **une seule fois** ; l'état « aucun résultat » est atteignable et lisible | L2 + **`designer`** : teintes des 4 tokens (hors palette sémantique) **et règle de rendu du chevauchement** |
 | **L4 — Production (conditionnel, bloquant)** | Souscription **Stadia Starter** ; bascule `MAP_TILES_PLAN=commercial` ; style sombre outdoor personnalisé livré par `designer` et publié ; clé restreinte par domaine + alerte de quota ; **dénivelé réel** via l'Elevation API ; E2E Playwright (attribution, filtres, chevauchement, bottom sheet, `zoom_required`, `empty`, dégradé) ; observabilité (taux de hit N3, requêtes Overpass/jour, volume par tuile) ; DPA + registre des traitements + politique de confidentialité | `MAP_TILES_PLAN=commercial` en production, attribution vérifiée par test, dénivelé renseigné | **Fondateur** (souscription), `designer` (style), `devops` (clé, DPA, registre) |
 
 **Ordre de mise en œuvre** : L1 → L2 → ⛔ → L3 → L4. L1 et L2 sont indépendants de tout travail `designer` ; L3 est bloqué tant que les teintes **et** la règle de chevauchement ne sont pas arbitrées ; **L4 conditionne la mise en production et rien d'autre** — L1 à L3 sont livrables et démontrables sur le palier gratuit, en développement.
@@ -395,3 +424,8 @@ Deux exigences complémentaires, portées par `devops` au moment de la souscript
 
    Le champ **apparaît en L4**, en même temps que l'Elevation API qui le remplit réellement. Conséquence pour `designer` : ne pas réserver d'emplacement vide dans la maquette de bottom sheet ; la mise en page doit rester correcte à trois champs, puis à quatre après L4. Le coût en crédits d'un profil altimétrique par tracé affiché reste à mesurer avant de l'activer sur le chemin chaud (L4).
 7. **Date de souscription du palier commercial.** C'est le bloquant de mise en production de cette feature, au même rang que le ruleset `1.0.0` l'est pour le produit (ADR-007). *Propriétaire : fondateur.*
+8. **Que fait la bottom sheet quand elle n'a rien à montrer ?** Ouverte par le point de validation de fin de L2, sur des chiffres et non sur une intuition : sur Toulon, **86 % des tracés n'ont pas de nom et 73 % pas de surface**, le dénivelé étant par ailleurs retiré (question 6). Pour la majorité des segments, la sheet se réduirait donc à **« Chemin sans nom » + une distance** — une fiche qui coûte un geste à l'utilisateur pour ne rien lui apprendre.
+
+   Piste posée par le fondateur le 2026-09-09 : **si elle n'a rien à montrer, elle ne s'ouvre peut-être pas du tout.** À instruire avec `designer`, qui a déjà prévu un cas voisin (§6.4 de `docs/design-carte.md`, « aucune donnée détaillée sur ce chemin ») mais le traite comme une exception alors que **c'est le cas majoritaire**. Options à peser : ne pas ouvrir et se contenter d'un retour visuel sur le tracé ; ouvrir une sheet réduite assumée ; ou n'ouvrir que pour les tracés portant au moins un nom. À arbitrer **avant** l'implémentation de L3, pas après. *Propriétaires : `designer` + fondateur.*
+
+   Contrepoint à ne pas perdre : les **itinéraires nommés** (relations `type=route`) sont, eux, entièrement renseignés — c'est précisément ce qui justifie leur mise en avant visuelle en L3.
