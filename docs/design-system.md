@@ -90,6 +90,32 @@ signaux de douleur.
 
 ---
 
+## 1.5 Couleurs de carte
+
+> Ajouté par `developer` en lot L3 d'ADR-018 (« Carte des tracés outdoor »), conformément à
+> `docs/design-carte.md` §9 (« bloc à insérer par `developer` en L3 »). Famille **dédiée**, hors
+> palette sémantique — ADR-018, question ouverte n°3, tranchée par `designer` le 2026-09-09.
+> Justification complète des teintes, des contrastes WCAG et du choix de motif : `docs/design-carte.md`
+> §2. Ces quatre tokens ne vivent que dans le canevas de `/carte` — ils ne remplacent ni ne recoupent
+> les couleurs sémantiques de §1.4.
+
+| Token | Sport | Hex | Motif de trait (2ᵉ canal) |
+| ----- | ----- | --- | -------------------------- |
+| `--color-map-route` | Route | `#22D3EE` | plein |
+| `--color-map-trail` | Trail | `#F472B6` | tirets courts |
+| `--color-map-hike`  | Rando | `#E4E4E7` | pointillé rond |
+| `--color-map-bike`  | Vélo  | `#FDE047` | tirets longs |
+| `--color-map-casing` | — | `#0A0A0A` | halo/liseré sous tout tracé (`--color-background` réexposé) |
+| `--color-map-selected-casing` | — | `#FFFFFF` | halo du tracé sélectionné (un seul à la fois) |
+
+**Contrainte d'implémentation** : MapLibre n'interprète pas les variables CSS ci-dessus (ses
+propriétés `paint`/`layout` attendent des littéraux). La source unique consommée par les couches
+MapLibre est `apps/web/lib/map/map-tokens.ts` ; ces variables CSS restent actives pour que la charte
+reste complète et lisible, et `apps/web/lib/map/map-tokens.test.ts` vérifie leur égalité littérale
+avec le module TypeScript, pour qu'un changement d'un seul côté ne passe jamais inaperçu.
+
+---
+
 ## 2. Typographie
 
 ### 2.1 Familles
