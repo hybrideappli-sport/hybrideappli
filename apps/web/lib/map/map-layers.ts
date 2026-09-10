@@ -85,13 +85,30 @@ function notSelectedFilter(selectedId: string | null): unknown[] {
   return ["!=", ["get", "osmId"], selectedId ?? NO_SELECTION_SENTINEL];
 }
 
-/** §5.2 — épaisseur de base, itinéraire nommé multiplié par `WIDTH_ROUTE_MULTIPLIER` (§5.7.1). */
-function baseWidthExpression(): unknown[] {
-  const zoomStops = WIDTH_BASE_STOPS.flatMap(([zoom, width]) => [zoom, width]);
+/**
+ * §5.2 — épaisseur par palier de zoom, itinéraire nommé multiplié par `WIDTH_ROUTE_MULTIPLIER`
+ * (§5.7.1), avec un facteur d'échelle et un supplément constant additionnels (sélection, halo).
+ *
+ * Le style spec MapLibre interdit qu'une expression `["zoom"]` (via `interpolate`/`step`) soit
+ * imbriquée dans un opérateur arithmétique (`*`, `+`…) : elle ne peut être que l'expression de
+ * PROPRIÉTÉ ENTIÈRE, ou un opérande direct de `case`/`match`/`coalesce`/`let`. La version
+ * précédente (`["*", ["interpolate", …], ["case", …]]`) violait cette règle — MapLibre rejetait
+ * `map.addLayer()` en silence côté navigateur (`layers.*.paint.line-width: "zoom" expression may
+ * only be used as input to a top-level "step" or "interpolate" expression`), invisible en test
+ * unitaire car `map-layers.test.ts` n'exécute jamais de vrai style contre un `Map`. On calcule donc
+ * ici DEUX jeux de paliers (route nommée / non) déjà mis à l'échelle et décalés, et `interpolate`
+ * n'est imbriqué que dans les branches de `case` — l'interpolation linéaire commute avec une
+ * transformation affine (`a·v + b`) appliquée identiquement à chaque palier, donc le résultat rendu
+ * est strictement identique à `interpolate(...) * scale * (isNamedRoute ? routeMultiplier : 1) +
+ * extra`.
+ */
+function widthExpression(scale: number, extra: number): unknown[] {
+  const stopsFor = (routeFactor: number) => WIDTH_BASE_STOPS.flatMap(([zoom, width]) => [zoom, width * routeFactor * scale + extra]);
   return [
-    "*",
-    ["interpolate", ["linear"], ["zoom"], ...zoomStops],
-    ["case", ["==", ["get", "isNamedRoute"], true], WIDTH_ROUTE_MULTIPLIER, 1],
+    "case",
+    ["==", ["get", "isNamedRoute"], true],
+    ["interpolate", ["linear"], ["zoom"], ...stopsFor(WIDTH_ROUTE_MULTIPLIER)],
+    ["interpolate", ["linear"], ["zoom"], ...stopsFor(1)],
   ];
 }
 
@@ -106,7 +123,7 @@ function renderSportColorMatchExpression(): unknown[] {
  * motif n'est pas data-driven, d'où quatre couches plutôt qu'une). Exclut le tracé sélectionné
  * (§5.5 : « doit être retiré des couches de base », sous peine de double halo). */
 export function buildTrailLineLayers(options: { selectedId: string | null }): TrailLineLayerSpec[] {
-  const width = baseWidthExpression();
+  const width = widthExpression(1, 0);
   const notSelected = notSelectedFilter(options.selectedId);
 
   const casing: TrailLineLayerSpec = {
@@ -116,7 +133,7 @@ export function buildTrailLineLayers(options: { selectedId: string | null }): Tr
     minzoom: MAP_MIN_ZOOM_FOR_TRAILS,
     filter: ["all", ["has", "renderSport"], notSelected],
     layout: { "line-cap": "round", "line-join": "round" },
-    paint: { "line-color": MAP_CASING_COLOR, "line-opacity": 0.9, "line-width": ["+", width, CASING_EXTRA_WIDTH] },
+    paint: { "line-color": MAP_CASING_COLOR, "line-opacity": 0.9, "line-width": widthExpression(1, CASING_EXTRA_WIDTH) },
   };
 
   const perSport: TrailLineLayerSpec[] = MAP_SPORTS.map((sport) => {
@@ -138,7 +155,7 @@ export function buildTrailLineLayers(options: { selectedId: string | null }): Tr
   });
 
   const selected = selectedFilter(options.selectedId);
-  const selectedWidth: unknown[] = ["*", width, WIDTH_SELECTED_MULTIPLIER];
+  const selectedWidth: unknown[] = widthExpression(WIDTH_SELECTED_MULTIPLIER, 0);
 
   const selectedCasing: TrailLineLayerSpec = {
     id: TRAILS_LAYER_IDS.selectedCasing,
@@ -150,7 +167,7 @@ export function buildTrailLineLayers(options: { selectedId: string | null }): Tr
     paint: {
       "line-color": MAP_SELECTED_CASING_COLOR,
       "line-opacity": 0.9,
-      "line-width": ["+", selectedWidth, SELECTED_CASING_EXTRA_WIDTH],
+      "line-width": widthExpression(WIDTH_SELECTED_MULTIPLIER, SELECTED_CASING_EXTRA_WIDTH),
     },
   };
 

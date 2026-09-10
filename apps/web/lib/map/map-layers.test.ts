@@ -149,3 +149,59 @@ describe("selectedLineDynamicStyle (§5.5, §9.2 : line-dasharray n'est pas data
     expect(selectedLineDynamicStyle(null)).toEqual({ lineDasharray: undefined, lineCap: "round" });
   });
 });
+
+/**
+ * Régression : `map.addLayer()` rejette en silence côté navigateur toute expression `["zoom"]`
+ * (via `interpolate`/`step`) imbriquée dans un opérateur qui n'est pas `case`/`match`/`coalesce`/
+ * `let` — ce n'est PAS détecté par `evaluateFilter` ci-dessus (qui n'évalue que des filtres, jamais
+ * un `paint`/`layout`), ni par aucun autre test de ce fichier, puisqu'aucun n'exécute une vraie
+ * instance MapLibre. C'est exactement la forme qui s'est glissée dans `widthExpression()` avant
+ * correction : `["*", ["interpolate", ["linear"], ["zoom"], …], …]`.
+ *
+ * Ce validateur, réservé aux tests, encode la règle du style spec MapLibre : une expression de
+ * zoom ne peut être que l'expression de propriété ENTIÈRE, ou un opérande direct de
+ * `case`/`match`/`coalesce`/`let`.
+ */
+function isZoomStopExpression(node: unknown): boolean {
+  if (!Array.isArray(node) || typeof node[0] !== "string") return false;
+  if (node[0] === "interpolate") return Array.isArray(node[2]) && node[2][0] === "zoom";
+  if (node[0] === "step") return Array.isArray(node[1]) && node[1][0] === "zoom";
+  return false;
+}
+
+const EXPRESSION_CONTAINERS_ALLOWING_ZOOM = new Set(["case", "match", "coalesce", "let"]);
+
+function assertNoIllegallyNestedZoomExpression(node: unknown, isTopLevel: boolean, path: string): void {
+  if (!Array.isArray(node)) return;
+  if (isZoomStopExpression(node)) {
+    if (!isTopLevel) {
+      throw new Error(`Expression de zoom imbriquée illégalement (hors case/match/coalesce/let/top-level) à ${path} : ${JSON.stringify(node)}`);
+    }
+    return;
+  }
+  if (typeof node[0] !== "string") {
+    // Tableau littéral (ex. `line-dasharray`, `text-font`) — pas une expression de style.
+    return;
+  }
+  const childIsTopLevel = EXPRESSION_CONTAINERS_ALLOWING_ZOOM.has(node[0]);
+  node.slice(1).forEach((child, index) => assertNoIllegallyNestedZoomExpression(child, childIsTopLevel, `${path}[${index + 1}]`));
+}
+
+describe("Aucune expression de zoom imbriquée illégalement dans paint/layout (régression style spec MapLibre)", () => {
+  it("buildTrailLineLayers — toutes les couches (sélection nulle ou active)", () => {
+    for (const selectedId of [null, "way/42"]) {
+      for (const layer of buildTrailLineLayers({ selectedId })) {
+        for (const [prop, value] of Object.entries({ ...layer.paint, ...layer.layout })) {
+          assertNoIllegallyNestedZoomExpression(value, true, `${layer.id}.${prop}`);
+        }
+      }
+    }
+  });
+
+  it("buildRouteLabelsLayer — layout et paint", () => {
+    const layer = buildRouteLabelsLayer(["Stadia Semibold"]);
+    for (const [prop, value] of Object.entries({ ...layer.paint, ...layer.layout })) {
+      assertNoIllegallyNestedZoomExpression(value, true, `${layer.id}.${prop}`);
+    }
+  });
+});
