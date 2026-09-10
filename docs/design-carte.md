@@ -1,7 +1,8 @@
 # Design — Écran Carte (phase 1, lecture seule)
 
 - **Statut** : proposé — livrable `designer`
-- **Date** : 2026-09-06, **révisé le 2026-09-09** (questions ouvertes n°3 et n°8 d'ADR-018)
+- **Date** : 2026-09-06, **révisé le 2026-09-09** (questions ouvertes n°3 et n°8 d'ADR-018),
+  **amendé le 2026-09-10** (arbitrages du fondateur sur §11, points 5 et 8)
 - **Répond à** : ADR-018, **question ouverte n°3** (« teintes des quatre tokens `--color-map-*`, rendu
   d'un chemin multi-sports », + **mise en avant des itinéraires nommés**, décision du fondateur du
   2026-09-09) et **question ouverte n°8** (« que fait la bottom sheet quand elle n'a rien à montrer ? »).
@@ -19,6 +20,9 @@
 > (d) **les mesures de fin de L2 sur la bbox réelle de Toulon** (6 tuiles z12, 7 115 tracés), reportées
 > dans ADR-018 §Alternatives écartées et question 8. Les valeurs de luminance intermédiaires sont données
 > en §2.2 pour être re-vérifiables.
+>
+> **Confirmé par le fondateur le 2026-09-10** : aucune maquette Pencil n'est commandée pour `/carte`.
+> Ce document est la **source de vérité unique** de l'écran (§11, point 8).
 
 > **Ce qui a changé le 2026-09-09.** Trois entrées nouvelles, toutes issues de mesures ou de décisions du
 > fondateur, et deux d'entre elles **inversent** une hypothèse de la première passe :
@@ -28,6 +32,13 @@
 > | **86 % des tracés sans nom, 73 % sans surface** (Toulon, 7 115 tracés) | **§6 est réécrit de fond en comble.** Le « cas dégradé » de l'ancien §6.4 devient la **forme nominale et unique** de la fiche. La pile de rows est retirée. |
 > | **Volume réel : 7 115 tracés pour 6 tuiles** | **§5.4 est réécrit.** Le panneau « Liste des tracés » (liste plate plafonnée à 50) est **abandonné** : à ce volume, il n'est plus une alternative, c'est un mur. Remplacé par un **viseur de sélection** clavier. |
 > | **Mise en avant des itinéraires nommés** (relations `type=route`), décision du fondateur | **§5.7, nouveau.** Épaisseur ×1,5 + nom écrit le long du tracé. Aucun cinquième canal visuel. |
+
+> **Ce qui a changé le 2026-09-10.** Deux arbitrages du fondateur, tous deux portant sur §11 :
+>
+> | Décision | Effet sur ce document |
+> | -------- | --------------------- |
+> | **La mention « non renseignée » pour la surface est retenue** (§11, point 5) | **§6.3 s'aligne sur ADR-018** : la ligne de méta porte « Surface non renseignée » quand la surface est absente ou présumée. La divergence assumée du 2026-09-09 est levée, et §6.6 corrigé en conséquence. **ADR-018 n'est pas amendé** : il prescrivait déjà ce comportement. |
+> | **Aucune maquette Pencil n'est commandée** (§11, point 8) | Aucun effet sur le contenu. La spécification textuelle reste **la source de vérité unique** de l'écran pour L3. |
 
 ---
 
@@ -873,24 +884,24 @@ du reste du produit, ce qui est l'information juste.
 ### 6.3 Structure et contenu
 
 ```
-┌────────────────────────────────────────────────┐
-│  ▬ ▬ ▬   Chemin sans nom                   ✕   │  ← échantillon + titre
-│          Portion de 340 m                       │  ← méta (une ligne)
-│          [TRAIL] [Rando]                        │  ← badges (§6.4)
-└────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  ▬ ▬ ▬   Chemin sans nom                       ✕   │  ← échantillon + titre
+│          Portion de 340 m · Surface non renseignée │  ← méta (une ligne)
+│          [TRAIL] [Rando]                           │  ← badges (§6.4)
+└────────────────────────────────────────────────────┘
 
-┌────────────────────────────────────────────────┐
-│  ▬▬▬▬▬   Sentier du Littoral               ✕   │  ← le cas RARE : même structure
-│          12,4 km · Terre battue                 │
-│          [ITINÉRAIRE] [Rando]                   │
-└────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  ▬▬▬▬▬   Sentier du Littoral                   ✕   │  ← le cas RARE : même structure
+│          12,4 km · Terre battue                    │
+│          [ITINÉRAIRE] [Rando]                      │
+└────────────────────────────────────────────────────┘
 ```
 
 | Zone | Spécification |
 | ---- | ------------- |
 | **Échantillon de trait** | 20 × 3 px (segment) ou 20 × 4,5 px (itinéraire), portant la **teinte et le motif du `renderSport`**, halo `#0A0A0A` 1 px. Aligné sur la ligne de base du titre. C'est le **pont visuel** entre l'étiquette et le trait surligné sur la carte : sans lui, à densité forte, on ne sait pas de quel trait on parle. Il reprend exactement l'idiome de la pastille de filtre (§4.2) et des rows de §5.6. |
 | **Titre** | `--text-heading` (sans 600, 20/26). Nom présent ⟹ `#FFFFFF`. Nom absent ⟹ « **Chemin sans nom** » en `--color-foreground-muted` `#A1A1AA` (6,8:1 ✅). Deux lignes maximum, puis `text-overflow: ellipsis`. |
-| **Méta** | `--text-small` (13/18) `--color-foreground-muted`. **Une seule ligne**, faits séparés par ` · `, dans l'ordre : distance, puis surface. Un fait absent ne laisse **aucune trace** : ni tiret, ni « non renseignée », ni séparateur orphelin. |
+| **Méta** | `--text-small` (13/18) `--color-foreground-muted`. **Une seule ligne**, faits séparés par ` · `, dans l'ordre : distance, puis surface. Un fait absent ne laisse **aucune trace** — ni tiret, ni séparateur orphelin — **à la seule exception de la surface**, qui porte depuis le 2026-09-10 une mention d'absence explicite (voir « Format de la surface » ci-dessous). |
 | **Badges** | §6.4. Gap `space-2` (8 px), une seule ligne (maximum 4 badges + 1 « ITINÉRAIRE » : tient à 375 pt). |
 | **Bouton `✕`** | 24 px d'icône dans une cible 44 × 44, `--color-foreground-muted`, `aria-label="Fermer les informations du tracé"`. Survol ⟹ `#FFFFFF`. Il est présent bien qu'il ne soit pas nécessaire : il est la seule sortie évidente pour qui n'a pas deviné le tap sur le fond. |
 
@@ -916,18 +927,37 @@ et tranche un choix de vocabulaire — elle n'a pas besoin d'attendre.
 | Cas | Rendu |
 | --- | ----- |
 | `surface !== null` **et** `surfaceInferred === false` | libellé fr de la table ci-dessous, ajouté à la méta après ` · ` |
-| `surface === null` **ou** `surfaceInferred === true` (**73 % des cas**) | **rien** — aucun texte, aucun séparateur |
+| `surface === null` **ou** `surfaceInferred === true` (**73 % des cas**) | « **Surface non renseignée** », ajouté à la méta après ` · ` — mention explicite, **jamais** la valeur présumée |
 
-> ⚠️ **Divergence assumée avec la lettre d'ADR-018**, à faire trancher (§11, point 5).
-> ADR-018 §5.2 et le tableau du lot L3 demandent d'afficher « **non renseignée** » quand
-> `surfaceInferred` est vrai. **Je ne le retiens pas.** L'intention de l'ADR — *« on ne fabrique pas une
-> donnée qu'OSM ne porte pas »* — est **intégralement respectée** : la valeur présumée n'est jamais
-> affichée. Mais écrire « Surface : non renseignée » sur **73 % des tracés** transforme la fiche en
-> **inventaire de ce qu'on n'a pas**, ce qui est exactement le défaut que le fondateur a déjà refusé pour
-> le dénivelé le 2026-09-06 (« un champ affichant “—” en permanence se lit comme un bug »). Le même
-> raisonnement s'applique mot pour mot à la surface, et à plus forte raison à un taux de 73 %.
-> **L'absence de mention est la formulation honnête** : on écrit ce qu'on sait, on n'écrit pas ce qu'on
-> ignore. *Amendement d'une ligne d'ADR-018 à demander à `architect`.*
+> **Tranché par le fondateur le 2026-09-10 : la mention est affichée** (§11, point 5). Ce document
+> s'aligne sur ADR-018 §5.2 et sur le tableau du lot L3, qui la prescrivaient déjà. **ADR-018 n'a besoin
+> d'aucun amendement.** La formulation retenue est « Surface non renseignée » et non « Surface : — » :
+> la méta est une ligne de faits, pas une pile de champs, et une phrase se lit comme une information
+> tandis qu'un tiret se lit comme un trou.
+>
+> **Ce qui ne départageait pas les deux options.** Dans les deux, la surface **présumée n'est jamais
+> affichée** — c'est un invariant du contrat (`surface: string | null`, ADR-018 §6), pas un arbitrage :
+> la présomption sert au classement des sports, jamais à l'affichage. L'argument « une surface devinée
+> peut envoyer quelqu'un en baskets sur du rocher » est donc satisfait par les deux options et **ne les
+> discrimine pas**.
+>
+> **Ce qui tranche.** Une mention d'absence **explicite** dit à l'utilisateur « on ne sait pas, va
+> vérifier », là où le silence peut se lire « rien à signaler ». Sur un terrain où la surface conditionne
+> le choix des chaussures, l'absence explicite est le comportement sûr : c'est la seule des deux formes
+> qui n'autorise pas une conclusion erronée par défaut.
+>
+> **Le coût accepté, et non contesté.** L'objection formulée le 2026-09-09 reste valable : à 73 %
+> d'absence, cette mention fait de la ligne de méta un **inventaire de ce qu'on n'a pas**, dans l'esprit
+> du défaut refusé pour le dénivelé le 2026-09-06. C'est le prix assumé de la décision, pas une erreur de
+> raisonnement — deux éléments l'atténuent : la mention est **un fait dans une ligne** et non un champ
+> d'une pile de rows (c'est là qu'un « — » permanent se lisait comme un bug), et elle nomme précisément
+> ce qui manque au lieu d'avouer une absence globale.
+>
+> **Point à vérifier au rendu en L3** : à 375 pt, la ligne « Portion de 340 m · Surface non renseignée »
+> fait ≈ 258 px pour ≈ 275 px disponibles (largeur d'écran moins gouttières, padding, échantillon et gap).
+> Elle tient sur **une seule ligne**, mais la marge est faible et la hauteur fixe de §6.2 en dépend. Si
+> elle passe à deux lignes sur un appareil étroit, la hauteur de la fiche suit la règle de « max 154 px »
+> déjà prévue pour un titre à deux lignes — et non un scroll interne.
 
 **Table de libellés de surface** (fr) — élément de contenu, non de style :
 
@@ -993,8 +1023,8 @@ d'un coup d'œil que son tracé rose est aussi une Rando, sans qu'aucune documen
 | Élément retiré | Motif |
 | -------------- | ----- |
 | Pile de rows `<dl>` Distance / Surface | Deux faits maximum. Un `<dl>` de deux rows à 44 px occupe 88 px pour dire ce qu'une ligne de 18 px dit mieux. La justification de §6.2 (« pile plutôt que grille, pour ne pas laisser de trou ») était juste **contre la grille** ; elle tombe face à une ligne de méta. |
-| Cas limite « Aucune donnée détaillée sur ce chemin. » | **Il n'y a plus de cas limite** : le cas minimal *est* la forme nominale. Il n'existe aucun état de la fiche qui affiche un aveu d'absence. C'est le résultat le plus net de cette révision. |
-| « Surface : non renseignée » | §6.3, divergence assumée avec l'ADR. |
+| Cas limite « Aucune donnée détaillée sur ce chemin. » | **Il n'y a plus de cas limite** : le cas minimal *est* la forme nominale. Aucun état de la fiche n'affiche d'**aveu global** d'absence de données. *(Nuance du 2026-09-10 : la ligne de méta porte désormais une mention d'absence **ciblée** sur la surface — c'est un fait manquant nommé, pas un constat de vacuité.)* |
+| ~~« Surface : non renseignée »~~ | **Rétabli le 2026-09-10** (§11, point 5) : la mention **ne disparaît pas**. Elle est affichée dans la ligne de méta sous la forme « Surface non renseignée » (§6.3), conformément à ADR-018. Ligne conservée barrée pour garder trace de la révision du 2026-09-09. |
 | Hauteur max 45 % de l'écran, scroll interne | Un conteneur dimensionné pour un contenu qui n'existe pas. |
 | Poignée de redimensionnement | Promesse d'un second point d'ancrage inexistant. |
 | `role="dialog"`, focus déplacé sur le titre, restitution du focus | Vocabulaire modal, inadapté à une interaction répétée et non bloquante. |
@@ -1329,13 +1359,25 @@ qualifie. Ne pas introduire un troisième libellé (« Parcours », « Explorer 
    surfaces opaques hors canevas) et je les considère résolues. Signalées ici parce qu'elles touchent la
    sémantique de couleur métier, qui est un domaine du fondateur.
 
-5. **⚠️ Divergence à faire amender dans ADR-018 : la mention « non renseignée » pour la surface.**
-   L'ADR (§5.2 et tableau du lot L3) demande d'afficher « non renseignée » quand `surfaceInferred` est
-   vrai. **§6.3 ne le retient pas** : à 73 % de taux d'absence, cette mention transforme la fiche en
-   inventaire de ce qu'on n'a pas — exactement le défaut que le fondateur a refusé pour le dénivelé le
-   2026-09-06. L'intention de l'ADR (« on ne fabrique pas une donnée qu'OSM ne porte pas ») est
-   intégralement respectée : la valeur présumée n'est **jamais** affichée. Seule la mention d'absence
-   disparaît. *Décision demandée au fondateur, puis amendement d'une ligne par `architect`.*
+5. ~~**⚠️ Divergence à faire amender dans ADR-018 : la mention « non renseignée » pour la surface.**~~
+   **Tranché par le fondateur le 2026-09-10 : la mention est affichée.** C'est **ADR-018 qui l'emporte et
+   ce document qui s'aligne** (§6.3, §6.6). **ADR-018 ne reçoit aucun amendement** : §5.2 et le tableau du
+   lot L3 prescrivaient déjà exactement ce comportement.
+   - **Ce qui ne départageait pas les deux options** : dans les deux, la surface **présumée n'est jamais
+     affichée** — c'est un invariant du contrat (ADR-018 §6), pas un arbitrage, la présomption ne servant
+     qu'au classement des sports. L'argument « une surface devinée peut envoyer quelqu'un en baskets sur
+     du rocher » est donc satisfait par les deux options et **ne les discrimine pas**.
+   - **Ce qui tranche** : une mention d'absence **explicite** dit « on ne sait pas, va vérifier », là où
+     le silence peut se lire « rien à signaler ». Sur un terrain où la surface conditionne le choix des
+     chaussures, l'absence explicite est le comportement sûr.
+   - **Coût accepté, et non contesté** : l'objection de `designer` reste valable — à 73 % d'absence, la
+     mention fait de la fiche un inventaire de ce qu'on n'a pas. Le fondateur l'assume comme le prix de la
+     décision, non comme une erreur de raisonnement.
+   - *Position d'origine de `designer` (2026-09-09), conservée pour mémoire* : « **§6.3 ne le retient
+     pas** : à 73 % de taux d'absence, cette mention transforme la fiche en inventaire de ce qu'on n'a pas
+     — exactement le défaut que le fondateur a refusé pour le dénivelé le 2026-09-06. L'intention de l'ADR
+     (“on ne fabrique pas une donnée qu'OSM ne porte pas”) est intégralement respectée : la valeur
+     présumée n'est jamais affichée. Seule la mention d'absence disparaît. »
 
 6. **Le vocabulaire « Portion de … » (§6.3) est un choix de contenu, pas de style.** Il repose sur le fait
    qu'une *way* OSM sans nom est un fragment arbitraire et non un chemin. C'est ce qui justifie que la
@@ -1349,6 +1391,12 @@ qualifie. Ne pas introduire un troisième libellé (« Parcours », « Explorer 
    si c'est le cas, l'état passe de « mention discrète » à « bandeau persistant ». Changement d'une ligne,
    mais changement de statut.
 
-8. **Aucune maquette Pencil n'a été produite.** Ce document est une spécification textuelle complète et
-   suffisante pour L3. Si le fondateur veut une maquette Pencil de `/carte` alignée sur les nœuds validés
-   existants, c'est un travail distinct à commander.
+8. ~~**Aucune maquette Pencil n'a été produite.**~~ **Tranché par le fondateur le 2026-09-10 : aucune
+   maquette Pencil n'est commandée.** La spécification textuelle de ce document est **suffisante pour L3**,
+   et `docs/design-carte.md` est la **source de vérité unique** de l'écran Carte.
+   **Motif** : Pencil et le code ont **déjà divergé une fois**, et le fondateur refuse de maintenir deux
+   sources de vérité pour un même écran.
+   **Conséquence pour L3** : `developer` n'a aucun nœud Pencil à ouvrir pour `/carte` ; toute question de
+   rendu se tranche sur ce document. *Argumentaire d'origine, conservé : « Si le fondateur veut une
+   maquette Pencil de `/carte` alignée sur les nœuds validés existants, c'est un travail distinct à
+   commander. » — il ne l'a pas commandé.*
