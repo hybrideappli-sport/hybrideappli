@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { FilterSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from "maplibre-gl";
 
-import type { MapSport, MapTrailFeature } from "@hybride/domain";
-
 import {
   buildRouteLabelsLayer,
   buildTrailLineLayers,
@@ -14,13 +12,18 @@ import {
   TRAILS_SOURCE_ID,
 } from "./map-layers";
 import { resolveRouteLabelFontStack } from "./route-label-font";
-import { buildTrailRenderFeatureCollection, type TrailRenderFeatureCollection } from "./trail-render-source";
+import type { TrailRenderFeatureCollection } from "./trail-render-source";
 
 const EMPTY_COLLECTION: TrailRenderFeatureCollection = { type: "FeatureCollection", features: [] };
 
 /**
  * Intègre la source et les 8 couches de tracés dans une instance MapLibre déjà chargée — ADR-018,
  * lot L3 ; `docs/design-carte.md` §5.2, §5.5, §5.7, §9.2.
+ *
+ * La `FeatureCollection` (dédoublonnée, `renderSport`/`isNamedRoute` calculés) est un INPUT de ce
+ * hook, pas un état interne : elle est calculée UNE FOIS par rendu dans `<MapCanvas>`
+ * (`buildTrailRenderFeatureCollection`, mémoïsée) et partagée avec `useTrailSelection` — évite
+ * toute course entre deux `ref` recalculées séparément par deux hooks distincts.
  *
  * Les types de couche/expression MapLibre ne sont convertis qu'ICI (`as unknown as
  * LayerSpecification`) — `map-layers.ts` reste framework-agnostic et testable sans WebGL (voir sa
@@ -30,13 +33,11 @@ export function useTrailsLayer(
   map: MapLibreMap | null,
   mapReady: boolean,
   options: {
-    trails: readonly MapTrailFeature[];
-    activeFilters: ReadonlySet<MapSport>;
+    collection: TrailRenderFeatureCollection;
     selectedId: string | null;
   },
-): { getRenderedCollection: () => TrailRenderFeatureCollection } {
+): void {
   const setupDoneRef = useRef(false);
-  const collectionRef = useRef<TrailRenderFeatureCollection>(EMPTY_COLLECTION);
 
   // Mise en place UNE SEULE FOIS : source vide + 8 couches (§9.2). `beforeId` = 1ʳᵉ couche `symbol`
   // du style CHARGÉ (§5.2 point 3), sauf la couche 8 (étiquettes), ajoutée en dernier (§5.7.4).
@@ -62,15 +63,12 @@ export function useTrailsLayer(
     setupDoneRef.current = true;
   }, [map, mapReady]);
 
-  // Recalcul + `setData()` à chaque changement de tracés bruts OU de filtres actifs — AUCUNE
-  // requête réseau ici, uniquement une recomputation locale (§3.1).
+  // `setData()` à chaque changement de collection — AUCUNE requête réseau ici (§3.1).
   useEffect(() => {
     if (!map || !setupDoneRef.current) return;
-    const collection = buildTrailRenderFeatureCollection(options.trails, options.activeFilters);
-    collectionRef.current = collection;
     const source = map.getSource(TRAILS_SOURCE_ID) as GeoJSONSource | undefined;
-    source?.setData(collection as unknown as Parameters<GeoJSONSource["setData"]>[0]);
-  }, [map, options.trails, options.activeFilters]);
+    source?.setData(options.collection as unknown as Parameters<GeoJSONSource["setData"]>[0]);
+  }, [map, options.collection]);
 
   // Filtres des 7 couches de trait dépendants de `selectedId` (§5.5 : le tracé sélectionné est
   // retiré des couches de base). `setFilter`, jamais un retrait/ré-ajout — évite tout scintillement.
@@ -83,12 +81,10 @@ export function useTrailsLayer(
     // §9.2 : `line-dasharray` n'est pas data-driven — le motif/`line-cap` de la couche « ligne
     // sélectionnée » (unique, quel que soit le sport) est ajusté IMPÉRATIVEMENT ici.
     const selectedFeature = options.selectedId
-      ? collectionRef.current.features.find((feature) => feature.properties.osmId === options.selectedId)
+      ? options.collection.features.find((feature) => feature.properties.osmId === options.selectedId)
       : undefined;
     const dynamicStyle = selectedLineDynamicStyle(selectedFeature?.properties.renderSport ?? null);
     map.setLayoutProperty(TRAILS_LAYER_IDS.selectedLine, "line-cap", dynamicStyle.lineCap);
     map.setPaintProperty(TRAILS_LAYER_IDS.selectedLine, "line-dasharray", dynamicStyle.lineDasharray);
-  }, [map, options.selectedId]);
-
-  return { getRenderedCollection: () => collectionRef.current };
+  }, [map, options.selectedId, options.collection]);
 }
