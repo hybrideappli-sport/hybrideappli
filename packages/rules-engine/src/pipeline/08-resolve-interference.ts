@@ -13,16 +13,30 @@ import { RULE_IDS, RULE_VERSION } from "../rule-ids";
 import type { TraceFactory } from "../lib/trace";
 
 /**
- * Valeur de repli documentée : le paramètre `interference.min_hours_between_
- * intense_and_strength_same_groups` du ruleset `0.1.0-dev` réel est encore
- * `null` (non tranché — `08-architecture.md` §12, question ouverte n°1 par
- * héritage d'ADR-007 §"Question ouverte relayée au fondateur"). 48h est la
- * borne basse documentée par `docs/rulesets/0.1.0-dev.md` §3 elle-même
- * ("48 à 72 h de récupération recommandées entre deux séances intenses").
- * Utilisé UNIQUEMENT si le ruleset ne fournit pas de valeur — jamais une
- * valeur en dur qui écraserait un ruleset qui, lui, en fournit une.
+ * Valeur de repli, utilisée UNIQUEMENT si le ruleset ne fournit pas de valeur — jamais une valeur en
+ * dur qui écraserait un ruleset qui, lui, en fournit une. Ce paramètre reste hors du schéma de
+ * production (`ProductionRulesetParamsSchema`) : un `null` ne met personne en danger, donc le repli
+ * doit continuer d'exister pour les rulesets de développement.
+ *
+ * **24 h depuis le 2026-09-10**, aligné sur la valeur publiée en `1.0.0` (`docs/rulesets/1.0.0.md`
+ * §8). L'ancien repli de 48 h venait d'une lecture prudente de `0.1.0-dev.md` §3 ; la méta-analyse
+ * la plus récente ne la soutient pas : l'interférence n'est significative que pour deux séances
+ * enchaînées dans la même session (≤ 20 min), et seulement sur la force explosive — dès trois heures
+ * de séparation, aucun effet significatif, ni sur la force maximale ni sur l'hypertrophie.
+ *
+ * Le point qui a fait trancher : la valeur est convertie en jours (`max(1, ceil(h / 24))`), donc 48 h
+ * imposait DEUX jours, soit une journée pleine entre les deux séances. Pour un pratiquant à 5-6
+ * séances mêlant course et musculation, cela allégeait systématiquement le travail de force — c'est-
+ * à-dire la modalité dont la valeur préventive est la mieux établie (−50 % de blessures de surmenage
+ * sur 26 essais randomisés, `0.1.0-dev.md` §1-2). Sur-contraindre ici DÉGRADAIT la sécurité.
+ *
+ * Le volet intra-journée, seul chiffre réellement documenté (3 h), est couvert ailleurs et plus
+ * strictement : `planning.min_minutes_between_sessions_same_day = 360`.
+ *
+ * Repli et valeur publiée sont désormais identiques : développement et production se comportent de
+ * la même façon. Les faire diverger à nouveau demanderait une raison explicite.
  */
-const FALLBACK_MIN_HOURS_BETWEEN_INTENSE_AND_STRENGTH = 48;
+const FALLBACK_MIN_HOURS_BETWEEN_INTENSE_AND_STRENGTH = 24;
 
 export function resolveInterference(
   context: PlanningContext,
@@ -43,7 +57,7 @@ export function resolveInterference(
     scopeRefDate: context.now,
     conditionExpr:
       configuredHours === null
-        ? `ruleset value is null ⇒ fallback ${FALLBACK_MIN_HOURS_BETWEEN_INTENSE_AND_STRENGTH}h (docs/rulesets/0.1.0-dev.md §3)`
+        ? `ruleset value is null ⇒ fallback ${FALLBACK_MIN_HOURS_BETWEEN_INTENSE_AND_STRENGTH}h (docs/rulesets/1.0.0.md §8)`
         : `min_hours_between_intense_and_strength_same_groups = ${configuredHours}h`,
     inputsUsed: [
       {
