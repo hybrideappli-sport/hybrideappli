@@ -14,8 +14,32 @@ import { requireNonNull } from "../lib/require-non-null";
 import type { RiskRestrictions } from "./01-resolve-risk-restrictions";
 
 const DEFAULT_WEIGHT_KG = 70;
-/** kcal / kg de poids corporel / jour — heuristique de maintenance documentée de `developer`. */
-const MAINTENANCE_KCAL_PER_KG = 31;
+/**
+ * kcal / kg de poids corporel / jour.
+ *
+ * **40, et non 31** — arbitrage du fondateur du 2026-09-10 (`docs/rulesets/1.0.0.md`, option A).
+ * La valeur précédente (31) était une heuristique non sourcée qui plaçait le persona dans la bande
+ * ISSN « programme de fitness général, 30-40 min par jour, 3 fois par semaine » (25-35), alors qu'un
+ * pratiquant à 5-6 séances hebdomadaires mêlant course et musculation relève de la bande citée juste
+ * après : 40-70 kcal/kg/j.
+ *
+ * Ce n'est pas un réglage de confort : à 31, la somme des macros DÉBORDE la cible calorique qu'elle
+ * est censée composer. Pour 70 kg un jour `intensity`, protéines (1,9 g/kg) et glucides (6 g/kg)
+ * consomment à eux seuls 2 212 kcal pour une cible de 2 210 — le budget lipides devient négatif, les
+ * lipides tombent sur leur plancher `MIN_FAT_G_PER_KG`, et le total affiché dépasse la cible de 14 %.
+ * Le budget nécessaire pour rendre cohérent le triplet {1,9 P ; 6 G ; 0,8 L} est de ≈ 39 kcal/kg/j.
+ *
+ * Second effet, moins visible et plus grave : `nutrition.max_daily_deficit_pct` est un pourcentage DE
+ * CETTE valeur. Sous-estimer la maintenance d'un quart transforme un plafond affiché à 20 % en un
+ * déficit réel proche de 40 % — exactement ce que l'AC11 interdit.
+ *
+ * `nutrition-macro-coherence.test.ts` verrouille l'invariant qui a manqué ici : la somme des macros
+ * ne doit jamais dépasser `kcal_target`. Ne pas rabaisser cette constante sans faire tomber ce test.
+ *
+ * Amélioration V2 identifiée : moduler par le volume d'entraînement réel plutôt qu'une valeur unique,
+ * la bande documentée s'étendant jusqu'à 70 kcal/kg/j.
+ */
+const MAINTENANCE_KCAL_PER_KG = 40;
 const KCAL_PER_G_PROTEIN = 4;
 const KCAL_PER_G_CARB = 4;
 const KCAL_PER_G_FAT = 9;
