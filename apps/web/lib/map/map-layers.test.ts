@@ -151,16 +151,23 @@ describe("selectedLineDynamicStyle (§5.5, §9.2 : line-dasharray n'est pas data
 });
 
 /**
- * Régression : `map.addLayer()` rejette en silence côté navigateur toute expression `["zoom"]`
- * (via `interpolate`/`step`) imbriquée dans un opérateur qui n'est pas `case`/`match`/`coalesce`/
- * `let` — ce n'est PAS détecté par `evaluateFilter` ci-dessus (qui n'évalue que des filtres, jamais
- * un `paint`/`layout`), ni par aucun autre test de ce fichier, puisqu'aucun n'exécute une vraie
- * instance MapLibre. C'est exactement la forme qui s'est glissée dans `widthExpression()` avant
- * correction : `["*", ["interpolate", ["linear"], ["zoom"], …], …]`.
+ * Régression : `map.addLayer()` LÈVE côté navigateur — et l'exception remonte dans l'effet React,
+ * ce qui déstabilise tout le cycle de vie de la carte — dès qu'une propriété `paint`/`layout`
+ * enfreint l'une des DEUX règles du style spec MapLibre sur `["zoom"]`. Aucun autre test de ce
+ * fichier ne peut le voir : aucun n'instancie une vraie `Map`.
  *
- * Ce validateur, réservé aux tests, encode la règle du style spec MapLibre : une expression de
- * zoom ne peut être que l'expression de propriété ENTIÈRE, ou un opérande direct de
- * `case`/`match`/`coalesce`/`let`.
+ * Les deux règles, et les deux formes fautives qui se sont réellement glissées ici :
+ *
+ *  1. « a "zoom" expression may only be used as input to a top-level "step" or "interpolate"
+ *     expression » — interdit `["*", ["interpolate", ["linear"], ["zoom"], …], …]` ;
+ *  2. « Only one zoom-based "step" or "interpolate" subexpression may be used in an expression »
+ *     — interdit `["case", cond, ["interpolate", …zoom…], ["interpolate", …zoom…]]`.
+ *
+ * La première correction a remplacé la forme 1 par la forme 2, donc un bug par un autre, parce que
+ * le validateur de test n'encodait que la règle 1. Les deux sont vérifiées ci-dessous.
+ *
+ * Forme canonique et seule acceptée ici : UN `interpolate`/`step` sur `["zoom"]` qui EST la valeur
+ * entière de la propriété, le data-driven vivant dans les SORTIES de palier.
  */
 function isZoomStopExpression(node: unknown): boolean {
   if (!Array.isArray(node) || typeof node[0] !== "string") return false;
@@ -169,30 +176,31 @@ function isZoomStopExpression(node: unknown): boolean {
   return false;
 }
 
-const EXPRESSION_CONTAINERS_ALLOWING_ZOOM = new Set(["case", "match", "coalesce", "let"]);
-
-function assertNoIllegallyNestedZoomExpression(node: unknown, isTopLevel: boolean, path: string): void {
-  if (!Array.isArray(node)) return;
-  if (isZoomStopExpression(node)) {
-    if (!isTopLevel) {
-      throw new Error(`Expression de zoom imbriquée illégalement (hors case/match/coalesce/let/top-level) à ${path} : ${JSON.stringify(node)}`);
-    }
-    return;
-  }
-  if (typeof node[0] !== "string") {
-    // Tableau littéral (ex. `line-dasharray`, `text-font`) — pas une expression de style.
-    return;
-  }
-  const childIsTopLevel = EXPRESSION_CONTAINERS_ALLOWING_ZOOM.has(node[0]);
-  node.slice(1).forEach((child, index) => assertNoIllegallyNestedZoomExpression(child, childIsTopLevel, `${path}[${index + 1}]`));
+function countZoomStopExpressions(node: unknown): number {
+  if (!Array.isArray(node)) return 0;
+  const here = isZoomStopExpression(node) ? 1 : 0;
+  return here + node.reduce<number>((total, child) => total + countZoomStopExpressions(child), 0);
 }
 
-describe("Aucune expression de zoom imbriquée illégalement dans paint/layout (régression style spec MapLibre)", () => {
+/** Règles 1 et 2 réunies : au plus UNE expression de zoom, et si elle existe elle est la valeur
+ * entière de la propriété — jamais imbriquée, `case`/`match` compris. */
+function assertZoomExpressionIsWellFormed(value: unknown, path: string): void {
+  const total = countZoomStopExpressions(value);
+  if (total === 0) return;
+  if (total > 1) {
+    throw new Error(`${path} : ${total} sous-expressions de zoom, le style spec MapLibre n'en autorise qu'UNE (règle 2) — ${JSON.stringify(value)}`);
+  }
+  if (!isZoomStopExpression(value)) {
+    throw new Error(`${path} : l'expression de zoom est imbriquée au lieu d'être la valeur entière de la propriété (règle 1) — ${JSON.stringify(value)}`);
+  }
+}
+
+describe("Expressions de zoom bien formées dans paint/layout (régression style spec MapLibre)", () => {
   it("buildTrailLineLayers — toutes les couches (sélection nulle ou active)", () => {
     for (const selectedId of [null, "way/42"]) {
       for (const layer of buildTrailLineLayers({ selectedId })) {
         for (const [prop, value] of Object.entries({ ...layer.paint, ...layer.layout })) {
-          assertNoIllegallyNestedZoomExpression(value, true, `${layer.id}.${prop}`);
+          assertZoomExpressionIsWellFormed(value, `${layer.id}.${prop}`);
         }
       }
     }
@@ -201,7 +209,16 @@ describe("Aucune expression de zoom imbriquée illégalement dans paint/layout (
   it("buildRouteLabelsLayer — layout et paint", () => {
     const layer = buildRouteLabelsLayer(["Stadia Semibold"]);
     for (const [prop, value] of Object.entries({ ...layer.paint, ...layer.layout })) {
-      assertNoIllegallyNestedZoomExpression(value, true, `${layer.id}.${prop}`);
+      assertZoomExpressionIsWellFormed(value, `${layer.id}.${prop}`);
     }
+  });
+
+  it("rejette les deux formes fautives réellement rencontrées", () => {
+    const stops = [12, 1, 16, 2];
+    const interpolate = ["interpolate", ["linear"], ["zoom"], ...stops];
+    // Forme 1 — zoom imbriqué dans un opérateur arithmétique.
+    expect(() => assertZoomExpressionIsWellFormed(["*", interpolate, 1.5], "test.forme1")).toThrow(/règle 1/);
+    // Forme 2 — deux expressions de zoom dans un `case`.
+    expect(() => assertZoomExpressionIsWellFormed(["case", ["==", ["get", "x"], true], interpolate, interpolate], "test.forme2")).toThrow(/règle 2/);
   });
 });

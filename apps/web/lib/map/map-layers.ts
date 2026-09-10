@@ -89,27 +89,36 @@ function notSelectedFilter(selectedId: string | null): unknown[] {
  * §5.2 — épaisseur par palier de zoom, itinéraire nommé multiplié par `WIDTH_ROUTE_MULTIPLIER`
  * (§5.7.1), avec un facteur d'échelle et un supplément constant additionnels (sélection, halo).
  *
- * Le style spec MapLibre interdit qu'une expression `["zoom"]` (via `interpolate`/`step`) soit
- * imbriquée dans un opérateur arithmétique (`*`, `+`…) : elle ne peut être que l'expression de
- * PROPRIÉTÉ ENTIÈRE, ou un opérande direct de `case`/`match`/`coalesce`/`let`. La version
- * précédente (`["*", ["interpolate", …], ["case", …]]`) violait cette règle — MapLibre rejetait
- * `map.addLayer()` en silence côté navigateur (`layers.*.paint.line-width: "zoom" expression may
- * only be used as input to a top-level "step" or "interpolate" expression`), invisible en test
- * unitaire car `map-layers.test.ts` n'exécute jamais de vrai style contre un `Map`. On calcule donc
- * ici DEUX jeux de paliers (route nommée / non) déjà mis à l'échelle et décalés, et `interpolate`
- * n'est imbriqué que dans les branches de `case` — l'interpolation linéaire commute avec une
- * transformation affine (`a·v + b`) appliquée identiquement à chaque palier, donc le résultat rendu
- * est strictement identique à `interpolate(...) * scale * (isNamedRoute ? routeMultiplier : 1) +
- * extra`.
+ * Le style spec MapLibre impose DEUX règles distinctes sur `["zoom"]`, et il faut les satisfaire
+ * toutes les deux — en manquer une fait rejeter `addLayer()` :
+ *
+ *  1. `["zoom"]` ne peut pas être imbriqué dans un opérateur arithmétique (`*`, `+`…) : il ne peut
+ *     être que l'entrée d'un `step`/`interpolate` de PREMIER NIVEAU ;
+ *  2. une expression ne peut contenir qu'UNE SEULE sous-expression dépendante du zoom
+ *     (« Only one zoom-based "step" or "interpolate" subexpression may be used in an expression »).
+ *
+ * D'où la forme retenue : UN SEUL `interpolate` au premier niveau, dont chaque SORTIE de palier
+ * porte le `case` data-driven. C'est la forme canonique pour croiser zoom et propriété de feature.
+ * Les deux tentatives précédentes violaient l'une ou l'autre règle et étaient rejetées EN SILENCE
+ * côté navigateur (`addLayer` lève, l'exception remonte dans l'effet React) : ne pas « simplifier »
+ * en revenant à `["*", ["interpolate", …], …]` (règle 1) ni à `["case", …, ["interpolate", …],
+ * ["interpolate", …]]` (règle 2). `map-layers.test.ts` vérifie désormais l'invariant directement.
+ *
+ * L'équivalence arithmétique est conservée : appliquer `a·v + b` à chaque palier avant
+ * interpolation linéaire donne le même résultat qu'après (une transformation affine commute avec
+ * l'interpolation linéaire).
  */
 function widthExpression(scale: number, extra: number): unknown[] {
-  const stopsFor = (routeFactor: number) => WIDTH_BASE_STOPS.flatMap(([zoom, width]) => [zoom, width * routeFactor * scale + extra]);
-  return [
-    "case",
-    ["==", ["get", "isNamedRoute"], true],
-    ["interpolate", ["linear"], ["zoom"], ...stopsFor(WIDTH_ROUTE_MULTIPLIER)],
-    ["interpolate", ["linear"], ["zoom"], ...stopsFor(1)],
-  ];
+  const stops = WIDTH_BASE_STOPS.flatMap(([zoom, width]) => [
+    zoom,
+    [
+      "case",
+      ["==", ["get", "isNamedRoute"], true],
+      width * WIDTH_ROUTE_MULTIPLIER * scale + extra,
+      width * scale + extra,
+    ],
+  ]);
+  return ["interpolate", ["linear"], ["zoom"], ...stops];
 }
 
 /** §9.2 — teinte data-driven (`line-color` l'accepte, contrairement à `line-dasharray`) : utilisée
