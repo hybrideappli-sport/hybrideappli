@@ -1,6 +1,6 @@
 # ADR-018 — Carte des tracés outdoor : MapLibre, fond de carte Stadia, et Overpass derrière un cache par tuiles
 
-- **Statut** : Accepté
+- **Statut** : Accepté — **feature mise en pause après L3 le 2026-09-10** (décision du fondateur, voir §Mise en pause après L3 en fin de document). Les décisions techniques ci-dessous restent valides et le code livré reste en place ; seule la poursuite est suspendue.
 - **Date** : 2026-09-06
 - **Mise à jour (2026-09-06, décision du fondateur)** : le classement des 4 sports se fait sur la **combinaison chemin + surface + difficulté**, et un même chemin peut appartenir à plusieurs filtres. Cette décision a rouvert l'arbitrage de cache posé initialement en §4.1 (une entrée par tuile × sport) : il est **révisé** au profit d'**une seule extraction Overpass par tuile, classée à la lecture** (§4.1, §5, §6). La question ouverte n°4 (« mapping des sports vers les tags OSM ») est tranchée et retirée.
 - **Mise à jour (2026-09-06, décision du fondateur)** : le **point d'entrée de `/carte` est un lien depuis `/planning`** — la question ouverte n°1 est tranchée et retirée. **Pas de cinquième item dans la tab bar, pas de remplacement d'un item existant : elle reste à 4** (`docs/design-system.md` §4.9). Voir §Contexte constat 5 et le lot L1.
@@ -429,3 +429,85 @@ l'autre. Toute reprise de cette piste doit refaire la mesure, pas citer ce table
    Piste posée par le fondateur le 2026-09-09 : **si elle n'a rien à montrer, elle ne s'ouvre peut-être pas du tout.** À instruire avec `designer`, qui a déjà prévu un cas voisin (§6.4 de `docs/design-carte.md`, « aucune donnée détaillée sur ce chemin ») mais le traite comme une exception alors que **c'est le cas majoritaire**. Options à peser : ne pas ouvrir et se contenter d'un retour visuel sur le tracé ; ouvrir une sheet réduite assumée ; ou n'ouvrir que pour les tracés portant au moins un nom. À arbitrer **avant** l'implémentation de L3, pas après. *Propriétaires : `designer` + fondateur.*
 
    Contrepoint à ne pas perdre : les **itinéraires nommés** (relations `type=route`) sont, eux, entièrement renseignés — c'est précisément ce qui justifie leur mise en avant visuelle en L3.
+
+
+---
+
+## Mise en pause après L3 (2026-09-10)
+
+> **Décision du fondateur, 2026-09-10.** La feature Carte est mise en pause à l'issue du lot L3. Ce
+> n'est ni un abandon ni un constat d'échec technique : la pile fonctionne, elle est vérifiée, et
+> elle reste en place. C'est un arbitrage de séquence — le produit qu'on veut réellement construire
+> dépend d'une matière qu'on n'a pas encore.
+
+### Où l'on s'arrête exactement
+
+**L1, L2 et L3 sont livrés et vérifiés. L4 n'est pas entamé et n'est pas planifié.**
+
+Deux éléments de L3 ont été reportés en phase 2 au moment de son implémentation, la spécification
+l'autorisant explicitement : le **panneau « Itinéraires balisés »** (`docs/design-carte.md` §5.6,
+surface de découvrabilité — l'alternative d'accessibilité exigée par cet ADR est le viseur clavier
+de §5.4.1, qui est livré) et le **point d'entrée depuis `/planning`** (§10). Ce sont les deux
+candidats les moins coûteux à traiter le jour d'une reprise.
+
+### Pourquoi
+
+Ce que la feature doit devenir — **parcours complets, photos, notes, filtres par difficulté** —
+suppose des **contributions d'utilisateurs que le produit n'a pas encore**. OpenStreetMap seul ne
+les porte pas, et le chiffrage de fin de L2 le montre plutôt qu'il ne le suppose : sur une bbox
+réelle de Toulon (6 tuiles z12, 7 115 tracés),
+
+- **86 % des tracés n'ont pas de nom** et **73 % pas de surface** ;
+- sur les 221 relations `type=route` de la zone, **216 sont des transports** — le gisement outdoor
+  réel est de **cinq** itinéraires ;
+- le filtre Vélo ne retient que **8,3 %** des tracés.
+
+**Sept mille fragments anonymes ne font pas une carte utilisable.** Continuer maintenant reviendrait
+à raffiner le rendu d'une donnée trop pauvre pour porter l'usage visé — L4 ferait par ailleurs
+entrer un coût mensuel (Stadia Starter) pour un écran dont on sait déjà qu'il ne tient pas sa
+promesse.
+
+La distinction à ne pas perdre : **le problème est la matière, pas la mécanique.** Rien dans cet
+ADR n'est invalidé par la pause.
+
+### Ce qui reste debout
+
+| Lot | État |
+|---|---|
+| **L1 — Socle carte** | Livré. MapLibre, style sombre, attribution ODbL non repliable, garde fail-closed, plafond de tuiles par session. |
+| **L2 — Extraction, cache, classement** | Livré. `GET /api/v1/map/trails`, une extraction Overpass par tuile z12 (TTL 24 h), classement appliqué à la lecture et versionné à part. |
+| **L3 — Rendu, filtres, fiche** | Livré. Couches par sport, filtrage 100 % client, dédoublonnage, mise en avant des itinéraires nommés, fiche de sélection, viseur clavier, états d'écran, tokens `--color-map-*`. |
+| **L4 — Production** | **Non entamé.** Aucune souscription Stadia, `MAP_TILES_PLAN` absent. |
+
+Vérifications au moment de la pause : lint et typecheck à 0 sur les cinq packages ; 296 tests `web`,
+30 `domain`, 129 `rules-engine`, 39 `coach-llm`, 39 et 79 en intégration ; build à 0 ; E2E
+`carte.spec.ts` **3/3**.
+
+**Il n'y a rien à débrancher.** `MAP_TILES_PLAN` étant absent, le garde fail-closed ferme déjà
+`/carte` **et** la route API en production (§8) : la feature est inatteignable pour un utilisateur
+sans qu'aucune action ne soit requise. Le coût fournisseur reste **nul** tant que L4 n'est pas fait.
+Le cache Overpass s'éteint seul (TTL 24 h) : aucun état à purger.
+
+### Ce qu'il faudrait pour reprendre
+
+**Le déclencheur n'est pas technique.** Il est produit, et il est unique : **une base d'utilisateurs
+qui contribuent**. Concrètement, avant de rouvrir ce chantier :
+
+1. **Un modèle de contribution** — parcours complets, photos, notes, difficulté ressentie. Ni le
+   schéma de données ni l'écran de saisie n'existent aujourd'hui. C'est le vrai travail, et il est
+   plus lourd que tout ce qui a été fait ici.
+2. **Re-mesurer la densité OSM sur la zone réelle des utilisateurs.** Le chiffrage de Toulon est
+   **daté et local** — la densité de relations et le taux de nommage varient fortement d'une région
+   à l'autre. Refaire la mesure, ne pas citer ces chiffres.
+3. **Trancher la souscription Stadia Starter** (question ouverte n°7), qui reste le bloquant de mise
+   en production de cette feature. La pause la rend sans objet jusqu'à la reprise, elle ne la
+   supprime pas.
+
+Deux propriétés du code facilitent la reprise, et méritent d'être connues avant d'y toucher :
+
+- **`CLASSIFIER_VERSION` est séparée d'`OVERPASS_QUERY_VERSION` et n'entre pas dans la clé de
+  cache** (§4). Régler le mapping des sports à la reprise ne jette donc jamais la donnée brute.
+- **`sports` ne fait pas partie du contrat de la route** (§6) : le filtrage est entièrement client.
+  Ajouter, retirer ou redéfinir un filtre ne touche ni la route, ni le cache.
+
+*Propriétaire de la reprise : fondateur.*

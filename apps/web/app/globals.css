@@ -33,6 +33,20 @@
 
   /* Élévation */
   --shadow-overlay-value: 0 -8px 24px rgba(0, 0, 0, 0.6);
+
+  /* Carte — famille dédiée, hors palette sémantique (ADR-018 §Décision point 5 « classification »,
+     question ouverte n°3 ; `docs/design-carte.md` §2 et §9, `docs/design-system.md` §1.5). Ces quatre
+     hex sont dupliqués littéralement dans `apps/web/lib/map/map-tokens.ts` (MapLibre ne lit pas les
+     variables CSS, `docs/design-carte.md` §9.1) : `lib/map/map-tokens.test.ts` vérifie leur égalité. */
+  --map-route: #22d3ee; /* Route — cyan          */
+  --map-trail: #f472b6; /* Trail — rose magenta  */
+  --map-hike: #e4e4e7; /* Rando — neutre clair  */
+  --map-bike: #fde047; /* Vélo  — jaune         */
+
+  --map-casing: #0a0a0a;
+  --map-selected-casing: #ffffff;
+
+  --shadow-map-control-value: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -67,6 +81,14 @@
   --radius-xl: 20px;
 
   --shadow-overlay: var(--shadow-overlay-value);
+
+  --color-map-route: var(--map-route);
+  --color-map-trail: var(--map-trail);
+  --color-map-hike: var(--map-hike);
+  --color-map-bike: var(--map-bike);
+  --color-map-casing: var(--map-casing);
+
+  --shadow-map-control: var(--shadow-map-control-value);
 
   /* Échelle typographique (docs/design-system.md §2.2). Chaque token pilote
      taille + interligne (+ graisse) ; la famille (serif/sans) reste à poser
