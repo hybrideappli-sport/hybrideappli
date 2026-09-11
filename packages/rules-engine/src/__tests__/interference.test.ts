@@ -47,10 +47,49 @@ function buildInterferenceContext() {
   });
 }
 
+/**
+ * Ruleset identique à celui publié, sauf l'espacement d'interférence remis à 48 h — soit DEUX jours
+ * après conversion (`max(1, ceil(h / 24))`). Sert à couvrir le chemin d'ajustement lui-même, qui ne
+ * se déclenche plus sur des séances de jours différents depuis que `1.0.0` publie 24 h.
+ */
+const RULESET_48H = {
+  ...TEST_RULESET,
+  params: {
+    ...TEST_RULESET.params,
+    interference: { ...TEST_RULESET.params.interference, min_hours_between_intense_and_strength_same_groups: 48 },
+  },
+};
+
+function spacingPolicyDays(traces: ReturnType<typeof generatePlan>["traces"]): number | null {
+  // `interference.spacing_adjustment` porte DEUX natures de traces : la politique (scope "plan",
+  // émise par `resolveInterference`) et les ajustements réellement appliqués à une séance (scope
+  // "session", émis par `buildSessions`). Seul le scope les distingue.
+  const trace = traces.find((t) => t.ruleId === "interference.spacing_adjustment" && t.scope === "plan");
+  const after = trace?.output.after;
+  return typeof after === "number" ? after : null;
+}
+
 describe("interference — AC10", () => {
-  it("une séance de force programmée juste après une séance intense sur les mêmes groupes est allégée et notée", () => {
+  it("la politique publiée espace d'UN jour : 24 h ⇒ « pas la même journée », rien de plus", () => {
+    // Arbitrage du fondateur du 2026-09-10 (`docs/rulesets/1.0.0.md` §8). La méta-analyse ne
+    // soutient une interférence que pour deux séances enchaînées dans la même session ; imposer une
+    // journée pleine allégeait systématiquement le travail de force, soit la modalité dont la valeur
+    // préventive est la mieux établie. Ce test verrouille la conversion heures ⇒ jours, qui est le
+    // seul endroit où la valeur du ruleset produit un effet observable.
     const context = buildInterferenceContext();
-    const { plan, traces } = generatePlan(context, TEST_RULESET);
+    const { traces } = generatePlan(context, TEST_RULESET);
+    expect(spacingPolicyDays(traces)).toBe(1);
+  });
+
+  it("une valeur de 48 h espace de DEUX jours — la conversion suit bien le ruleset, jamais une constante", () => {
+    const context = buildInterferenceContext();
+    const { traces } = generatePlan(context, RULESET_48H);
+    expect(spacingPolicyDays(traces)).toBe(2);
+  });
+
+  it("sous une politique à deux jours, une séance de force suivant une séance intense sur les mêmes groupes est allégée et notée", () => {
+    const context = buildInterferenceContext();
+    const { plan, traces } = generatePlan(context, RULESET_48H);
 
     const noted = plan.sessions.filter((s) => s.interferenceNote !== null);
     expect(noted.length).toBeGreaterThan(0);
