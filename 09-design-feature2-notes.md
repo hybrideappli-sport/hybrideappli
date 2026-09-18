@@ -112,7 +112,7 @@ pas de bordure ni d'ombre, gap vertical interne 12.
 | `D-connect-invite-label` | `SYNCHRONISATION` | `--text-label` 11/14 0.14em sans 600, `--color-foreground-subtle` `#8B8B94` |
 | `D-connect-invite-title` | « Tes données, au même endroit. » | `--text-heading` 20/26 **sans 600**, `#FFFFFF` |
 | `D-connect-invite-body` | « Strava, ta muscu, ta nutrition — connecte ou déclare tes sources, je m'occupe du reste. » | `--text-body` 15/24 sans 400, `--color-foreground-muted` `#A1A1AA` |
-| `D-connect-invite-cta` | « Connecter mes sources → » | `--text-body-strong` 15/24 sans 600, `--color-accent-text` `#A78BFA`, cible ≥ 44 px |
+| `D-connect-invite-cta` | « Connecter mes sources → » | `--text-body-strong` 15/24 sans 600, `--color-accent-text` `#B69AF6`, cible ≥ 44 px |
 
 **Pas de pill violet ici** : le CTA plein violet est déjà pris par « Voir ma séance du jour » sur ce
 même écran. Un second pill créerait une concurrence visuelle et rendrait l'invitation intrusive, ce
@@ -130,7 +130,7 @@ en haut à droite, cible 44 × 44, `aria-label="Masquer cette invitation"`, masq
 Non requis par la fiche — supprimer `D-connect-invite-dismiss` si non retenu.
 
 **États** : default ; hover CTA → libellé souligné, couleur inchangée ; focus-visible →
-`outline 2px #A78BFA, offset 2` ; active → soulignement seul (**ne pas passer le texte en
+`outline 2px #B69AF6, offset 2` ; active → soulignement seul (**ne pas passer le texte en
 `#8B5CF6`** : 4,1:1 sur `#1A1A1A`, échec AA) ; masquée → carte non rendue, le gap se referme.
 
 ### 1.2 Entrée permanente dans Profil — frame `F2-profil-extrait`
@@ -157,7 +157,7 @@ Ligne **toujours visible**, quel que soit le régime de données (AC1 : accès p
 vers `F2-connexion-donnees` (§3), qui porte aussi la déconnexion d'une source (AC10).
 
 **États** : hover → fond de ligne `--color-surface-raised` `#262626` ; focus-visible → anneau 2 px
-`#A78BFA` en inset (offset −2 pour ne pas déborder du rayon de la carte) ; active → `#262626`.
+`#B69AF6` en inset (offset −2 pour ne pas déborder du rayon de la carte) ; active → `#262626`.
 
 ---
 
@@ -175,7 +175,7 @@ métier**, et la provenance y est **déjà écrite en toutes lettres** pour le s
 Le label `MES DONNÉES · 7 DERNIERS JOURS` reste inchangé.
 
 1. **Ajout** d'un lien aligné à droite sur la ligne du label : `D-data-detail-link` — « Détail → »,
-   `--text-body-strong` 15/24, `--color-accent-text` `#A78BFA`, cible ≥ 44 px. Ouvre le détail par
+   `--text-body-strong` 15/24, `--color-accent-text` `#B69AF6`, cible ≥ 44 px. Ouvre le détail par
    source (écran non maquetté ici, §6 écart 5).
 2. **Ajout** d'une sous-ligne sous le label, gap 4 : `D-data-sources-summary` — `--text-small` 13/18,
    `--color-foreground-muted`. Contenu : connecté → « 3 sources · Strava, muscu, nutrition » ;
@@ -242,10 +242,10 @@ horizontal 16, en ligne, gap 12, centré — **même famille visuelle que le blo
 juste au-dessus**.
 
 - **Mini-anneau** 28 × 28, épaisseur 4, piste `--color-border-strong` `#3A3A3A`, remplissage
-  `--color-accent` `#A78BFA` proportionnel, départ −90°, extrémités arrondies.
+  `--color-accent` `#B69AF6` proportionnel, départ −90°, extrémités arrondies.
 - **Libellé** « Score hybride » — `--text-body` 15/24, `#FFFFFF`.
 - **Valeur** poussée à droite — `--text-body-strong` : score disponible → `72` en
-  `--color-accent-text` `#A78BFA` ; calibration → « Calibration » en `--color-warning` `#F59E0B`,
+  `--color-accent-text` `#B69AF6` ; calibration → « Calibration » en `--color-warning` `#F59E0B`,
   mini-anneau réduit à sa seule piste `#3A3A3A`.
 - **Chevron** `›` 20 px `--color-foreground-subtle`, gap 8.
 
@@ -350,7 +350,7 @@ sous la description — `↻ Dernière synchro · il y a 12 min`, `--text-small`
 Après les trois cartes, gap 16. Bloc imbriqué, largeur 335, fond `--color-surface-raised` `#262626`,
 `--radius-md` 12, padding 16, gap 8 — **même patron que « POURQUOI CETTE SÉANCE »** dans `jSZB0` :
 
-- label `POURQUOI C'EST FACULTATIF` — `--text-label`, `--color-accent-text` `#A78BFA` (violet : c'est
+- label `POURQUOI C'EST FACULTATIF` — `--text-label`, `--color-accent-text` `#B69AF6` (violet : c'est
   une prise de parole du coach) ;
 - corps `--text-body` 15/24 `--color-foreground-muted` : « Le coach construit déjà ton plan à partir
   de ce que tu déclares. Une source connectée affine l'ajustement — elle ne le conditionne jamais. »
@@ -359,7 +359,7 @@ Après les trois cartes, gap 16. Bloc imbriqué, largeur 335, fond `--color-surf
 
 ```
 space-6 (24)
-[ Continuer ]                  pill 335 × 56, --color-accent #A78BFA,
+[ Continuer ]                  pill 335 × 56, --color-accent #B69AF6,
                                texte --color-foreground-on-accent #0A0A0A,
                                --text-button 16/20, --radius-full
 space-3 (12)
@@ -398,7 +398,7 @@ La feuille piège le focus et se ferme à `Échap`.
 | connecté | badge vert, ligne « Dernière synchro », bouton « Déconnecter » |
 | erreur OAuth | badge `RECONNEXION REQUISE` orange + message `--text-small` `--color-warning` sous la description (« Autorisation expirée ou refusée. ») + bouton ghost « Réessayer ». **Jamais de blocage de l'écran** |
 | première synchro en cours | badge vert + ligne `↻ Import en cours…` en `--color-foreground-subtle`, `aria-live="polite"` |
-| hover / focus / active / disabled | charte §4.1 et §4.2 sans dérogation ; focus-visible `outline 2px #A78BFA offset 2` |
+| hover / focus / active / disabled | charte §4.1 et §4.2 sans dérogation ; focus-visible `outline 2px #B69AF6 offset 2` |
 
 **Consentement RGPD** : la fiche laisse ouverte (§7) la question d'un consentement dédié aux données
 importées (FC, sommeil). S'il est requis, il s'insère **dans le flux OAuth**, en réutilisant l'écran
@@ -419,7 +419,7 @@ gouttières 20 → colonne 335. Deux frames côte à côte, gap 80 :
 │  [logo]  SCORE HYBRIDE                   ✕  │  patron Yf6zY
 └─────────────────────────────────────────────┘
    space-10 (40)
-   INTELLIGENCE PERFORMANCE      --text-label, --color-accent-text #A78BFA
+   INTELLIGENCE PERFORMANCE      --text-label, --color-accent-text #B69AF6
    space-2 (8)
    Ton Score.                    --text-display 32/36 serif 700, #FFFFFF
    space-6 (24)
@@ -443,7 +443,7 @@ Fond `--color-surface` `#1A1A1A`, `--radius-lg` 16, padding 20, contenu centré,
 **Anneau `S-score-ring`** — 180 × 180 :
 
 - piste : cercle complet, épaisseur 12, `--color-border-strong` `#3A3A3A` ;
-- remplissage : arc `--color-accent` `#A78BFA`, épaisseur 12, extrémités arrondies, départ −90°
+- remplissage : arc `--color-accent` `#B69AF6`, épaisseur 12, extrémités arrondies, départ −90°
   (12 h), sens horaire ;
 - géométrie : rayon 84, circonférence ≈ 527,8 → pour 72 / 100, `dasharray 380 / 148` ;
 - **violet plat, aucun dégradé** (la charte l'impose) ;
@@ -473,7 +473,7 @@ Fond `--color-surface`, `--radius-lg` 16, padding 20, gap 16.
 - barre 28 de large, gap 16 (7 × 28 + 6 × 16 = 292, centré dans 295) ;
 - **piste** 28 × 96, `--radius-full`, `--color-surface-raised` `#262626` — toujours rendue, même un
   jour sans séance ;
-- **remplissage** 28 × h, `--radius-full`, `--color-accent` `#A78BFA`, ancré en bas,
+- **remplissage** 28 × h, `--radius-full`, `--color-accent` `#B69AF6`, ancré en bas,
   `h = 96 × valeur / max_semaine`, hauteur minimale 4 px dès que valeur > 0 ;
 - **jour courant** marqué deux fois : piste en `--color-border-strong` `#3A3A3A` **et** initiale en
   `#FFFFFF` sans 600 (repère redondant, non chromatique) ;
@@ -496,7 +496,7 @@ Fond `--color-surface`, `--radius-lg` 16, padding 20, gap 12.
 - `RÉPARTITION · 7 DERNIERS JOURS` — `--text-label`, `--color-foreground-subtle`.
 - 3 lignes de 36, gap 12 : nom à gauche (largeur 96, `--text-small`, `--color-foreground-muted`) ;
   barre au centre (largeur 140, hauteur 4, `--radius-full`, piste `--color-border-strong` `#3A3A3A`,
-  remplissage `--color-accent` `#A78BFA`) ; pourcentage à droite (largeur 40, aligné à droite,
+  remplissage `--color-accent` `#B69AF6`) ; pourcentage à droite (largeur 40, aligné à droite,
   `--text-small`, `#FFFFFF`).
 - Maquette : Course 45 % · Musculation 35 % · Vélo 20 %.
 - Une seule discipline → ligne unique à 100 % **plus** une phrase `--text-small`
@@ -507,7 +507,7 @@ Fond `--color-surface`, `--radius-lg` 16, padding 20, gap 12.
 
 Fond `--color-surface`, `--radius-lg` 16, padding 20, gap 12.
 
-- label `CE QUE ÇA VEUT DIRE` — `--text-label`, `--color-accent-text` `#A78BFA` (sortie du coach IA).
+- label `CE QUE ÇA VEUT DIRE` — `--text-label`, `--color-accent-text` `#B69AF6` (sortie du coach IA).
 - bloc imbriqué `--color-surface-raised` `#262626`, `--radius-md` 12, padding 16, texte
   `--text-body` `--color-foreground-muted`, 3-4 lignes, voix coach : « Ta charge est répartie sur
   trois disciplines, avec un pic samedi. C'est un profil hybride équilibré : tu peux encaisser une
@@ -535,8 +535,8 @@ pas, et AC9 interdit tout blocage.
   Formulation alignée sur le bloc existant du Dashboard (« Calibration en cours — 2 semaines sur
   4. »). Seuil = hypothèse d'affichage, à paramétrer (§6 écart 1).
 - **`S-calibration-progress`** : largeur 235, hauteur 4, `--radius-full`, piste
-  `--color-border-strong` `#3A3A3A`, remplissage `--color-accent` `#A78BFA` à 50 %, et à droite,
-  gap 12, `2 / 4 semaines` en `--text-small` `--color-accent-text` `#A78BFA`. Patron identique au
+  `--color-border-strong` `#3A3A3A`, remplissage `--color-accent` `#B69AF6` à 50 %, et à droite,
+  gap 12, `2 / 4 semaines` en `--text-small` `--color-accent-text` `#B69AF6`. Patron identique au
   compteur `3 / 6` de l'onboarding et au `8 / 10` du RPE.
 - **CTA** pleine largeur de carte (295) :
   - aucune source connectée ni déclarée → **pill violet** « Connecter mes sources » (56,
@@ -567,7 +567,7 @@ sans concurrence sur l'écran.
 `--color-surface-raised` `#262626` · `--color-surface-sunken` `#141414` · `--color-border` `#262626` ·
 `--color-border-strong` `#3A3A3A` · `--color-foreground` `#FFFFFF` · `--color-foreground-muted`
 `#A1A1AA` · `--color-foreground-subtle` `#8B8B94` · `--color-foreground-on-accent` `#0A0A0A` ·
-`--color-accent` / `--color-accent-text` `#A78BFA` · `--color-accent-hover` `#B9A3FB` ·
+`--color-accent` / `--color-accent-text` `#B69AF6` · `--color-accent-hover` `#C8B2F7` ·
 `--color-accent-pressed` `#8B5CF6` (remplissages uniquement) · `--color-success` `#4ADE80` ·
 `--color-info` `#60A5FA` · `--color-warning` `#F59E0B` · `--color-danger` `#F87171`.
 
@@ -594,8 +594,8 @@ Seule exception admise : `--shadow-overlay` sous la feuille de déconnexion et l
 ## 6. Accessibilité
 
 **Contrastes** (tableau §5 de la charte, tous conformes) : `#FFFFFF` sur `#1A1A1A` 17,3:1 ·
-`#A1A1AA` 6,8:1 · `#8B8B94` 5,2:1 · `#A78BFA` 6,4:1 · `#4ADE80` 10,0:1 · `#60A5FA` 6,9:1 ·
-`#F59E0B` 8,1:1 · `#0A0A0A` sur pill `#A78BFA` 7,3:1. **Interdits appliqués** : aucun
+`#A1A1AA` 6,8:1 · `#8B8B94` 5,2:1 · `#B69AF6` 7,4:1 · `#4ADE80` 10,0:1 · `#60A5FA` 6,9:1 ·
+`#F59E0B` 8,1:1 · `#0A0A0A` sur pill `#B69AF6` 8,4:1. **Interdits appliqués** : aucun
 `#71717A`/`#52525B`, aucun `#8B5CF6` porteur de texte, aucun blanc sur violet.
 
 **Le symbole ou la couleur ne portent jamais seuls l'information** :
@@ -627,7 +627,7 @@ Seule exception admise : `--shadow-overlay` sous la feuille de déconnexion et l
 - ligne Profil : un seul `<a>`/`<button>` englobant libellé + valeur + chevron, avec
   `aria-label="Sources de données, 2 connectées"` ; chevron `aria-hidden`.
 
-**Focus et clavier** : `outline: 2px solid #A78BFA; outline-offset: 2px` sur tout élément focusable,
+**Focus et clavier** : `outline: 2px solid #B69AF6; outline-offset: 2px` sur tout élément focusable,
 jamais supprimé ; ordre DOM = ordre visuel ; la feuille de déconnexion piège le focus et se ferme à
 `Échap` ; le `✕` du header est le premier élément focusable des sous-écrans.
 

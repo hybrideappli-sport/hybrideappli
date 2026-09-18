@@ -29,7 +29,7 @@ export function TabBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-border bg-surface-sunken pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around border-t border-border-subtle bg-surface-sunken pb-[env(safe-area-inset-bottom)]"
       aria-label="Navigation principale"
       data-testid="tab-bar"
     >

@@ -1,8 +1,9 @@
 # Design System — Hybride Club (v1)
 
-Charte graphique officielle, formalisée à partir des **maquettes Pencil validées** (fichier
-`~/.pencil/documents/b0463ce3-9203-4fdb-9912-59cb8c46d8ed/pencil-new.pen`), recalée avec le **logo
-réel** (monogramme X/sablier blanc sur noir) et corroborée par le prototype Lovable.
+Charte graphique officielle, formalisée à partir des **maquettes Pencil** (archive en lecture seule
+`~/.pencil/backup/f1c3ad69…` — le chemin `~/.pencil/documents/…/pencil-new.pen` ne contient qu'un
+frame vide, ce ne sont pas les maquettes), recalée avec le **logo réel** (monogramme X/sablier blanc
+sur noir) et corroborée par le prototype Lovable. Voir la note de méthode ci-dessous.
 
 Écrans de référence inspectés :
 
@@ -20,13 +21,22 @@ réel** (monogramme X/sablier blanc sur noir) et corroborée par le prototype Lo
 > conçues 100 % dark, le token `--background` est donc constant et le bloc
 > `@media (prefers-color-scheme: dark)` actuel de `globals.css` doit disparaître.
 
-> **Note de méthode / fiabilité des valeurs** — l'outillage Pencil disponible dans cette session
-> exposait uniquement `get_screenshot` et `export_nodes` (pas d'accès `execute`/`GetVariables` pour
-> lire les fills en base). Les hex ci-dessous ont donc été relevés sur les **exports PNG 2×** des
-> écrans, qui alignent très exactement la palette Tailwind (violet-400/500, zinc, emerald-400,
-> blue-400, amber-500). Ils sont fidèles au rendu ; si un jour l'accès base est possible,
-> re-vérifier les 3 valeurs les plus sensibles : `--color-accent`, `--color-surface`,
-> `--color-surface-raised`. **Les corrections d'accessibilité de la §5 priment sur le relevé brut.**
+> **Note de méthode / autorité des valeurs** — mise à jour du 2026-09-18. **Ce document est la seule
+> source de vérité de la charte.** L'app Pencil n'est plus installée : les maquettes ne subsistent que
+> sous forme d'archive JSON en lecture seule (`~/.pencil/backup/f1c3ad69…`, copiée dans
+> `~/Desktop/pencil-backup-sauvegarde/`), et elles ne sont plus éditables.
+>
+> **Ne jamais « re-vérifier » une couleur contre cette archive.** Elle porte l'**ancien** violet de
+> marque `#A78BFA` (variable `primary`, référencée par 113 nœuds), corrigé depuis. Le violet de marque
+> est **`#B69AF6`** — décision du fondateur, qui prime sur tout relevé, toute capture et toute
+> archive. Le hover `#C8B2F7` en est dérivé (même écart de luminance que le couple d'origine).
+>
+> Historique, pour comprendre d'où viennent les hex : la charte a d'abord été relevée sur des
+> **exports PNG 2×** des écrans, sans accès aux variables, en s'alignant sur la palette Tailwind
+> (violet-400/500, zinc, emerald-400, blue-400, amber-500). Ce relevé était fidèle au rendu mais pas
+> aux variables sources — les écarts constatés le 2026-08-12 (surfaces, gris, `accent-orange`, rayons,
+> gouttière) n'ont jamais été réconciliés et ne le seront pas. **Les corrections d'accessibilité de la
+> §5 priment sur le relevé brut.**
 
 ---
 
@@ -59,15 +69,15 @@ l'écart de luminosité fond → carte → bloc imbriqué (`#0A0A0A` → `#1A1A1
 
 | Token                    | Hex       | Usage                                                              |
 | ------------------------ | --------- | ------------------------------------------------------------------ |
-| `--color-accent`         | `#A78BFA` | **Remplissage** : bouton primaire, chip sélectionnée, bulle utilisateur, checkbox cochée, icône d'onglet actif, barre de progression |
-| `--color-accent-hover`   | `#B9A3FB` | Survol du bouton primaire (éclaircir, ne pas foncer : le CTA est déjà clair sur fond noir) |
+| `--color-accent`         | `#B69AF6` | **Remplissage** : bouton primaire, chip sélectionnée, bulle utilisateur, checkbox cochée, icône d'onglet actif, barre de progression |
+| `--color-accent-hover`   | `#C8B2F7` | Survol du bouton primaire (éclaircir, ne pas foncer : le CTA est déjà clair sur fond noir) |
 | `--color-accent-pressed` | `#8B5CF6` | État pressé / actif du bouton primaire                              |
-| `--color-accent-text`    | `#A78BFA` | **Texte** violet sur fond sombre : « En savoir plus → », « PLAN DU JOUR · COACH IA », compteur « 3 / 6 », valeur « 8 / 10 », libellé d'onglet actif |
+| `--color-accent-text`    | `#B69AF6` | **Texte** violet sur fond sombre : « En savoir plus → », « PLAN DU JOUR · COACH IA », compteur « 3 / 6 », valeur « 8 / 10 », libellé d'onglet actif |
 | `--color-accent-subtle`  | `#241E3A` | Fond très léger teinté violet (badge/état informatif) — usage optionnel |
 
 ⚠️ Dans les maquettes, certains textes violets sont rendus en `#8B5CF6` (violet-500). Sur carte
 `#1A1A1A` ce ton tombe à **4,12:1** et échoue WCAG AA. La charte fixe donc **un seul violet de
-texte : `#A78BFA`** (§5). `#8B5CF6` est réservé aux **remplissages** (état pressé, piste remplie).
+texte : `#B69AF6`** (§5). `#8B5CF6` est réservé aux **remplissages** (état pressé, piste remplie).
 
 Le bouton primaire est **plat**, pas en dégradé, dans les maquettes Pencil (le prototype Lovable
 montrait un dégradé diagonal violet-400→600). Arbitrage : **on garde le violet plat de Pencil**
@@ -174,7 +184,7 @@ sous une barre d'action collée en bas, pour détacher du contenu qui défile.
 
 ### 4.1 Bouton primaire
 
-- Fond `--color-accent` (`#A78BFA`), **plat**, texte `--color-foreground-on-accent` (`#0A0A0A`),
+- Fond `--color-accent` (`#B69AF6`), **plat**, texte `--color-foreground-on-accent` (`#0A0A0A`),
   `--text-button` (sans 600, 16 px).
 - Forme **pill** : `border-radius: 9999px`, hauteur **56 px**, padding horizontal 24 px.
 - Largeur : **100 % de la colonne** dans tous les écrans inspectés (CTA d'onboarding, « Voir ma
@@ -307,9 +317,9 @@ Contrastes calculés (WCAG 2.1) sur `--color-background` `#0A0A0A` et sur `--col
 | `#8B8B94` (`foreground-subtle`)        | 5,9:1         | 5,2:1         | ✅ AA            |
 | `#71717A` (gris zinc-500 des maquettes)| **4,1:1**     | **3,6:1**     | ❌ **échec**     |
 | `#52525B` (gris le plus sombre observé)| **2,9:1**     | **2,6:1**     | ❌ **échec**     |
-| `#A78BFA` (`accent-text`)              | 7,3:1         | 6,4:1         | ✅ AAA           |
+| `#B69AF6` (`accent-text`)              | 8,4:1         | 7,4:1         | ✅ AAA           |
 | `#8B5CF6` (violet-500 en texte)        | 4,7:1         | **4,1:1**     | ❌ échec sur carte |
-| `#0A0A0A` sur bouton `#A78BFA`         | 7,3:1         | —             | ✅ AAA           |
+| `#0A0A0A` sur bouton `#B69AF6`         | 8,4:1         | —             | ✅ AAA           |
 | `#4ADE80` (succès)                     | 11,4:1        | 10,0:1        | ✅ AAA           |
 | `#60A5FA` (info)                       | 7,8:1         | 6,9:1         | ✅ AAA           |
 | `#F59E0B` (warning) / noir sur warning | 9,2:1 / 9,2:1 | 8,1:1         | ✅ AAA           |
@@ -323,14 +333,14 @@ Contrastes calculés (WCAG 2.1) sur `--color-background` `#0A0A0A` et sur `--col
    texte ne descend en dessous. Les gris plus sombres restent autorisés uniquement pour des
    **éléments non textuels décoratifs**.
 2. **Violet-500 en texte sur carte.** `#8B5CF6` sur `#1A1A1A` = 4,12:1. → **Correction** :
-   `--color-accent-text` = `#A78BFA` partout où le violet porte du texte (labels de section,
+   `--color-accent-text` = `#B69AF6` partout où le violet porte du texte (labels de section,
    « En savoir plus », compteurs, libellé d'onglet actif). `#8B5CF6` reste réservé aux
    remplissages non textuels et à l'état `pressed`.
-3. **Texte sur CTA violet** : toujours `#0A0A0A`. Le blanc sur `#A78BFA` donnerait 2,7:1 → interdit.
+3. **Texte sur CTA violet** : toujours `#0A0A0A`. Le blanc sur `#B69AF6` donnerait 2,3:1 → interdit.
 
 ### Règles transverses
 
-- **Focus visible obligatoire** : `outline: 2px solid #A78BFA; outline-offset: 2px` sur tout élément
+- **Focus visible obligatoire** : `outline: 2px solid #B69AF6; outline-offset: 2px` sur tout élément
   focusable. Ne jamais supprimer l'outline sans remplacement. Le focus doit rester visible sur les
   chips violettes (utiliser alors un outline blanc 2 px).
 - **Cibles tactiles** ≥ 44 × 44 px (chips 44, boutons 56, checkbox zone étendue).
@@ -375,7 +385,7 @@ la géométrie du conteneur décrite ci-dessous. Le développeur, lui, intègre 
 | ---------------------------- | --------------------------------------------------------------------- |
 | Header d'application         | Tuile **blanche** 40 × 40 px, rayon 10 px, monogramme **noir** `#0A0A0A` centré, hauteur de glyphe ≈ 20 px (50 % de la tuile) |
 | Sur fond noir sans tuile     | Monogramme **blanc** `#FFFFFF` directement sur `--color-background`     |
-| Sur fond violet (`#A78BFA`)  | Monogramme `#0A0A0A`                                                    |
+| Sur fond violet (`#B69AF6`)  | Monogramme `#0A0A0A`                                                    |
 | Splash / favicon             | Monogramme blanc sur `#0A0A0A`, format carré, marge interne 25 %       |
 
 - **Zone de protection** : marge libre minimale de **50 % de la largeur du monogramme** sur les
@@ -418,9 +428,10 @@ la géométrie du conteneur décrite ci-dessous. Le développeur, lui, intègre 
   --foreground-on-accent: #0a0a0a;
 
   /* Accent */
-  --accent: #a78bfa;
-  --accent-hover: #b9a3fb;
+  --accent: #b69af6;
+  --accent-hover: #c8b2f7;
   --accent-pressed: #8b5cf6;
+  --accent-text: #b69af6;
   --accent-subtle: #241e3a;
 
   /* Sémantique */
@@ -446,6 +457,7 @@ la géométrie du conteneur décrite ci-dessous. Le développeur, lui, intègre 
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-pressed: var(--accent-pressed);
+  --color-accent-text: var(--accent-text);
   --color-accent-subtle: var(--accent-subtle);
 
   --color-success: var(--success);

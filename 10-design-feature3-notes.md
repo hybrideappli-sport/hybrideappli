@@ -186,7 +186,7 @@ Bouton **tertiaire (lien inline)**, jamais un bouton primaire : le primaire pill
 réservé au CTA unique et pleine largeur d'un écran (charte §4.1) ; ici il y a un bouton **par
 séance**, jusqu'à 6 sur l'écran.
 
-- Libellé : `Signaler un imprévu`, `--text-small` sans **600**, `--color-accent-text` `#A78BFA`.
+- Libellé : `Signaler un imprévu`, `--text-small` sans **600**, `--color-accent-text` `#B69AF6`.
 - Pas de fond, pas de bordure, aligné à gauche, gap 12 px au-dessus.
 - **Zone tactile ≥ 44 px de haut** (padding vertical ≥ 12 px).
 - **Aucun champ, aucune modale, aucun formulaire, aucune confirmation** : le clic déclenche
@@ -194,11 +194,11 @@ séance**, jusqu'à 6 sur l'écran.
 
 | État | Rendu |
 | --- | --- |
-| `default` | `#A78BFA` |
-| `hover` | `--color-accent-hover` `#B9A3FB` + soulignement |
-| `focus-visible` | `outline: 2px solid #A78BFA; outline-offset: 2px` |
-| `active` | fond `--color-accent-subtle` `#241E3A`, `--radius-full`, texte **maintenu `#A78BFA`** (ne pas basculer le texte en `#8B5CF6` : 4,1:1, échec AA) |
-| `loading` | libellé → `Je cherche un créneau…`, spinner 16 px `#A78BFA`, `aria-busy="true"`, non cliquable |
+| `default` | `#B69AF6` |
+| `hover` | `--color-accent-hover` `#C8B2F7` + soulignement |
+| `focus-visible` | `outline: 2px solid #B69AF6; outline-offset: 2px` |
+| `active` | fond `--color-accent-subtle` `#241E3A`, `--radius-full`, texte **maintenu `#B69AF6`** (ne pas basculer le texte en `#8B5CF6` : 4,1:1, échec AA) |
+| `loading` | libellé → `Je cherche un créneau…`, spinner 16 px `#B69AF6`, `aria-busy="true"`, non cliquable |
 | `disabled` | `--color-foreground-subtle`, `aria-disabled="true"`, `cursor: not-allowed`. Cas : séance passée, ou déjà annulée |
 | `error` technique | la carte garde son état + ligne `--text-small` `--color-danger` `#F87171` : `Le replacement n'a pas pu être calculé. Réessayer.` — **seul** usage du rouge en F3 |
 
@@ -285,7 +285,7 @@ verrouillé.
 | Méta, séance annulée | `--color-foreground-muted` | `#A1A1AA` |
 | Explications, horaire d'origine | `--color-foreground-subtle` | `#8B8B94` |
 | **Changement / annulation** | `--color-warning` | `#F59E0B` |
-| Action « Signaler un imprévu » | `--color-accent-text` | `#A78BFA` |
+| Action « Signaler un imprévu » | `--color-accent-text` | `#B69AF6` |
 | Fond pressé de l'action | `--color-accent-subtle` | `#241E3A` |
 | Erreur technique uniquement | `--color-danger` | `#F87171` |
 | Carte | `--radius-lg` | 16 |
@@ -302,7 +302,7 @@ Sémantique respectée : **orange = alerte/attention** (un imprévu est un chang
 
 ## 4. Accessibilité
 
-- **Contrastes** sur carte `#1A1A1A` : `#F59E0B` → **8,1:1** ✅ AAA ; `#A78BFA` → **6,4:1** ✅ AAA ;
+- **Contrastes** sur carte `#1A1A1A` : `#F59E0B` → **8,1:1** ✅ AAA ; `#B69AF6` → **7,4:1** ✅ AAA ;
   `#8B8B94` → **5,2:1** ✅ AA ; `#A1A1AA` → 6,8:1 ✅ AAA ; `#FFFFFF` → 17,3:1 ✅ AAA.
   Liseré orange (non textuel, seuil 3:1) sur `#1A1A1A` → 8,1:1 ✅.
 - **La couleur n'est jamais seule porteuse** : badge texte `DÉPLACÉE` / `ANNULÉE CETTE SEMAINE`
@@ -314,7 +314,7 @@ Sémantique respectée : **orange = alerte/attention** (un imprévu est un chang
   visible seul est ambigu quand 6 boutons coexistent.
 - **`aria-live="polite"`** sur le résultat du replacement, jamais `assertive` (le coach n'interrompt
   pas — règle transverse de la charte).
-- **Focus** `outline: 2px solid #A78BFA; outline-offset: 2px`, ordre DOM = ordre visuel
+- **Focus** `outline: 2px solid #B69AF6; outline-offset: 2px`, ordre DOM = ordre visuel
   (Lundi → Dimanche, puis ordre horaire dans la journée).
 - **Cibles tactiles ≥ 44 × 44 px** (bouton de signalement, lignes de l'aperçu Dashboard).
 - **`prefers-reduced-motion`** : passage (a) → (b)/(c) sans animation de déplacement, remplacement

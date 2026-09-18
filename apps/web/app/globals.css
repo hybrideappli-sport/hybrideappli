@@ -20,9 +20,10 @@
   --foreground-on-accent: #0a0a0a;
 
   /* Accent */
-  --accent: #a78bfa;
-  --accent-hover: #b9a3fb;
+  --accent: #b69af6;
+  --accent-hover: #c8b2f7;
   --accent-pressed: #8b5cf6;
+  --accent-text: #b69af6;
   --accent-subtle: #241e3a;
 
   /* Sémantique */
@@ -51,6 +52,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-pressed: var(--accent-pressed);
+  --color-accent-text: var(--accent-text);
   --color-accent-subtle: var(--accent-subtle);
 
   --color-success: var(--success);
