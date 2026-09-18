@@ -13,8 +13,28 @@ export class InvalidSportCodeError extends Error {}
  * Résout un `sports.code` déclaré en onboarding vers un `sports.id`. Le référentiel `sports` est
  * en écriture `service_role` uniquement (`docs/db-schema.md` §2) — un sport hors référentiel
  * (question ouverte n°7, `08-architecture.md` §12) est donc créé ici, via l'admin, avec
- * `is_documented = false` : le moteur applique alors un profil générique prudent plutôt que de
- * refuser l'onboarding pour un sport rare non documenté par le fondateur.
+ * `is_documented = false`, plutôt que de refuser l'onboarding pour un sport rare non documenté.
+ *
+ * ⚠️ `is_documented` N'EST LU NULLE PART. Ce commentaire affirmait jusqu'au 2026-09-18 que « le
+ * moteur applique alors un profil générique prudent » : c'est faux, et vérifiable — le drapeau est
+ * transporté jusqu'au contexte (`build-planning-context.ts:142`, `AthleteSportSnapshot`) et aucun
+ * étage du pipeline ne le consulte. Le garde-fou annoncé n'existe pas.
+ *
+ * Ce qui se passe RÉELLEMENT pour un sport créé ici : `family = "mixed"` et
+ * `default_muscle_groups = ["full_body"]`, valeurs posées ci-dessous faute de mieux. Or le moteur
+ * lit `family` à quatre endroits de `09-build-sessions.ts` (cycle de types de séance, facteur de
+ * charge, suivi des séances intenses, unités de charge) et `defaultMuscleGroups` pour la détection
+ * d'interférence. Une discipline inconnue est donc planifiée comme un sport mixte full-body — ni
+ * plus ni moins prudemment qu'un autre.
+ *
+ * La question n°7 reste OUVERTE, et `08-architecture.md` §12 le dit déjà : « le comportement
+ * produit exact (refus vs plan prudent) reste à confirmer ». La trancher demande de définir ce que
+ * « prudent » veut dire, donc de la logique moteur ET une borne au ruleset — soit une nouvelle
+ * version publiée (ADR-007 : `params` porte des scalaires, jamais de la logique). Le drapeau est
+ * conservé tel quel : il est le point d'accroche du jour où elle sera tranchée.
+ *
+ * Depuis que l'onboarding est contraint au référentiel (2026-09-18), ce chemin n'est plus atteint
+ * que par des disciplines réellement absentes, et non plus par un doublon de `running`.
  *
  * Correction post-revue (finding I10) : `code` transite déjà par `SportCodeSchema` côté route
  * (`ConfirmedProfileSchema`), mais ce module reste le SEUL point où une donnée fournie par le

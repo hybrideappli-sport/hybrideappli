@@ -42,7 +42,16 @@ export interface AthleteSportSnapshot {
   code: string;
   family: "endurance" | "strength" | "mixed" | "skill";
   defaultMuscleGroups: MuscleGroup[];
-  isDocumented: boolean; // question ouverte n°7 — sport rare/non documenté
+  /**
+   * Question ouverte n°7 — sport rare / non documenté.
+   *
+   * ⚠️ Transporté jusqu'ici mais LU PAR AUCUN étage du pipeline (vérifié le 2026-09-18). Le
+   * « profil générique prudent » promis par `resolve-sport.ts` et `docs/db-schema.md` §9.1
+   * n'existe pas : un sport non documenté est planifié comme un `family = 'mixed'` full-body
+   * ordinaire. Le champ est conservé comme point d'accroche du jour où la question sera tranchée
+   * — `08-architecture.md` §12 la classe encore « comportement exact à confirmer ».
+   */
+  isDocumented: boolean;
   level: ExperienceLevel;
   priority: number; // AC10 — arbitrage d'interférence, 1 = priorité la plus haute
   weeklySessionsDeclared: number | null;

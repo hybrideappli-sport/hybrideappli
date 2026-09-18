@@ -343,7 +343,7 @@ create table sports (
   label_fr     text not null,
   family       text not null,                 -- 'endurance' | 'strength' | 'mixed' | 'skill'
   default_muscle_groups muscle_group[] not null default '{}',
-  is_documented boolean not null default true, -- false ⇒ plan générique prudent (question ouverte n°7)
+  is_documented boolean not null default true, -- question ouverte n°7 — VOIR §9.1 : jamais lu par le moteur
   created_at   timestamptz not null default now()
 );
 alter table sports enable row level security;
@@ -1046,7 +1046,7 @@ Deux fichiers, **deux rôles qu'il ne faut pas confondre** :
 
 ### 9.1 `0010_seed_referentials.sql` — l'existence, partout
 
-1. **`sports`** : référentiel initial multi-disciplines, `is_documented = true` pour ce lot initial (il est documenté par cette seed). Tout sport ajouté **ultérieurement**, hors de ce référentiel, doit être inséré avec `is_documented = false` par le code applicatif ⇒ le moteur applique un profil générique prudent (question ouverte n°7).
+1. **`sports`** : référentiel initial multi-disciplines, `is_documented = true` pour ce lot initial (il est documenté par cette seed). Tout sport ajouté **ultérieurement**, hors de ce référentiel, doit être inséré avec `is_documented = false` par le code applicatif (`resolveOrCreateSport()`). ⚠️ **Ce drapeau n'est lu par aucun étage du moteur** : il est transporté jusqu'au contexte de planification puis ignoré. Le « profil générique prudent » que ce document annonçait n'existe pas — un sport non documenté est planifié comme un `family = 'mixed'` full-body ordinaire. La question ouverte n°7 reste entière, et `08-architecture.md` §12 la classe déjà « traitée partiellement, comportement exact à confirmer ». La trancher suppose de la logique moteur ET une borne au ruleset, donc une version publiée (ADR-007).
 2. **`consent_documents`** : `medical_disclaimer`, `health_data_processing`, `terms`, `privacy` en version `1.0.0`, locale `fr` — insérés **`is_current = false`**. Contenu juridique **provisoire et non validé** (finding B3 de l'audit Lot L1) : aucune migration ne le promeut document en vigueur. Voir §9.3. `health_data_processing` porte en plus, depuis `0014_health_data_processing_consent_v1_1_0.sql`, une seconde version `1.1.0` (texte amendé, toujours provisoire, insérée `is_current = false` selon le même principe) — voir §9.4. L'US-02 ajoute un **cinquième code**, `third_party_data_import` — voir §10.8.
 3. **`rulesets`** : `0.1.0-dev`, inséré **`is_active = false`** (finding B1). Les paramètres non tranchés restent `null` ⇒ le schéma Zod du Lot L2 refusera l'activation en production tant que les seuils AC8 ne sont pas fixés (ADR-007). L'US-02 publie `0.2.0-dev`, qui ajoute la section `hybrid_score` — voir §10.8.
 
