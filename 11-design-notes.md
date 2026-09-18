@@ -23,7 +23,7 @@
 
 Conséquence : `GetVariables()` n'a pas pu être appelé. Les tokens utilisés ci-dessous sont **ceux de
 `docs/design-system.md`**, tous déjà présents dans le rendu réel des écrans (vérifié à l'export :
-violet `#A78BFA`, orange `#F59E0B`, bleu `#60A5FA`, vert `#4ADE80`, surfaces `#0A0A0A`/`#1A1A1A`/`#262626`).
+violet `#B69AF6`, orange `#F59E0B`, bleu `#60A5FA`, vert `#4ADE80`, surfaces `#0A0A0A`/`#1A1A1A`/`#262626`).
 **Aucun token nouveau n'est introduit par cette note.**
 
 **Aucun livrable n'est sauté** : les quatre sont spécifiés ci-dessous à un niveau directement
@@ -148,7 +148,7 @@ Une rangée, hauteur 44, gap 8 — **chips de la charte §4.4**, en `role="radio
 
 | Chip | État initial | Rendu |
 | --- | --- | --- |
-| `Tout` | sélectionné | fond `--color-accent` `#A78BFA`, texte `--color-foreground-on-accent` `#0A0A0A` |
+| `Tout` | sélectionné | fond `--color-accent` `#B69AF6`, texte `--color-foreground-on-accent` `#0A0A0A` |
 | `Synchronisé` | non sélectionné | transparent, texte `--color-foreground-muted`, glyphe `↻` 12 px en tête, gap 4 |
 | `Déclaré` | non sélectionné | idem, glyphe `✎` |
 
@@ -209,7 +209,7 @@ Quand `GET /data/activities` remonte une fusion (`superseded_by_log_id` / `exclu
 - L3 devient : `↻ Strava · a remplacé ta saisie manuelle de 09h20` —
   `--text-small` `--color-foreground-subtle` ;
 - L4 (nouvelle, gap 8) : lien `Séparer les deux` — `--text-small` sans 600,
-  `--color-accent-text` `#A78BFA`, cible ≥ 44 px → `POST /session-logs/:id/unmerge`.
+  `--color-accent-text` `#B69AF6`, cible ≥ 44 px → `POST /session-logs/:id/unmerge`.
 
 La ligne **absorbée** n'est pas rendue : elle réapparaît, sans badge, après `unmerge`, annoncé en
 `aria-live="polite"` (« Les deux séances sont de nouveau comptées séparément. »).
@@ -239,7 +239,7 @@ l'écran mentirait sur la période. Rendu :
 | `empty` (période sans activité) | en-tête éditorial conservé ; `--text-title` 24/30 serif `Rien sur cette période.` + `--text-body` `--color-foreground-muted` « Change la période, ou enregistre une séance depuis Séance du jour. » + lien `Saisir une séance →` (`--color-accent-text`). **Pas de pill violet** : l'écran est une consultation |
 | `empty` (filtre vide) | ligne unique `--text-body` `--color-foreground-muted` : « Aucune activité synchronisée sur cette période. » — les filtres restent actifs, ne jamais vider l'écran entier |
 | `error` | carte `--color-surface`, `--text-label` `--color-danger` `#F87171` `CHARGEMENT IMPOSSIBLE`, message, bouton secondaire `Réessayer` |
-| `hover / focus / active / disabled` | charte §4.1, §4.2 et §4.4, sans dérogation ; focus `outline 2px #A78BFA offset 2` |
+| `hover / focus / active / disabled` | charte §4.1, §4.2 et §4.4, sans dérogation ; focus `outline 2px #B69AF6 offset 2` |
 
 ### 1.10 Accessibilité spécifique
 
@@ -296,7 +296,7 @@ bloc imbriqué 335 (ou 295 s'il est dans une carte), fond `--color-surface-raise
 | `S-offplan-label` | `SÉANCE HORS PLAN` | `--text-label` 11/14 0.14em sans 600, `--color-foreground-subtle` `#8B8B94` |
 | `S-offplan-dismiss` | `✕` 20 px, aligné à droite du label | `--color-foreground-subtle`, cible 44 × 44, `aria-label="Annuler cette séance hors plan"` |
 | `S-offplan-field-label` (× 4) | `Discipline` / `Type` / `Durée` / `Début` | `--text-small` 13/18, `--color-foreground-muted`, gap 8 au-dessus du contrôle |
-| `S-offplan-chips-*` | rangées de chips | charte §4.4 : hauteur 44, `--radius-full`, padding h 20, `--text-body-strong` ; non sélectionnée transparente `--color-foreground-muted`, **sélectionnée `--color-accent` `#A78BFA` + texte `#0A0A0A`** ; wrap sur 2 lignes si nécessaire, gap 8 |
+| `S-offplan-chips-*` | rangées de chips | charte §4.4 : hauteur 44, `--radius-full`, padding h 20, `--text-body-strong` ; non sélectionnée transparente `--color-foreground-muted`, **sélectionnée `--color-accent` `#B69AF6` + texte `#0A0A0A`** ; wrap sur 2 lignes si nécessaire, gap 8 |
 | `S-offplan-time` | champ heure, valeur pré-remplie à l'heure courante arrondie à 5 min | hauteur 52, `--radius-md` 12, **fond `--color-surface` `#1A1A1A`**, texte `--text-body` `#FFFFFF`, pas de bordure au repos |
 | `S-offplan-help` | « Je la compte en plus de ton plan, sans rien décaler. » | `--text-small` 13/18, `--color-foreground-subtle` |
 
@@ -324,7 +324,7 @@ Ajout **d'un seul nœud** au frame `MqvfH` existant : `S-offplan-trigger`, insé
 semaine »**, `space-6` (24) au-dessus, `space-6` en dessous.
 
 - Libellé : `+ Enregistrer une séance hors plan` — `--text-small` 13/18 sans **600**,
-  `--color-accent-text` `#A78BFA`, aligné à gauche sur la gouttière, cible ≥ 44 px de haut.
+  `--color-accent-text` `#B69AF6`, aligné à gauche sur la gouttière, cible ≥ 44 px de haut.
 - Bouton **tertiaire**, jamais un pill : le pill violet de l'écran est déjà pris par `Enregistrer`
   (charte §4.1 : un seul CTA primaire par écran).
 - Au clic : le lien est **remplacé sur place** par `S-offplan-block` (§2.1), et le focus est déplacé
@@ -335,10 +335,10 @@ semaine »**, `space-6` (24) au-dessus, `space-6` en dessous.
 
 | État de `S-offplan-trigger` | Rendu |
 | --- | --- |
-| `default` | `#A78BFA` |
-| `hover` | `--color-accent-hover` `#B9A3FB` + soulignement |
-| `focus-visible` | `outline 2px #A78BFA`, offset 2 |
-| `active` | fond `--color-accent-subtle` `#241E3A`, `--radius-full`, texte maintenu `#A78BFA` |
+| `default` | `#B69AF6` |
+| `hover` | `--color-accent-hover` `#C8B2F7` + soulignement |
+| `focus-visible` | `outline 2px #B69AF6`, offset 2 |
+| `active` | fond `--color-accent-subtle` `#241E3A`, `--radius-full`, texte maintenu `#B69AF6` |
 | `expanded` | remplacé par `S-offplan-block`, `aria-expanded="true"` sur le déclencheur logique |
 | `disabled` | jamais. Cette affordance ne se désactive dans aucun cas — c'est le sens même de l'AC3 |
 
@@ -444,7 +444,7 @@ pas de bordure ni d'ombre, gap vertical interne 12.
 `D-notdone-actions` :
 
 - `D-notdone-fix` — `Je l'ai faite quand même` — `--text-small` 13/18 sans **600**,
-  `--color-accent-text` `#A78BFA` ;
+  `--color-accent-text` `#B69AF6` ;
 - `D-notdone-confirm` — `C'est exact` — `--text-small` 13/18 sans 400,
   `--color-foreground-muted` → `#FFFFFF` au survol.
 
@@ -511,7 +511,7 @@ Quatrième état de carte séance, à ajouter au frame `8 — Planning semaine` 
 | Ligne 3 | `Seuil — 3 × 8 min à allure semi` | `--text-heading` 20/26, `--color-foreground-muted` `#A1A1AA`. **Jamais d'`opacity`** |
 | Ligne 4 (méta) | `52 min   RPE cible 7   Course` | `--text-small`, `--color-foreground-subtle` |
 | Ligne 5 | `Je l'ai comptée comme non réalisée après ton imprévu.` | `--text-small`, `--color-foreground-subtle` |
-| Action | `Je l'ai faite quand même` | lien tertiaire `--text-small` sans 600 `--color-accent-text` `#A78BFA`, cible ≥ 44, gap 12 au-dessus. **Remplace** `Signaler un imprévu`, qui disparaît |
+| Action | `Je l'ai faite quand même` | lien tertiaire `--text-small` sans 600 `--color-accent-text` `#B69AF6`, cible ≥ 44, gap 12 au-dessus. **Remplace** `Signaler un imprévu`, qui disparaît |
 
 **Deux règles de préséance entre états**, à respecter strictement :
 
@@ -631,7 +631,7 @@ la colonne heure rend déjà `—` dans les deux cas. C'est confirmé sur l'expo
 `--color-surface-raised` `#262626` · `--color-surface-sunken` `#141414` · `--color-border` `#262626` ·
 `--color-border-strong` `#3A3A3A` · `--color-foreground` `#FFFFFF` · `--color-foreground-muted`
 `#A1A1AA` · `--color-foreground-subtle` `#8B8B94` · `--color-foreground-on-accent` `#0A0A0A` ·
-`--color-accent` / `--color-accent-text` `#A78BFA` · `--color-accent-hover` `#B9A3FB` ·
+`--color-accent` / `--color-accent-text` `#B69AF6` · `--color-accent-hover` `#C8B2F7` ·
 `--color-accent-subtle` `#241E3A` · `--color-success` `#4ADE80` · `--color-warning` `#F59E0B` ·
 `--color-danger` `#F87171` (erreurs de formulaire et de réseau **uniquement**).
 
@@ -664,7 +664,7 @@ toujours doublés d'un mot.
 - **La couleur n'est jamais seule porteuse** : badges textuels (`FUSIONNÉE`, `NON RÉALISÉE`,
   `ANNULÉE CETTE SEMAINE`), glyphes toujours doublés d'un mot, provenance écrite en toutes lettres
   dans le détail par source, états d'imprévu explicités par une phrase.
-- **Focus visible** `outline: 2px solid #A78BFA; outline-offset: 2px` sur tout élément focusable ;
+- **Focus visible** `outline: 2px solid #B69AF6; outline-offset: 2px` sur tout élément focusable ;
   outline **blanc** sur chip violette sélectionnée ; jamais supprimé sans remplacement.
 - **Cibles tactiles ≥ 44 × 44** : chips 44, champs 52, pills 56, `✕` 44, tous les liens tertiaires.
 - **Navigation clavier** : ordre DOM = ordre visuel ; chips en `radiogroup` navigables aux flèches ;
