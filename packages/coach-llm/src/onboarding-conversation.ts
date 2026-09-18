@@ -11,7 +11,7 @@
 
 import { ProfileDraftPatchSchema, type ProfileDraftPatch } from "@hybride/domain";
 
-import type { ConversationHistoryEntry, LlmProvider } from "./llm-provider";
+import type { ConversationHistoryEntry, LlmProvider, SportReferentialEntry } from "./llm-provider";
 
 /** R6 du plan (`plans/US-01-...md` §5) — borne de tours avant repli sur une question fermée. */
 export const MAX_REFORMULATIONS_BEFORE_CLOSED_QUESTION = 2;
@@ -22,6 +22,9 @@ export interface OnboardingTurnRequest {
   profileDraft: Record<string, unknown>;
   userMessage: string;
   reformulationCount: number;
+  /** Référentiel `sports` transmis au fournisseur pour qu'il n'invente pas de code (voir
+   *  `SportReferentialEntry`). Optionnel : son absence rétablit le comportement d'avant. */
+  sportReferential?: SportReferentialEntry[];
 }
 
 export interface OnboardingTurnResult {
@@ -43,6 +46,7 @@ export async function runOnboardingTurn(
     history: request.history,
     profileDraft: request.profileDraft,
     userMessage: request.userMessage,
+    sportReferential: request.sportReferential,
   });
 
   let extractionPatch: ProfileDraftPatch | null = null;

@@ -4,6 +4,7 @@ import type { ConfirmedProfile } from "@hybride/domain";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { sportLabel } from "@/lib/sport-labels";
 
 type ProfileRecapProps = {
   profile: ConfirmedProfile;
@@ -53,7 +54,7 @@ export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRec
             <ul className="list-inside list-disc">
               {profile.sports.map((sport) => (
                 <li key={sport.sportCode}>
-                  {sport.sportCode.replace(/_/g, " ")} ({sport.level}
+                  {sportLabel(sport.sportCode)} ({sport.level}
                   {sport.isPrimary ? ", principal" : ""})
                 </li>
               ))}

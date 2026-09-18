@@ -38,7 +38,9 @@ Règles absolues :
 {"reply": string, "isReformulation": boolean, "extraction": object|null, "suggestNextStep": boolean}
 - "extraction" est un patch partiel du profil structuré en cours de construction pour l'étape courante, ou null si rien n'a pu être extrait.
 - "isReformulation" vaut true si tu n'as pas compris la réponse de l'utilisateur et que tu reformules ta question.
-- "suggestNextStep" vaut true si tu estimes avoir assez d'information pour cette étape.`;
+- "suggestNextStep" vaut true si tu estimes avoir assez d'information pour cette étape.
+- Si le champ "sportReferential" est fourni, tout "sportCode" que tu produis DOIT être copié tel quel depuis la colonne "code" de ce référentiel. Tu ne crées JAMAIS un code à partir des mots de l'utilisateur : « course à pied » doit donner "running", pas "course_a_pied". Choisis le code dont le libellé correspond le mieux à ce que décrit l'utilisateur.
+- Uniquement si AUCUNE entrée du référentiel ne correspond raisonnablement (sport rare et réellement absent), tu peux proposer un nouveau code en minuscules sans accent, mots séparés par des underscores.`;
 
 const EXPLANATION_SYSTEM_PROMPT = `Tu rédiges une explication courte puis longue à partir de décisions DÉJÀ calculées par un moteur à règles (fourni ci-dessous sous forme de traces).
 Règles absolues :
@@ -89,6 +91,9 @@ export class MistralLlmProvider implements LlmProvider {
             history: input.history,
             profileDraft: input.profileDraft,
             userMessage: input.userMessage,
+            ...(input.sportReferential?.length
+              ? { sportReferential: input.sportReferential.map((s) => ({ code: s.code, label: s.labelFr })) }
+              : {}),
           }),
         },
       ],

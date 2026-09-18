@@ -20,6 +20,7 @@ export type {
   ExplanationOutput,
   ExplanationRequest,
   LlmProvider,
+  SportReferentialEntry,
 } from "./llm-provider";
 export type { ExplanationSubjectType, LlmTraceInput, LlmTraceInputField, LlmTraceOutput } from "./types";
 

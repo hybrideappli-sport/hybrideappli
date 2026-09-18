@@ -19,6 +19,22 @@ export interface ConversationHistoryEntry {
   content: string;
 }
 
+/**
+ * Une entrée du référentiel `sports` (code + libellé français), transmise au fournisseur pour
+ * qu'il choisisse un code EXISTANT plutôt que d'en inventer un.
+ *
+ * Sans cette liste, le modèle produisait un code slugifié depuis la formulation de l'utilisateur :
+ * « course à pied » donnait `course_a_pied`, doublon de `running` déjà présent au référentiel.
+ * `resolveOrCreateSport()` créait alors une ligne `is_documented = false`, `family = "mixed"`,
+ * `default_muscle_groups = ["full_body"]` — et le moteur planifiait un coureur comme un sport
+ * mixte full-body, `family` et `defaultMuscleGroups` pilotant à eux deux le cycle de types de
+ * séance, le facteur de charge et la détection d'interférence (`09-build-sessions.ts`).
+ */
+export interface SportReferentialEntry {
+  code: string;
+  labelFr: string;
+}
+
 export interface ConversationTurnInput {
   /** `onboarding_step` en cours (typé `string` ici pour ne dépendre d'aucun enum applicatif). */
   step: string;
@@ -27,6 +43,11 @@ export interface ConversationTurnInput {
    * avant consentement (ADR-010 §3), c'est l'appelant qui garantit cette étanchéité. */
   profileDraft: Record<string, unknown>;
   userMessage: string;
+  /**
+   * Référentiel des disciplines connues. Optionnel : un fournisseur qui l'ignore reste conforme,
+   * et l'omettre revient au comportement d'avant (le modèle invente son code).
+   */
+  sportReferential?: SportReferentialEntry[];
 }
 
 export interface ConversationTurnOutput {
