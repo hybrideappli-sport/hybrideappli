@@ -1,7 +1,8 @@
+/**
+ * Les 4 écrans d'auth portent chacun leur propre coque plein écran (`AuthShell` : photo,
+ * voile, logo, titre serif). Ce layout ne fait plus que traverser — le centrage et la
+ * gouttière vivent dans la coque, au même endroit que pour l'accueil.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-5 py-12">
-      <div className="w-full max-w-sm">{children}</div>
-    </div>
-  );
+  return children;
 }

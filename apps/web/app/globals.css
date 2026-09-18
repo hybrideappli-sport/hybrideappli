@@ -140,6 +140,26 @@ body {
   text-transform: uppercase;
 }
 
+/* Auto-remplissage Chrome/Safari — `input:-webkit-autofill` impose un fond bleu clair et
+   ignore `background-color`, ce qui rendait le texte blanc illisible sur nos champs sombres.
+   Seule une ombre interne épaisse recouvre ce fond. `--autofill-bg` permet à chaque écran
+   de donner la couleur à recouvrir : par défaut la surface des formulaires de l'app, et sur
+   les écrans d'auth la couleur composite mesurée du champ sur la photo (`auth-shell.tsx`).
+   La transition de 600000s neutralise l'animation de fond que Chrome déclenche au remplissage. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg, var(--surface-raised)) inset;
+  box-shadow: 0 0 0 1000px var(--autofill-bg, var(--surface-raised)) inset;
+  caret-color: var(--foreground);
+  border-radius: inherit;
+  transition: background-color 600000s 0s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
