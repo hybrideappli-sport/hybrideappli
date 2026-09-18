@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { updatePasswordAction, type AuthActionState } from "@/app/(auth)/actions";
+import { AUTH_FIELD_CLASS } from "@/components/auth/auth-form-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ export function UpdatePasswordForm() {
   const [state, formAction, isPending] = useActionState(updatePasswordAction, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-5" noValidate data-testid="update-password-form">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Nouveau mot de passe</Label>
         <Input
@@ -23,6 +24,7 @@ export function UpdatePasswordForm() {
           autoComplete="new-password"
           minLength={8}
           required
+          className={AUTH_FIELD_CLASS}
         />
       </div>
       {state.error ? (
@@ -30,8 +32,8 @@ export function UpdatePasswordForm() {
           {state.error}
         </p>
       ) : null}
-      <Button type="submit" disabled={isPending} loading={isPending}>
-        {isPending ? "Enregistrement..." : "Enregistrer le nouveau mot de passe"}
+      <Button type="submit" disabled={isPending} loading={isPending} data-testid="update-password-submit">
+        {isPending ? "Enregistrement..." : "Enregistrer"}
       </Button>
     </form>
   );
