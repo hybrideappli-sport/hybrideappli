@@ -18,6 +18,7 @@ import type {
   ExplanationOutput,
   ExplanationRequest,
   LlmProvider,
+  SportReferentialEntry,
 } from "./llm-provider";
 import { renderTemplateExplanation } from "./template-explanation";
 
@@ -46,6 +47,30 @@ const NEXT_QUESTION: Record<string, string> = {
 
 const DATE_PATTERN = /\d{4}-\d{2}-\d{2}/;
 const NUMBER_PATTERN = /\d+(?:[.,]\d+)?/g;
+
+/**
+ * Résout un libellé saisi par l'utilisateur vers un code EXISTANT du référentiel, en repliant sur
+ * la slugification seulement si rien ne correspond.
+ *
+ * Le mock reproduit ainsi la contrainte posée au vrai fournisseur par le prompt système : c'est
+ * lui que les tests e2e exercent, et c'est lui qui produisait `course_a_pied` — doublon de
+ * `running` — donc un plan calculé sur une `family` « mixed » au lieu d'« endurance ».
+ */
+function resolveSportCode(label: string, referential: SportReferentialEntry[] | undefined): string {
+  const slug = slugify(label);
+  if (!referential?.length) return slug;
+
+  const normalized = slugify(label);
+  const exact = referential.find((entry) => entry.code === normalized || slugify(entry.labelFr) === normalized);
+  if (exact) return exact.code;
+
+  // Correspondance partielle : « course » trouve « Course à pied », « muscu » trouve « Musculation ».
+  const partial = referential.find((entry) => {
+    const labelSlug = slugify(entry.labelFr);
+    return labelSlug.startsWith(normalized) || normalized.startsWith(labelSlug) || labelSlug.includes(normalized);
+  });
+  return partial?.code ?? slug;
+}
 
 function slugify(label: string): string {
   return label
@@ -128,7 +153,11 @@ function handleHistory(message: string): StepOutcome {
   };
 }
 
-function handleSports(message: string, profileDraft: Record<string, unknown>): StepOutcome {
+function handleSports(
+  message: string,
+  profileDraft: Record<string, unknown>,
+  referential: SportReferentialEntry[] | undefined,
+): StepOutcome {
   const labels = message
     .split(",")
     .map((s) => s.trim())
@@ -150,7 +179,7 @@ function handleSports(message: string, profileDraft: Record<string, unknown>): S
     reply: NEXT_QUESTION.sports!,
     extraction: {
       sports: labels.map((label, index) => ({
-        sportCode: slugify(label),
+        sportCode: resolveSportCode(label, referential),
         level: fallbackLevel,
         weeklySessionsDeclared: null,
         yearsPractice: null,
@@ -216,7 +245,12 @@ function handleRiskFilter(message: string): StepOutcome {
   };
 }
 
-function runStep(step: string, message: string, profileDraft: Record<string, unknown>): StepOutcome {
+function runStep(
+  step: string,
+  message: string,
+  profileDraft: Record<string, unknown>,
+  referential: SportReferentialEntry[] | undefined,
+): StepOutcome {
   switch (step) {
     case "intro":
       return { reply: QUESTIONS.goal!, extraction: null, isReformulation: false, suggestNextStep: true };
@@ -227,7 +261,7 @@ function runStep(step: string, message: string, profileDraft: Record<string, unk
     case "history":
       return handleHistory(message);
     case "sports":
-      return handleSports(message, profileDraft);
+      return handleSports(message, profileDraft, referential);
     case "availability":
       return handleAvailability(message);
     case "nutrition":
@@ -248,7 +282,7 @@ export class DeterministicMockLlmProvider implements LlmProvider {
   readonly name = "mock-deterministic";
 
   converseOnboarding(input: ConversationTurnInput): Promise<ConversationTurnOutput> {
-    const outcome = runStep(input.step, input.userMessage, input.profileDraft);
+    const outcome = runStep(input.step, input.userMessage, input.profileDraft, input.sportReferential);
     return Promise.resolve(outcome);
   }
 

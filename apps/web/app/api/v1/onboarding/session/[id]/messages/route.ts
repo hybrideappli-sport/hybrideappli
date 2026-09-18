@@ -90,6 +90,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const reformulationCount = countTrailingReformulations(recentDesc, currentStep);
 
   const provider = getLlmProvider();
+
+  // Référentiel des disciplines transmis au fournisseur : sans lui, le modèle slugifiait les mots
+  // de l'utilisateur et produisait `course_a_pied` là où `running` existe déjà, ce qui faisait
+  // créer par `resolveOrCreateSport()` un doublon `family = "mixed"` — et planifier un coureur
+  // comme un sport mixte full-body. Une requête par tour sur une table de quelques lignes, lisible
+  // par tous (`sports_read … using (true)`), donc via le client RLS de l'utilisateur.
+  // En cas d'échec de lecture, le tour continue SANS référentiel plutôt que d'échouer : on
+  // retombe alors sur le comportement d'avant (le modèle propose son propre code, que
+  // `resolveOrCreateSport()` sait absorber). Un onboarding ne doit pas s'interrompre pour un
+  // référentiel d'affichage.
+  const { data: sportRows, error: sportsError } = await supabase.from("sports").select("code, label_fr").order("code");
+  if (sportsError) console.error("[onboarding] référentiel sports illisible, tour dégradé :", sportsError.message);
+
   const turnStartedAt = Date.now();
   const turn = await runOnboardingTurn(provider, {
     step: currentStep,
@@ -97,6 +110,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     profileDraft: (session.profile_draft as Record<string, unknown>) ?? {},
     userMessage: parsedInput.data.content,
     reformulationCount,
+    sportReferential: (sportRows ?? []).map((row) => ({ code: row.code, labelFr: row.label_fr })),
   });
 
   const mergedDraft: Record<string, unknown> = turn.extractionPatch

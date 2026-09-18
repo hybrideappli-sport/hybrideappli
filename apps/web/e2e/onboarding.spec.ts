@@ -25,7 +25,10 @@ test("onboarding — golden path : chat, disclaimer, consentement, récap, plan 
   // AC1 — récap : l'utilisateur valide son profil avant toute génération de plan.
   await expect(page).toHaveURL(/\/onboarding\/recap$/);
   await expect(page.getByRole("heading", { name: /ton profil/i })).toBeVisible();
-  await expect(page.getByText(/course a pied/i)).toBeVisible();
+  // Assertion recalée : le récap affichait « course a pied », qui n'était pas un libellé mais le
+  // CODE slugifié depuis les mots de l'utilisateur — le symptôme même du doublon de référentiel
+  // corrigé le 2026-09-18. Le code résolu est désormais `running`, rendu « Course ».
+  await expect(page.getByText(/course/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: /valider mon profil et générer mon plan/i }).click();
 
