@@ -311,6 +311,23 @@ async function materializeRest(
   }
 
   // 7) `planned_sessions` — J → J+13 (détail J→J+6, intention J+7→J+13).
+  //
+  // Résolution `sportCode` → `sports.id`. Le moteur produit une discipline par séance
+  // (`09-build-sessions.ts`), mais cette écriture posait `sport_id: null` EN DUR, avec un renvoi
+  // à un Lot L4 qui est passé sans que ce soit fait. Conséquence : `planned_sessions.sport_id`
+  // était null pour 100 % des séances générées, et la discipline n'apparaissait nulle part dans
+  // l'app alors que la lecture la joignait déjà (`read-today-plan.ts` : `sports(code)`).
+  //
+  // Une seule requête pour tout le plan : les codes sont peu nombreux (les disciplines déclarées
+  // par l'athlète) et se répètent sur les 14 jours.
+  const sportCodes = [...new Set(plan.sessions.map((s) => s.sportCode).filter((c): c is string => Boolean(c)))];
+  const sportIdByCode = new Map<string, string>();
+  if (sportCodes.length > 0) {
+    const { data: sportRows, error } = await admin.from("sports").select("id, code").in("code", sportCodes);
+    if (error) throw new Error(`materializePlanVersion: sports — ${error.message}`);
+    for (const row of sportRows ?? []) sportIdByCode.set(row.code, row.id);
+  }
+
   const sessionIdByDate = new Map<string, string>();
   const sessionRows: PlannedSessionInsert[] = [];
   for (const session of plan.sessions) {
@@ -323,7 +340,10 @@ async function materializeRest(
       plan_version_id: planVersionId,
       plan_week_id: planWeekId,
       user_id: userId,
-      sport_id: null, // résolu par code via `sports` — Lot L4 (lecture) ; le code reste dans `interference_note`/logs si besoin
+      // Un code absent du référentiel retombe sur `null` plutôt que de faire échouer la
+      // génération entière : les codes viennent de `athlete_sports` joint à `sports`
+      // (`build-planning-context.ts`), donc le cas est défensif et ne devrait pas se produire.
+      sport_id: session.sportCode ? (sportIdByCode.get(session.sportCode) ?? null) : null,
       scheduled_date: session.scheduledDate,
       slot: session.slot,
       order_in_day: session.orderInDay,
