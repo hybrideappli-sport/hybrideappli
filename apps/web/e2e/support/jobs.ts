@@ -16,12 +16,38 @@ export async function enqueueWeeklyReviewJobForUser(userId: string): Promise<voi
   if (error) throw new Error(`[e2e] enqueue weekly_review job impossible : ${error.message}`);
 }
 
-/** Déclenche `POST /api/v1/cron/drain-jobs` sur le serveur `next dev` réel (Playwright `webServer`). */
+/** Borne de sécurité : `DRAIN_BATCH_SIZE` vaut 10, et la suite complète n'accumule qu'une dizaine
+ *  de jobs. 20 tours laissent une marge large tout en garantissant la terminaison. */
+const MAX_DRAIN_ROUNDS = 20;
+
+/**
+ * Déclenche `POST /api/v1/cron/drain-jobs` sur le serveur `next dev` réel (Playwright `webServer`),
+ * EN BOUCLE jusqu'à ce que la file soit vide.
+ *
+ * Un seul appel ne suffisait pas et rendait `weekly-review.spec.ts` dépendant de l'ordre
+ * d'exécution : `claim_job_queue` réserve au plus `DRAIN_BATCH_SIZE` (10) jobs, par ordre
+ * d'échéance. Lancé seul, le test n'avait que son propre job en file et passait ; lancé dans la
+ * suite, les onboardings des autres specs avaient déjà enrôlé 8 `refresh_placements` échus plus
+ * tôt, qui saturaient le lot. Le job `weekly_review` restait `pending`, `attempts = 0` — jamais
+ * réservé, donc jamais exécuté, et le badge attendu n'apparaissait pas.
+ *
+ * Aucune modification du code de production : c'est le support de test qui doit drainer jusqu'au
+ * bout, pas la taille de lot de la production qui doit s'adapter aux tests.
+ */
 export async function drainJobsViaCron(baseURL: string): Promise<void> {
   const secret = requireCronSecret();
-  const response = await fetch(`${baseURL}/api/v1/cron/drain-jobs`, { method: "POST", headers: { Authorization: `Bearer ${secret}` } });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`[e2e] POST /cron/drain-jobs a échoué (${response.status}) : ${body}`);
+
+  for (let round = 1; round <= MAX_DRAIN_ROUNDS; round++) {
+    const response = await fetch(`${baseURL}/api/v1/cron/drain-jobs`, { method: "POST", headers: { Authorization: `Bearer ${secret}` } });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`[e2e] POST /cron/drain-jobs a échoué (${response.status}) : ${body}`);
+    }
+
+    const summary = (await response.json()) as { claimed?: number };
+    // `claimed = 0` : plus aucun job échu et `pending` — la file est drainée.
+    if (!summary.claimed) return;
   }
+
+  throw new Error(`[e2e] file de jobs non drainée après ${MAX_DRAIN_ROUNDS} tours — un job échoue-t-il en boucle ?`);
 }
