@@ -24,8 +24,11 @@ function redirectToDonnees(origin: string, error?: string): NextResponse {
  * code, chiffre les jetons, `status='active'`, enrôle `strava_backfill`, redirige vers `/donnees` —
  * une erreur à quelque étape que ce soit redirige aussi (jamais une page d'erreur brute, AC2).
  */
-export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { provider } = await params;
+export async function GET(request: Request, { params }: { params: Promise<{ connection: string }> }) {
+  // Segment dynamique nommé `[connection]` (contrainte Next.js : un seul nom de slug par niveau).
+  // Ici il porte un identifiant de fournisseur — l'URL publique de cette route est le `redirect_uri`
+  // enregistré côté Strava, elle ne doit jamais changer.
+  const { connection: provider } = await params;
   const { origin, searchParams } = new URL(request.url);
 
   const { user } = await requireUser();

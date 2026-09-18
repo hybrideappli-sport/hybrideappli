@@ -10,9 +10,17 @@ export const dynamic = "force-dynamic";
 /**
  * `DELETE /api/v1/data/connections/:id` — AC10, ADR-013 §6. Révoque chez le fournisseur, supprime
  * les jetons, `status='revoked'`. Les séances déjà importées sont CONSERVÉES — jamais supprimées.
+ *
+ * Le segment dynamique est nommé `[connection]` et non `[id]` : Next.js interdit deux noms de slug
+ * différents au même niveau d'un chemin (`You cannot use different slug names for the same dynamic
+ * path`), or `authorize/` et `callback/` partagent ce segment en y lisant un IDENTIFIANT DE
+ * FOURNISSEUR (`strava`) là où cette route y lit un UUID de connexion. Le nom neutre est le seul
+ * qui satisfasse les deux, et il préserve les trois URL publiques à l'identique — dont
+ * `connections/strava/callback`, enregistrée comme `redirect_uri` côté Strava (voir `authorize/`).
+ * Chaque route interprète donc ce paramètre selon son propre contexte, et le renomme localement.
  */
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id: connectionId } = await params;
+export async function DELETE(_request: Request, { params }: { params: Promise<{ connection: string }> }) {
+  const { connection: connectionId } = await params;
   const { user } = await requireUser();
   if (!user) return apiError(401, "UNAUTHORIZED", "Authentification requise.");
 
