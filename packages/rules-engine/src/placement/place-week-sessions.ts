@@ -112,7 +112,18 @@ export function placeWeekSessions(input: PlacementInput, ruleset: Ruleset): Plac
       };
     } else {
       const startTime = formatTime(chosen.startMin);
-      const status = chosen.date === origin.date && startTime === origin.time ? "scheduled" : "moved";
+      // Comparaison en MINUTES, jamais sur les chaînes. `formatTime()` produit `"07:00"` tandis
+      // que `origin.time`, relu depuis une colonne `time without time zone`, arrive sérialisé
+      // `"07:00:00"` — secondes comprises, quelle qu'ait été la valeur écrite. L'égalité de
+      // chaînes était donc TOUJOURS fausse dès que l'origine venait de la base, et une séance
+      // replacée sur son créneau d'origine était étiquetée `moved`. La base refusait alors
+      // l'insertion (`session_placements_moved_differs_from_origin` : un `moved` doit différer
+      // réellement de son origine), et les deux seuls appelants qui relisent l'origine —
+      // `resolveScheduleIncident()` et le job `refresh_placements` — échouaient à 100 % dans le
+      // cas NOMINAL, celui où rien n'a bougé.
+      const sameSlot =
+        chosen.date === origin.date && origin.time !== null && chosen.startMin === parseTime(origin.time);
+      const status = sameSlot ? "scheduled" : "moved";
       decision = {
         sessionId: session.sessionId,
         status,
