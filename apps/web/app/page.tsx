@@ -1,25 +1,18 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
-import { Button } from "@/components/ui/button";
+import { OnboardingCarousel } from "@/components/home/onboarding-carousel";
 
-// Accueil minimal (Lot L1 — socle). Le contenu marketing complet n'est pas
-// dans le périmètre de cette US.
+export const metadata: Metadata = {
+  title: "Hybride Club — un seul coach pour tous tes sports",
+  description:
+    "Course, vélo, natation, muscu : Hybride construit un plan qui tient compte de tout et s'adapte à ta semaine.",
+};
+
+/**
+ * Accueil (`/`) — porte d'entrée de l'app pour un visiteur non authentifié. Remplace le bloc
+ * minimal du Lot L1 (« Accueil minimal — le contenu marketing complet n'est pas dans le
+ * périmètre de cette US »), qui n'avait ni maquette, ni logo, ni voix de marque.
+ */
 export default function HomePage() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-5 text-center">
-      <h1 className="font-serif text-display text-foreground">Hybride Club</h1>
-      <p className="text-body text-foreground-muted">
-        Un coach IA qui construit et ajuste en continu votre plan d&apos;entraînement et de
-        nutrition.
-      </p>
-      <div className="flex w-full flex-col gap-3">
-        <Button asChild>
-          <Link href="/inscription">Créer un compte</Link>
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href="/connexion">Se connecter</Link>
-        </Button>
-      </div>
-    </main>
-  );
+  return <OnboardingCarousel />;
 }
