@@ -31,5 +31,8 @@ test("onboarding — golden path : chat, disclaimer, consentement, récap, plan 
 
   // AC1 — plan initial généré : redirection vers le Dashboard (placeholder Lot L1/L4).
   await page.waitForURL("**/dashboard", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  // Le `<h1>Dashboard</h1>` a disparu lors de l'alignement sur la maquette (2026-09-18) : le
+  // titre de la page est désormais la salutation, qui varie avec l'heure et ne peut donc pas
+  // servir d'ancre de test. L'en-tête de marque, lui, est stable.
+  await expect(page.getByTestId("dashboard-header")).toBeVisible();
 });

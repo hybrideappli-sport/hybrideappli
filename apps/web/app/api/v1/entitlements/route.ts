@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /**
  * `GET /api/v1/entitlements` — `08-architecture.md` §6.6. Lecture SEULE, ne consomme jamais
  * d'accès libre (contrairement à `GET /plan/today`) : c'est la route que l'UI interroge pour
- * afficher le compteur d'accès (`FreeAccessMeter`) ou décider d'un `PaywallGate` SANS déclencher de
+ * afficher le compteur d'accès (badge de `DashboardHeader`) ou décider d'un `PaywallGate` SANS déclencher de
  * consommation de quota par le simple fait de rafraîchir l'écran. Non listée explicitement dans les
  * étapes du plan (§6, Lot L4), ajoutée car directement nécessaire aux composants Dashboard de ce
  * même lot — voir le rapport de fin de lot.

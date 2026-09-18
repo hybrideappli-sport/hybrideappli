@@ -40,7 +40,10 @@ test("onboarding — objectif irréaliste : accepter la proposition du coach", a
   await page.getByRole("button", { name: /choisir cette proposition/i }).click();
 
   await page.waitForURL("**/dashboard", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  // Le `<h1>Dashboard</h1>` a disparu lors de l'alignement sur la maquette (2026-09-18) : le
+  // titre de la page est désormais la salutation, qui varie avec l'heure et ne peut donc pas
+  // servir d'ancre de test. L'en-tête de marque, lui, est stable.
+  await expect(page.getByTestId("dashboard-header")).toBeVisible();
 });
 
 test("onboarding — objectif irréaliste : confirmer l'objectif initial en connaissance de cause", async ({ page }) => {
@@ -49,5 +52,8 @@ test("onboarding — objectif irréaliste : confirmer l'objectif initial en conn
   await page.getByRole("button", { name: /je confirme mon objectif initial/i }).click();
 
   await page.waitForURL("**/dashboard", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  // Le `<h1>Dashboard</h1>` a disparu lors de l'alignement sur la maquette (2026-09-18) : le
+  // titre de la page est désormais la salutation, qui varie avec l'heure et ne peut donc pas
+  // servir d'ancre de test. L'en-tête de marque, lui, est stable.
+  await expect(page.getByTestId("dashboard-header")).toBeVisible();
 });

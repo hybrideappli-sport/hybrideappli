@@ -10,7 +10,10 @@ test("boucle quotidienne — saisie post-séance déclenche un ajustement imméd
   await completeOnboardingToDashboard(page, "daily-loop", historyMessageWithSessionToday());
 
   await expect(page.getByTestId("coach-plan-card")).toBeVisible();
-  await page.getByRole("link", { name: /ouvrir ma séance/i }).click();
+  // Ciblé par `data-testid` et non par libellé : le CTA a été reformulé « Voir ma séance du
+  // jour » lors de l'alignement du Dashboard sur sa maquette (2026-09-18), et un test ne doit pas
+  // casser à chaque reformulation éditoriale.
+  await page.getByTestId("coach-plan-cta").click();
   await page.waitForURL("**/aujourdhui");
 
   await expect(page.getByTestId("session-detail")).toBeVisible();

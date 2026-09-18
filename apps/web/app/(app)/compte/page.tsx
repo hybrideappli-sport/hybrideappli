@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { signOutAction } from "@/app/(auth)/actions";
 import { AccountDataSourcesRow } from "@/components/account/data-sources-row";
 import { DeleteAccountForm } from "@/components/account/delete-account-form";
 import { ExportAccountButton } from "@/components/account/export-account-button";
 import { HealthConsentManager } from "@/components/account/health-consent-manager";
 import { WeightEntryForm } from "@/components/account/weight-entry-form";
+import { Button } from "@/components/ui/button";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -70,6 +72,18 @@ export default async function AccountPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-label text-foreground-subtle">Mes données</h2>
         <ExportAccountButton />
+      </section>
+
+      {/* La déconnexion vivait dans l'en-tête du Dashboard, remplacé par l'en-tête de marque de
+          la maquette (`D-header`). `/compte` n'en portait AUCUNE : sans ce déplacement, le bouton
+          supprimé aurait été l'unique sortie de l'application. */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-label text-foreground-subtle">Session</h2>
+        <form action={signOutAction}>
+          <Button type="submit" variant="secondary" size="sm" className="w-full" data-testid="sign-out">
+            Se déconnecter
+          </Button>
+        </form>
       </section>
 
       <section className="flex flex-col gap-2">

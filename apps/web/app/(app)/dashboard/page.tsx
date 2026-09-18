@@ -4,21 +4,21 @@ import Link from "next/link";
 import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 import type { EntitlementView } from "@hybride/domain";
 
-import { signOutAction } from "@/app/(auth)/actions";
 import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { CoachPlanCard } from "@/components/dashboard/coach-plan-card";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { NutritionCard } from "@/components/dashboard/nutrition-card";
 import { ConnectInviteCard } from "@/components/dashboard/connect-invite-card";
 import { DataCard } from "@/components/dashboard/data-card";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
-import { FreeAccessMeter } from "@/components/dashboard/free-access-meter";
 import { UpsellBanner } from "@/components/dashboard/upsell-banner";
 import { macroFocusForToday, WeeklyPreviewCard, WeeklyPreviewLocked } from "@/components/dashboard/weekly-preview-card";
 import { WeeklyReviewBadge } from "@/components/dashboard/weekly-review-badge";
 import { PaywallGate } from "@/components/paywall/paywall-gate";
+import { greetingFor, longDateLabel } from "@/lib/dashboard-intro";
 import { DailyLogForm } from "@/components/today/daily-log-form";
 import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
-import { Button } from "@/components/ui/button";
 import { NotDoneNotice } from "@/components/planning/notdone-notice";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
@@ -73,7 +73,9 @@ export default async function DashboardPage() {
   if (!user) return null; // `(app)/layout.tsx` redirige déjà — défense en profondeur uniquement.
 
   const { data: profileRow } = await supabase.from("profiles").select("timezone").eq("id", user.id).maybeSingle();
-  const now = todayInTimezone(profileRow?.timezone ?? "Europe/Paris");
+  const timezone = profileRow?.timezone ?? "Europe/Paris";
+  const now = todayInTimezone(timezone);
+  const nowParts = nowPartsInTimezone(timezone);
   const admin = createSupabaseServiceRoleClient();
 
   const activePainNotice = await fetchActivePainNotice(admin, user.id);
@@ -81,19 +83,14 @@ export default async function DashboardPage() {
   const healthConsentActive = await isHealthConsentActive(supabase, user.id);
   const { blocked, entitlement } = await resolveEntitlement(admin, { userId: user.id, now });
 
-  const header = (
-    <div className="flex items-center justify-between">
-      <h1 className="font-serif text-title text-foreground">Dashboard</h1>
-      <div className="flex items-center gap-2">
-        <Link href="/compte" className="text-small text-foreground-muted hover:text-foreground hover:underline" data-testid="account-link">
-          Mon compte
-        </Link>
-        <form action={signOutAction}>
-          <Button type="submit" variant="ghost" size="sm">
-            Se déconnecter
-          </Button>
-        </form>
-      </div>
+  const header = <DashboardHeader entitlement={entitlement} />;
+
+  /* `D-date` + `D-greeting` — les deux lignes qui ouvrent l'écran dans la maquette. Le titre
+     display serif est l'ancrage éditorial de la page ; le code n'en avait aucun. */
+  const intro = (
+    <div className="flex flex-col gap-1" data-testid="dashboard-intro">
+      <p className="text-label text-foreground-muted">{longDateLabel(now, timezone)}</p>
+      <h1 className="font-serif text-display text-foreground">{greetingFor(nowParts.time)}</h1>
     </div>
   );
 
@@ -101,6 +98,7 @@ export default async function DashboardPage() {
     return (
       <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
         {header}
+        {intro}
         {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
         {medicalClearanceNotice ? <MedicalClearanceNotice notice={medicalClearanceNotice} /> : null}
         {!healthConsentActive ? <DegradedModeBanner /> : null}
@@ -116,7 +114,6 @@ export default async function DashboardPage() {
             pour continuer dès maintenant — ton coach reste disponible 24/7 avec une adaptation continue.
           </p>
         </div>
-        <FreeAccessMeter freeAccess={entitlement.freeAccess} />
         {/* AC13/ADR-008 §5 — la saisie quotidienne (`POST /session-logs`, ne consomme jamais
             d'accès libre) reste accessible même quota épuisé : seul le CONTENU (séance/nutrition
             du jour) est derrière ce quota, jamais la capacité à déclarer sa journée. */}
@@ -126,7 +123,6 @@ export default async function DashboardPage() {
   }
 
   const ruleset = await getActiveRuleset(admin);
-  const nowParts = nowPartsInTimezone(profileRow?.timezone ?? "Europe/Paris");
 
   const planVersionId = await getActivePlanVersionId(admin, user.id);
   const [session, nutrition, notDoneNotices] = planVersionId
@@ -151,11 +147,13 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
       {header}
+      {intro}
 
       {activePainNotice ? <PainReferralNotice notice={activePainNotice} /> : null}
       {!healthConsentActive ? <DegradedModeBanner /> : null}
 
-      {planVersionId ? <CoachPlanCard session={session} nutrition={nutrition} /> : <DashboardEmptyState />}
+      {planVersionId ? <CoachPlanCard session={session} /> : <DashboardEmptyState />}
+      {nutrition ? <NutritionCard nutrition={nutrition} /> : null}
 
       {/* US-03, amendement ADR-017 §8-§9 — `D-notdone-notice` : immédiatement après le plan du jour,
           avant tout le reste (design §3.1). `notDoneNotices` porte la plus récente ; le composant
@@ -174,7 +172,6 @@ export default async function DashboardPage() {
       <DataCard userId={user.id} />
 
       <WeeklyReviewBadge userId={user.id} />
-      {entitlement.tier === "free" ? <FreeAccessMeter freeAccess={entitlement.freeAccess} /> : null}
       <UpsellBanner tier={entitlement.tier} />
     </main>
   );
