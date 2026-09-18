@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 // Boutons — docs/design-system.md §4.1 (primaire) et §4.2 (secondaire/tertiaire).
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-button font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none",
+  "inline-flex items-center justify-center gap-2 rounded-full text-center text-button font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none",
   {
     variants: {
       variant: {
@@ -18,10 +18,16 @@ const buttonVariants = cva(
           "bg-transparent text-foreground-muted hover:text-foreground disabled:text-foreground-subtle",
         link: "rounded-none text-accent underline-offset-4 hover:underline disabled:text-foreground-subtle",
       },
+      // `min-h-*` et non `h-*` : combiné à `whitespace-nowrap` (retiré ci-dessus), une hauteur
+      // FIXE empêchait un libellé long de faire quoi que ce soit — ni revenir à la ligne, ni
+      // grandir. Mesuré sur `/compte` à 320 px de large : « Accorder de nouveau mon consentement »
+      // débordait de 36 px, « Supprimer définitivement mon compte » de 25 px, et deux autres
+      // boutons mangeaient l'intégralité de leur padding horizontal. Un libellé court garde
+      // exactement la même hauteur qu'avant, la hauteur minimale dominant son contenu.
       size: {
-        default: "h-14 px-6",
-        sm: "h-11 px-5",
-        lg: "h-14 px-8",
+        default: "min-h-14 px-6 py-2",
+        sm: "min-h-11 px-5 py-2",
+        lg: "min-h-14 px-8 py-2",
       },
     },
     defaultVariants: {
