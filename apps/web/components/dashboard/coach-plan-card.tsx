@@ -42,8 +42,8 @@ const INTENSITY_LABELS: Record<string, string> = {
  * La nutrition a quitté cette carte pour la sienne (`NutritionCard`) : la maquette en fait deux
  * objets distincts, et les macros n'étaient de toute façon pas affichées.
  */
-export function CoachPlanCard({ session }: { session: TodaySessionView | null }) {
-  const discipline = session ? sportLabel(session.sportCode) : null;
+export async function CoachPlanCard({ session }: { session: TodaySessionView | null }) {
+  const discipline = session ? await sportLabel(session.sportCode) : null;
   const intensity = session?.intensityZone ? INTENSITY_LABELS[session.intensityZone] : null;
 
   return (

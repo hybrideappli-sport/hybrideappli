@@ -4,17 +4,19 @@ import type { ConfirmedProfile } from "@hybride/domain";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { sportLabel } from "@/lib/sport-labels";
 
 type ProfileRecapProps = {
   profile: ConfirmedProfile;
+  /** Libellés français des disciplines, résolus côté serveur depuis `sports.label_fr` — ce
+   *  composant est client et ne peut pas lire la base lui-même. */
+  sportLabels: Record<string, string>;
   onValidate: () => void;
   pending: boolean;
   error: string | null;
 };
 
 /** AC1 — l'utilisateur VALIDE son profil initial avant toute persistance (le LLM ne persiste jamais seul). */
-export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRecapProps) {
+export function ProfileRecap({ profile, sportLabels, onValidate, pending, error }: ProfileRecapProps) {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-serif text-title text-foreground">Ton profil, avant de générer ton plan</h1>
@@ -54,7 +56,7 @@ export function ProfileRecap({ profile, onValidate, pending, error }: ProfileRec
             <ul className="list-inside list-disc">
               {profile.sports.map((sport) => (
                 <li key={sport.sportCode}>
-                  {sportLabel(sport.sportCode)} ({sport.level}
+                  {sportLabels[sport.sportCode] ?? sport.sportCode} ({sport.level}
                   {sport.isPrimary ? ", principal" : ""})
                 </li>
               ))}

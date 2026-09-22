@@ -4,6 +4,7 @@ import type { ProfileDraft } from "@hybride/domain";
 import { getCurrentOnboardingSession } from "@/lib/onboarding/get-current-session";
 import { buildConfirmedProfile } from "@/lib/onboarding/build-confirmed-profile";
 import { OnboardingReview } from "@/components/onboarding/onboarding-review";
+import { sportLabelsFor } from "@/lib/sport-labels";
 
 export const metadata: Metadata = {
   title: "Onboarding — Récapitulatif",
@@ -26,5 +27,9 @@ export default async function OnboardingRecapPage() {
     );
   }
 
-  return <OnboardingReview sessionId={session.id} profile={result.profile} />;
+  // Les libellés sont résolus ICI : `ProfileRecap` est un composant client et ne peut pas lire
+  // `sports.label_fr` lui-même. Une seule lecture pour toutes les disciplines déclarées.
+  const sportLabels = await sportLabelsFor(result.profile.sports.map((sport) => sport.sportCode));
+
+  return <OnboardingReview sessionId={session.id} profile={result.profile} sportLabels={Object.fromEntries(sportLabels)} />;
 }

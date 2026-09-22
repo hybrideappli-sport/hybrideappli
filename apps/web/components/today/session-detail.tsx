@@ -2,6 +2,7 @@ import type { TodaySessionView } from "@hybride/domain";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExplanationInline } from "@/components/coach/explanation-inline";
+import { sportLabel } from "@/lib/sport-labels";
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
   endurance: "Endurance",
@@ -17,7 +18,9 @@ const SESSION_TYPE_LABELS: Record<string, string> = {
 };
 
 /** `SessionDetail` — AC1, AC10 : séance du jour, prescription complète + mention d'interférence. */
-export function SessionDetail({ session }: { session: TodaySessionView }) {
+export async function SessionDetail({ session }: { session: TodaySessionView }) {
+  const discipline = await sportLabel(session.sportCode);
+
   return (
     <Card data-testid="session-detail">
       <CardHeader>
@@ -25,7 +28,7 @@ export function SessionDetail({ session }: { session: TodaySessionView }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-body text-foreground-muted">
         <div className="flex gap-4 text-small text-foreground-subtle">
-          {session.sportCode ? <span>{session.sportCode.replace(/_/g, " ")}</span> : null}
+          {discipline ? <span>{discipline}</span> : null}
           {session.durationMin ? <span>{session.durationMin} min</span> : null}
           {session.intensityZone ? <span>Zone {session.intensityZone}</span> : null}
         </div>

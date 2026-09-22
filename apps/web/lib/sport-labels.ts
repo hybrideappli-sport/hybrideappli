@@ -1,34 +1,66 @@
-/**
- * Libellés français des disciplines, indexés par `sports.code` (seed `0021_seed_data_sources.sql`
- * et amont). Jusqu'ici l'app affichait le code brut nettoyé de ses underscores
- * (`session-detail.tsx` : `sportCode.replace(/_/g, " ")`), ce qui rendait « strength training »
- * ou « trail running » en anglais au milieu d'une interface française.
- *
- * Le repli reste ce nettoyage, avec une capitale : un code inconnu — un sport déclaré librement
- * par l'utilisateur via `S-offplan-block`, par exemple — reste affichable sans être bloquant.
- */
-const SPORT_LABELS: Record<string, string> = {
-  climbing: "Escalade",
-  crossfit: "CrossFit",
-  cycling: "Vélo",
-  dance: "Danse",
-  football: "Football",
-  hiking: "Randonnée",
-  mountain_biking: "VTT",
-  rowing: "Aviron",
-  running: "Course",
-  strength_training: "Renforcement",
-  swimming: "Natation",
-  tennis: "Tennis",
-  trail_running: "Trail",
-  triathlon: "Triathlon",
-  yoga_pilates: "Yoga / Pilates",
-};
+import "server-only";
 
-export function sportLabel(code: string | null): string | null {
-  if (!code) return null;
-  const known = SPORT_LABELS[code];
-  if (known) return known;
+import { cache } from "react";
+
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+
+/**
+ * Libellés français des disciplines, lus dans `sports.label_fr` — la colonne existe depuis la
+ * migration `0003` et le référentiel est seedé par `0010`.
+ *
+ * Ce module a d'abord été une table en dur (2026-09-18, introduite avec l'alignement du Dashboard).
+ * Elle a dérivé de la base le jour même : la table disait `running → "Course"` là où
+ * `sports.label_fr` dit « Course à pied ». Deux sources pour la même information, déjà en désaccord
+ * — d'où ce passage à la lecture, la seule qui fasse foi.
+ *
+ * `cache()` de React : une seule requête par rendu de requête, quel que soit le nombre de
+ * composants qui demandent un libellé. Le référentiel tient en quinze lignes et il est lisible par
+ * tout utilisateur authentifié (`sports_read … using (true)`), donc via le client RLS et non
+ * `service_role`.
+ */
+const getSportLabels = cache(async (): Promise<Map<string, string>> => {
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase.from("sports").select("code, label_fr");
+
+  // Un référentiel illisible ne doit pas faire échouer un écran : on retombe sur le formatage du
+  // code, exactement comme pour une discipline absente du référentiel.
+  if (error) {
+    console.error("[sport-labels] référentiel illisible, repli sur le formatage du code :", error.message);
+    return new Map();
+  }
+
+  return new Map((data ?? []).map((row) => [row.code, row.label_fr]));
+});
+
+/**
+ * Formatage de repli : `trail_running` → « Trail running ».
+ *
+ * Sert deux cas. Une discipline absente du référentiel, et — plus fréquent — une discipline créée
+ * à l'exécution par `resolveOrCreateSport()`, qui pose `label_fr = code` faute de libellé transmis.
+ * Sans ce repli, l'interface afficherait le code brut avec ses underscores.
+ */
+function formatCode(code: string): string {
   const cleaned = code.replace(/[_-]+/g, " ").trim();
-  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : null;
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : code;
+}
+
+/** Libellé d'une discipline, ou `null` si aucun code n'est renseigné. */
+export async function sportLabel(code: string | null): Promise<string | null> {
+  if (!code) return null;
+  const labels = await getSportLabels();
+  const known = labels.get(code);
+  // `label_fr === code` : ligne créée à l'exécution, sans vrai libellé. Traitée comme une absence.
+  return known && known !== code ? known : formatCode(code);
+}
+
+/** Variante pour un appelant qui a plusieurs codes à résoudre — une seule lecture pour tous. */
+export async function sportLabelsFor(codes: readonly (string | null)[]): Promise<Map<string, string>> {
+  const labels = await getSportLabels();
+  const resolved = new Map<string, string>();
+  for (const code of codes) {
+    if (!code) continue;
+    const known = labels.get(code);
+    resolved.set(code, known && known !== code ? known : formatCode(code));
+  }
+  return resolved;
 }

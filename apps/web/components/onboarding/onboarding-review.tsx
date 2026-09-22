@@ -11,11 +11,12 @@ import { ObjectiveNegotiation } from "@/components/onboarding/objective-negotiat
 type OnboardingReviewProps = {
   sessionId: string;
   profile: ConfirmedProfile;
+  sportLabels: Record<string, string>;
 };
 
 type NegotiationState = Extract<CompleteOnboardingResponse, { outcome: "objective_negotiation" }>;
 
-export function OnboardingReview({ sessionId, profile }: OnboardingReviewProps) {
+export function OnboardingReview({ sessionId, profile, sportLabels }: OnboardingReviewProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,5 +82,5 @@ export function OnboardingReview({ sessionId, profile }: OnboardingReviewProps) 
     );
   }
 
-  return <ProfileRecap profile={profile} onValidate={handleValidate} pending={pending} error={error} />;
+  return <ProfileRecap profile={profile} sportLabels={sportLabels} onValidate={handleValidate} pending={pending} error={error} />;
 }
