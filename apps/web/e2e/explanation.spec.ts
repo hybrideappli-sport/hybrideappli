@@ -1,13 +1,15 @@
 import { test, expect } from "@playwright/test";
 
-import { completeOnboardingToDashboard } from "./support/daily-loop-flow";
+import { completeOnboardingToDashboard, historyMessageWithSessionToday } from "./support/daily-loop-flow";
 
 /**
  * `explanation.spec.ts` — AC1, AC5. Explication courte visible par défaut sur chaque
  * recommandation du coach ; « en savoir plus » ouvre le raisonnement complet.
  */
 test("explicabilité — explication courte visible, « en savoir plus » ouvre le raisonnement complet", async ({ page }) => {
-  await completeOnboardingToDashboard(page, "explanation");
+  // `historyMessageWithSessionToday()` : sans lui, l'existence d'une séance AUJOURD'HUI dépend du
+  // jour de la semaine, et ce test devenait rouge les jours sans séance — constaté le 2026-09-22.
+  await completeOnboardingToDashboard(page, "explanation", historyMessageWithSessionToday());
 
   await expect(page.getByTestId("coach-plan-card")).toBeVisible();
   const explanation = page.getByTestId("coach-plan-card").getByTestId("explanation-inline").first();

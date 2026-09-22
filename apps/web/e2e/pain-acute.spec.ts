@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-import { completeOnboardingToDashboard } from "./support/daily-loop-flow";
+import { completeOnboardingToDashboard, historyMessageWithSessionToday } from "./support/daily-loop-flow";
 
 /**
  * `pain-acute.spec.ts` — AC9 niveau 3, ADR-008 §5. Douleur présente à l'effort ET au repos ⟹
@@ -8,7 +8,9 @@ import { completeOnboardingToDashboard } from "./support/daily-loop-flow";
  * le paywall). Aucune alternative d'auto-adaptation n'est proposée à ce niveau.
  */
 test("protocole douleur — douleur à l'effort et au repos déclenche l'orientation professionnel de santé", async ({ page }) => {
-  await completeOnboardingToDashboard(page, "pain-acute");
+  // Ce test saisit une douleur sur la séance du jour : il lui en faut une, garantie, plutôt que
+  // de dépendre du jour de la semaine (rouge le 2026-09-22, un mardi sans séance).
+  await completeOnboardingToDashboard(page, "pain-acute", historyMessageWithSessionToday());
 
   await page.goto("/aujourdhui");
   await expect(page.getByTestId("daily-log-form")).toBeVisible();
