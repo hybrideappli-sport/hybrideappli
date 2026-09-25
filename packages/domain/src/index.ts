@@ -253,6 +253,13 @@ export type {
 } from "./today-plan";
 
 // ---------------------------------------------------------------------------
+// debrief.ts — recueil post-séance conversationnel (US-05, Lot L1, ADR-019)
+// ---------------------------------------------------------------------------
+
+export { DebriefDraftPatchSchema, missingMandatory, missingDesired, missingOffPlan, mergeDebriefDraft } from "./debrief";
+export type { DebriefDraft, DebriefDraftPatch, DebriefMandatoryField } from "./debrief";
+
+// ---------------------------------------------------------------------------
 // plan-week-macro.ts — GET /plan/week, GET /plan/macro (AC1, AC13, finding B4)
 // ---------------------------------------------------------------------------
 

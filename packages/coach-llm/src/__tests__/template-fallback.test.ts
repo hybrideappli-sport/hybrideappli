@@ -21,6 +21,7 @@ const TRACE: LlmTraceInput = {
 function throwingProvider(error: Error): LlmProvider {
   return {
     name: "flaky",
+    converseDebrief: () => Promise.reject(new Error("[test] converseDebrief non exercé ici.")),
     converseOnboarding: () => {
       throw new Error("not used in this test");
     },
@@ -70,6 +71,7 @@ describe("renderExplanation — repli template (panne / latence du fournisseur)"
     function timeoutProvider(): LlmProvider {
       return {
         name: "slow",
+        converseDebrief: () => Promise.reject(new Error("[test] converseDebrief non exercé ici.")),
         converseOnboarding: () => {
           throw new Error("not used");
         },

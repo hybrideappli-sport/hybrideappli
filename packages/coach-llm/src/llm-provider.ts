@@ -76,9 +76,38 @@ export interface ExplanationOutput {
   longText: string;
 }
 
+/**
+ * Contexte d'un tour de débrief post-séance (US-05, Lot L1, ADR-019).
+ *
+ * Volontairement distinct de `ConversationTurnInput` : un débrief n'a pas d'étape d'onboarding, et
+ * son brouillon n'est pas un profil. Les deux champs `missing*` sont ce qui permet au modèle de
+ * savoir QUOI demander — ils sont calculés par le domaine (`missingMandatory()`,
+ * `missingDesired()`), jamais déduits par le modèle lui-même.
+ */
+export interface DebriefTurnInput {
+  history: ConversationHistoryEntry[];
+  /** Brouillon accumulé aux tours précédents — jamais un `session_log`. */
+  draft: Record<string, unknown>;
+  userMessage: string;
+  /** De quoi parler juste de la séance, sans que le modèle ait à la deviner. */
+  session: {
+    sessionType: string;
+    durationMin: number | null;
+    sportLabel: string | null;
+    isOffPlan: boolean;
+  };
+  /** Champs obligatoires restants, dans l'ordre de demande. Vide ⟹ l'écriture est possible. */
+  missingMandatory: readonly string[];
+  /** `rpe` / `freshness` restants — demandés, jamais bloquants. */
+  missingDesired: readonly string[];
+}
+
 export interface LlmProvider {
   /** Nom court du fournisseur — persisté dans `explanations.llm_model` / utilisé en log. */
   readonly name: string;
   converseOnboarding(input: ConversationTurnInput): Promise<ConversationTurnOutput>;
+  /** Un tour de débrief post-séance. Même forme de sortie que l'onboarding : réponse, extraction
+   *  candidate, drapeau de reformulation, proposition de clôture. */
+  converseDebrief(input: DebriefTurnInput): Promise<ConversationTurnOutput>;
   renderExplanation(input: ExplanationRequest): Promise<ExplanationOutput>;
 }

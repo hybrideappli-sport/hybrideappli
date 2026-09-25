@@ -34,6 +34,9 @@ class AlwaysFailingLlmProvider implements LlmProvider {
   async converseOnboarding(): Promise<never> {
     throw new Error("[test] fournisseur LLM indisponible (onboarding).");
   }
+  async converseDebrief(): Promise<never> {
+    throw new Error("[test] fournisseur LLM indisponible (débrief).");
+  }
   async renderExplanation(): Promise<never> {
     throw new Error("[test] fournisseur LLM indisponible (explication).");
   }

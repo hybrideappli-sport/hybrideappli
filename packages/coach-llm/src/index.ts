@@ -22,6 +22,9 @@ export type {
   LlmProvider,
   SportReferentialEntry,
 } from "./llm-provider";
+export { runDebriefTurn, MAX_DEBRIEF_REFORMULATIONS } from "./debrief-conversation";
+export type { DebriefTurnRequest, DebriefTurnResult } from "./debrief-conversation";
+export type { DebriefTurnInput } from "./llm-provider";
 export type { ExplanationSubjectType, LlmTraceInput, LlmTraceInputField, LlmTraceOutput } from "./types";
 
 export { DeterministicMockLlmProvider } from "./mock-provider";

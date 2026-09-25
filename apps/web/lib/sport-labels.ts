@@ -13,6 +13,11 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
  * `sports.label_fr` dit « Course à pied ». Deux sources pour la même information, déjà en désaccord
  * — d'où ce passage à la lecture, la seule qui fasse foi.
  *
+ * ⚠️ UTILISABLE EN CONTEXTE DE REQUÊTE UNIQUEMENT. `getSupabaseServerClient()` lit les cookies ;
+ * appelé depuis un job ou un orchestrateur sans requête, ce module lève « `cookies` was called
+ * outside a request scope ». Un appelant serveur hors requête doit lire `sports.label_fr` par sa
+ * propre jointure — voir `run-debrief-turn.ts`, qui le fait.
+ *
  * `cache()` de React : une seule requête par rendu de requête, quel que soit le nombre de
  * composants qui demandent un libellé. Le référentiel tient en quinze lignes et il est lisible par
  * tout utilisateur authentifié (`sports_read … using (true)`), donc via le client RLS et non

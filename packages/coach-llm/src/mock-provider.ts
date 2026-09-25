@@ -17,6 +17,7 @@ import type {
   ConversationTurnOutput,
   ExplanationOutput,
   ExplanationRequest,
+  DebriefTurnInput,
   LlmProvider,
   SportReferentialEntry,
 } from "./llm-provider";
@@ -278,12 +279,112 @@ function runStep(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Débrief post-séance (US-05, Lot L1, ADR-019)
+// ---------------------------------------------------------------------------
+
+/** Mots-clés → codes de zone. Volontairement PARTIEL : une zone non couverte fait émettre le slug
+ *  brut, ce qui reproduit le mode d'échec réel d'un modèle (un `genou_droit` là où le contrat
+ *  attend `knee`) et donne aux tests un cas d'extraction rejetée qui n'est pas artificiel. */
+const ZONE_KEYWORDS: Record<string, string> = {
+  genou: "knee",
+  cheville: "ankle",
+  pied: "foot",
+  hanche: "hip",
+  dos: "lower_back",
+  epaule: "shoulder",
+  coude: "elbow",
+  poignet: "wrist",
+  nuque: "neck",
+  cuisse: "thigh",
+  mollet: "calf",
+};
+
+function deaccent(value: string): string {
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractDebrief(message: string): Record<string, unknown> | null {
+  const m = deaccent(message);
+  const patch: Record<string, unknown> = {};
+
+  if (/pas fait|pas pu|rate|annule/.test(m)) patch["completion"] = "not_done";
+  else if (/moitie|partiel|ecourte|raccourci/.test(m)) patch["completion"] = "partial";
+  else if (/fait|termine|fini|ok|nickel/.test(m)) patch["completion"] = "done";
+
+  if (/aucune douleur|pas de douleur|pas mal|rien a signaler|ras/.test(m)) patch["pain"] = "none";
+  else if (/gene|tiraillement|leger/.test(m)) patch["pain"] = "light";
+  else if (/douleur|mal\b|ca fait mal/.test(m)) patch["pain"] = "pain";
+
+  if (patch["pain"] === "light" || patch["pain"] === "pain") {
+    for (const [mot, code] of Object.entries(ZONE_KEYWORDS)) {
+      if (m.includes(mot)) {
+        // Zone reconnue → code du contrat. Zone inconnue → slug brut, rejeté en aval.
+        patch["painZone"] = /droit|gauche/.test(m) ? `${mot}_${/droit/.test(m) ? "droit" : "gauche"}` : code;
+        break;
+      }
+    }
+    if (/au repos|meme au repos|la nuit/.test(m)) patch["painAtRest"] = true;
+  }
+
+  const rpe = /rpe\s*(\d{1,2})|difficulte\s*(?:de\s*)?(\d{1,2})|(\d{1,2})\s*sur\s*10/.exec(m);
+  if (rpe) patch["rpe"] = Number.parseInt(rpe[1] ?? rpe[2] ?? rpe[3] ?? "", 10);
+
+  const fr = /forme\s*(?:de\s*)?(\d)|(\d)\s*sur\s*5|fraicheur\s*(\d)/.exec(m);
+  if (fr) patch["freshness"] = Number.parseInt(fr[1] ?? fr[2] ?? fr[3] ?? "", 10);
+
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+const DEBRIEF_QUESTION: Record<string, string> = {
+  completion: "Tu as pu faire ta séance ?",
+  pain: "Une douleur ou une gêne pendant l'effort ?",
+  painZone: "C'était où exactement ?",
+  sportCode: "C'était quelle discipline ?",
+  actualDurationMin: "Ça a duré combien de temps ?",
+};
+
+function handleDebrief(input: DebriefTurnInput): StepOutcome {
+  const extraction = extractDebrief(input.userMessage);
+
+  // Rien de reconnu alors qu'il restait à obtenir : le coach reformule plutôt que d'inventer.
+  if (!extraction && input.missingMandatory.length > 0) {
+    const cible = input.missingMandatory[0]!;
+    return {
+      reply: `Je n'ai pas bien compris. ${DEBRIEF_QUESTION[cible] ?? "Tu peux reformuler ?"}`,
+      extraction: null,
+      isReformulation: true,
+      suggestNextStep: false,
+    };
+  }
+
+  // Ce qu'il restera à obtenir APRÈS ce patch — le mock ne rejoue pas la logique du domaine, il
+  // se contente de retirer ce qu'il vient d'extraire.
+  const restant = input.missingMandatory.filter((champ) => extraction?.[champ] === undefined);
+
+  if (restant.length > 0) {
+    return { reply: DEBRIEF_QUESTION[restant[0]!] ?? "Dis-m'en un peu plus.", extraction, isReformulation: false, suggestNextStep: false };
+  }
+  // Même raisonnement que pour les obligatoires : ce qui reste APRÈS ce patch. Juger sur l'état
+  // d'avant ferait reposer la question alors que l'utilisateur vient d'y répondre.
+  const desireRestant = input.missingDesired.filter((champ) => extraction?.[champ] === undefined);
+  if (desireRestant.length > 0) {
+    // Les deux recherchés en UN seul tour, jamais deux relances (ADR-019 §6).
+    return { reply: "C'était dur ? Et tu te sens comment ?", extraction, isReformulation: false, suggestNextStep: false };
+  }
+  return { reply: "Noté, merci. Je m'occupe du reste.", extraction, isReformulation: false, suggestNextStep: true };
+}
+
 export class DeterministicMockLlmProvider implements LlmProvider {
   readonly name = "mock-deterministic";
 
   converseOnboarding(input: ConversationTurnInput): Promise<ConversationTurnOutput> {
     const outcome = runStep(input.step, input.userMessage, input.profileDraft, input.sportReferential);
     return Promise.resolve(outcome);
+  }
+
+  converseDebrief(input: DebriefTurnInput): Promise<ConversationTurnOutput> {
+    return Promise.resolve(handleDebrief(input));
   }
 
   renderExplanation(input: ExplanationRequest): Promise<ExplanationOutput> {

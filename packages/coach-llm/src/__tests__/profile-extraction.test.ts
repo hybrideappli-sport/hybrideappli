@@ -11,6 +11,7 @@ import type { ConversationTurnInput, ConversationTurnOutput, LlmProvider } from 
 function providerReturning(output: ConversationTurnOutput): LlmProvider {
   return {
     name: "fake",
+    converseDebrief: () => Promise.reject(new Error("[test] converseDebrief non exercé ici.")),
     converseOnboarding: (_input: ConversationTurnInput) => Promise.resolve(output),
     renderExplanation: () => {
       throw new Error("not used in this test");

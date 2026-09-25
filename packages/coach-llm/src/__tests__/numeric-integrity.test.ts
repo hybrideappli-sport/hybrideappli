@@ -24,6 +24,7 @@ function buildTrace(overrides: Partial<LlmTraceInput> = {}): LlmTraceInput {
 function fakeProvider(explanation: ExplanationOutput | (() => Promise<ExplanationOutput>)): LlmProvider {
   return {
     name: "fake",
+    converseDebrief: () => Promise.reject(new Error("[test] converseDebrief non exercé ici.")),
     converseOnboarding: () => {
       throw new Error("not used in this test");
     },

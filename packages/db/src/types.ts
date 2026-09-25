@@ -414,6 +414,117 @@ export type Database = {
         }
         Relationships: []
       }
+      debrief_messages: {
+        Row: {
+          contains_health_data: boolean
+          content: string
+          created_at: string
+          extraction: Json | null
+          id: string
+          is_reformulation: boolean
+          latency_ms: number | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          contains_health_data?: boolean
+          content: string
+          created_at?: string
+          extraction?: Json | null
+          id?: string
+          is_reformulation?: boolean
+          latency_ms?: number | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          contains_health_data?: boolean
+          content?: string
+          created_at?: string
+          extraction?: Json | null
+          id?: string
+          is_reformulation?: boolean
+          latency_ms?: number | null
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debrief_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "debrief_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debrief_sessions: {
+        Row: {
+          completed_at: string | null
+          draft: Json
+          id: string
+          llm_model: string | null
+          planned_session_id: string
+          session_log_id: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["debrief_status"]
+          turn_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          draft?: Json
+          id?: string
+          llm_model?: string | null
+          planned_session_id: string
+          session_log_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["debrief_status"]
+          turn_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          draft?: Json
+          id?: string
+          llm_model?: string | null
+          planned_session_id?: string
+          session_log_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["debrief_status"]
+          turn_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debrief_sessions_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: true
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debrief_sessions_session_log_id_fkey"
+            columns: ["session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debrief_sessions_session_log_id_fkey"
+            columns: ["session_log_id"]
+            isOneToOne: false
+            referencedRelation: "session_logs_counted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_traces: {
         Row: {
           category: string
@@ -2539,6 +2650,7 @@ export type Database = {
       data_regime: "cold" | "declared" | "connected"
       data_source: "declared" | "connected"
       day_slot: "am" | "pm" | "unspecified"
+      debrief_status: "in_progress" | "completed" | "abandoned"
       detail_level: "detailed" | "intent" | "macro"
       explanation_source: "template" | "llm"
       feasibility_status: "realistic" | "stretch" | "unrealistic"
@@ -2648,12 +2760,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2677,11 +2789,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2702,11 +2814,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2727,11 +2839,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2744,11 +2856,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2794,6 +2906,7 @@ export const Constants = {
       data_regime: ["cold", "declared", "connected"],
       data_source: ["declared", "connected"],
       day_slot: ["am", "pm", "unspecified"],
+      debrief_status: ["in_progress", "completed", "abandoned"],
       detail_level: ["detailed", "intent", "macro"],
       explanation_source: ["template", "llm"],
       feasibility_status: ["realistic", "stretch", "unrealistic"],

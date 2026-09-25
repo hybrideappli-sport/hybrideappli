@@ -14,8 +14,11 @@
 
 import { Mistral } from "@mistralai/mistralai";
 
+import { BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS } from "@hybride/domain";
+
 import type {
   ConversationTurnInput,
+  DebriefTurnInput,
   ConversationTurnOutput,
   ExplanationOutput,
   ExplanationRequest,
@@ -41,6 +44,37 @@ Règles absolues :
 - "suggestNextStep" vaut true si tu estimes avoir assez d'information pour cette étape.
 - Si le champ "sportReferential" est fourni, tout "sportCode" que tu produis DOIT être copié tel quel depuis la colonne "code" de ce référentiel. Tu ne crées JAMAIS un code à partir des mots de l'utilisateur : « course à pied » doit donner "running", pas "course_a_pied". Choisis le code dont le libellé correspond le mieux à ce que décrit l'utilisateur.
 - Uniquement si AUCUNE entrée du référentiel ne correspond raisonnablement (sport rare et réellement absent), tu peux proposer un nouveau code en minuscules sans accent, mots séparés par des underscores.`;
+
+/**
+ * Prompt du débrief post-séance (US-05, Lot L1, ADR-019 §5).
+ *
+ * Les énumérations sont ÉCRITES DANS LE PROMPT, dérivées des constantes du domaine plutôt que
+ * recopiées à la main — une valeur ajoutée à `BODY_ZONES` apparaît ici sans intervention. Sans
+ * cette liste, le modèle produit `genou_droit` là où le contrat attend `knee`, et le protocole
+ * douleur ne se déclenche jamais. C'est exactement l'incident `course_a_pied` du 2026-09-18,
+ * transposé à une donnée de santé.
+ */
+const DEBRIEF_SYSTEM_PROMPT = `Tu es le coach IA d'Hybride Club. Tu débriefes UNE séance qui vient d'avoir lieu.
+Règles absolues :
+- Tu ne calcules JAMAIS de charge, de volume ni d'intensité : un moteur à règles séparé s'en charge.
+- Réponds UNIQUEMENT avec un objet JSON valide, sans texte hors JSON, au format :
+{"reply": string, "isReformulation": boolean, "extraction": object|null, "suggestNextStep": boolean}
+- "extraction" ne contient QUE des champs de cette liste, et RIEN d'autre. Tout champ inventé fait rejeter l'extraction entière :
+  completion   : ${COMPLETION_STATUSES.join(" | ")}
+  pain         : ${PAIN_LEVELS.join(" | ")}
+  painZone     : ${BODY_ZONES.join(" | ")}
+  painAtRest   : true | false
+  rpe          : entier de 1 à 10
+  freshness    : entier de 1 à 5
+  actualDurationMin : entier de 0 à 1440
+  sportCode, sessionType, comment, notDoneReason
+- Ces valeurs sont des CODES à recopier tels quels depuis les listes ci-dessus. Jamais de traduction, jamais d'invention : « j'ai mal au genou » donne "knee", pas "genou".
+- Le champ "missingMandatory" de l'entrée dit ce qu'il te reste à obtenir. Demande-le, une chose à la fois, sans lire une liste à l'utilisateur.
+- "missingDesired" (rpe, freshness) : demande-les UNE SEULE FOIS, les deux ensemble, en une phrase naturelle. S'ils ne viennent pas, n'insiste plus.
+- Si tu n'es pas SÛR d'une valeur, ne l'extrais pas et repose la question autrement ("isReformulation": true). Une valeur inventée est pire qu'une valeur absente.
+- N'explique jamais à quoi servent ces informations, et ne mentionne ni charge, ni ajustement, ni plan.
+- "suggestNextStep" vaut true quand tu estimes le débrief terminé.
+- Ton bref et concret, deux phrases maximum.`;
 
 const EXPLANATION_SYSTEM_PROMPT = `Tu rédiges une explication courte puis longue à partir de décisions DÉJÀ calculées par un moteur à règles (fourni ci-dessous sous forme de traces).
 Règles absolues :
@@ -102,6 +136,39 @@ export class MistralLlmProvider implements LlmProvider {
     const raw = extractJsonContent(response.choices?.[0]?.message.content);
     const parsed = parseJsonObject(raw);
 
+    return {
+      reply: typeof parsed["reply"] === "string" ? parsed["reply"] : "",
+      isReformulation: parsed["isReformulation"] === true,
+      extraction:
+        typeof parsed["extraction"] === "object" && parsed["extraction"] !== null
+          ? (parsed["extraction"] as Record<string, unknown>)
+          : null,
+      suggestNextStep: parsed["suggestNextStep"] === true,
+    };
+  }
+
+  async converseDebrief(input: DebriefTurnInput): Promise<ConversationTurnOutput> {
+    const response = await this.client.chat.complete({
+      model: this.model,
+      temperature: 0.3,
+      responseFormat: { type: "json_object" },
+      messages: [
+        { role: "system", content: DEBRIEF_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: JSON.stringify({
+            session: input.session,
+            draft: input.draft,
+            missingMandatory: input.missingMandatory,
+            missingDesired: input.missingDesired,
+            history: input.history,
+            userMessage: input.userMessage,
+          }),
+        },
+      ],
+    });
+
+    const parsed = parseJsonObject(extractJsonContent(response.choices?.[0]?.message.content));
     return {
       reply: typeof parsed["reply"] === "string" ? parsed["reply"] : "",
       isReformulation: parsed["isReformulation"] === true,
