@@ -80,3 +80,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Worker MapLibre copié depuis node_modules par apps/web/scripts/copy-maplibre-worker.mjs
+# (généré à chaque dev/build pour rester aligné sur la version du lockfile — ADR-018, lot L1).
+apps/web/public/maplibre/

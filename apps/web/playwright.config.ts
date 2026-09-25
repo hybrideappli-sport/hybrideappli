@@ -31,6 +31,11 @@ export default defineConfig({
     cwd: __dirname,
     env: {
       COACH_LLM_PROVIDER: "mock",
+      // ADR-018, lot L1 (`carte.spec.ts`) : style de démonstration public MapLibre — aucune clé
+      // requise, distinct du fournisseur Stadia de production (`MAP_TILES_PLAN` reste absent ici,
+      // donc non "production" par construction : le garde fail-closed de `apps/web/proxy.ts` ne
+      // s'applique qu'en `NODE_ENV=production`, jamais le cas sous `next dev`).
+      MAP_TILES_STYLE_URL: "https://demotiles.maplibre.org/style.json",
     },
   },
   projects: [
