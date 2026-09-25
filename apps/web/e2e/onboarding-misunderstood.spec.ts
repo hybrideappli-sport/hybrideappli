@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/test";
 
 import { answerChat, signInAsNewTestUser } from "./support/onboarding-flow";
 
