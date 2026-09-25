@@ -70,4 +70,33 @@ describe("proxy — garde fail-closed MAP_TILES_PLAN sur /carte (ADR-018 §8)", 
     expect(response.status).toBe(200);
     expect(createSupabaseServerClient).toHaveBeenCalledOnce();
   });
+
+  it("répond 503 JSON (pas HTML) sur GET /api/v1/map/trails en production sans palier commercial (lot L2, ADR-018 §8)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("MAP_TILES_PLAN", "free_non_commercial");
+
+    const response = await proxy(requestFor("/api/v1/map/trails"));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("MAP_TILES_UNAVAILABLE");
+  });
+
+  it("laisse GET /api/v1/map/trails passer en développement, et en production sur le palier commercial", async () => {
+    createSupabaseServerClient.mockReturnValue({
+      auth: { getUser: () => Promise.resolve({ data: { user: { id: "u1" } } }) },
+    });
+
+    vi.stubEnv("NODE_ENV", "development");
+    const devResponse = await proxy(requestFor("/api/v1/map/trails"));
+    expect(devResponse.status).toBe(200);
+
+    vi.unstubAllEnvs();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("MAP_TILES_PLAN", "commercial");
+    const prodResponse = await proxy(requestFor("/api/v1/map/trails"));
+    expect(prodResponse.status).toBe(200);
+  });
 });

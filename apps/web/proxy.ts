@@ -12,13 +12,27 @@ import { isMapTilesPlanProductionReady } from "@/lib/map/tiles-plan-guard";
 // paywall (`requireEntitlement()`) est une couche serveur distincte, plus
 // bas dans la pile (08-architecture.md §3.3), pas ce fichier.
 //
-// Exception ADR-018 §8 (lot L1) : garde FAIL-CLOSED `MAP_TILES_PLAN` sur `/carte`. « Avant tout
-// travail » veut dire ici : avant même le rafraîchissement de session Supabase — testé isolément
-// dans `proxy.test.ts` en s'assurant que `createSupabaseServerClient` n'est JAMAIS appelé quand la
-// garde refuse.
-const MAP_PLAN_GATED_PATHS = ["/carte"];
+// Exception ADR-018 §8 (lot L1, étendue lot L2) : garde FAIL-CLOSED `MAP_TILES_PLAN` sur `/carte`
+// ET sur `GET /api/v1/map/trails` (« la page /carte ET la route /api/v1/map/trails répondent 503
+// explicite »). « Avant tout travail » veut dire ici : avant même le rafraîchissement de session
+// Supabase — testé isolément dans `proxy.test.ts` en s'assurant que `createSupabaseServerClient`
+// n'est JAMAIS appelé quand la garde refuse. Un SEUL point de garde pour les deux routes (au lieu
+// de dupliquer la vérification dans `app/api/v1/map/trails/route.ts`) : `route.ts` suppose donc,
+// comme `app/(app)/carte/page.tsx` (lot L1), avoir déjà reçu ce feu vert.
+const MAP_PLAN_GATED_PATHS = ["/carte", "/api/v1/map/trails"];
 
-function mapTilesPlanUnavailableResponse(): NextResponse {
+function mapTilesPlanUnavailableResponse(pathname: string): NextResponse {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "MAP_TILES_UNAVAILABLE",
+          message: "Cette fonctionnalité n'est pas encore activée en production (palier commercial requis, ADR-018 §8).",
+        },
+      },
+      { status: 503 },
+    );
+  }
   return new NextResponse(
     "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\" /><title>Carte indisponible</title></head>" +
       '<body style="background:#0A0A0A;color:#fff;font-family:sans-serif;padding:24px;">' +
@@ -35,7 +49,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (MAP_PLAN_GATED_PATHS.includes(pathname) && !isMapTilesPlanProductionReady()) {
-    return mapTilesPlanUnavailableResponse();
+    return mapTilesPlanUnavailableResponse(pathname);
   }
 
   let response = NextResponse.next({ request });

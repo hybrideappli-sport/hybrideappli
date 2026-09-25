@@ -19,6 +19,9 @@ export type ApiErrorCode =
   // US-03 — `POST /schedule/incidents` (`08-architecture.md` §14.5).
   | "SESSION_NOT_REPORTABLE"
   | "PLACEMENT_FAILED"
+  // ADR-018, lot L2 — `GET /api/v1/map/trails`.
+  | "OVERPASS_UNAVAILABLE"
+  | "MAP_TILES_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export function apiError(status: number, code: ApiErrorCode, message: string, details?: unknown, headers?: HeadersInit) {

@@ -42,3 +42,22 @@ export const MAP_VIEWPORT_DEBOUNCE_MS = 400;
  * un usage normal, tout en bornant un emballement involontaire (panoramique/zoom en boucle).
  */
 export const MAP_MAX_TILES_PER_SESSION = 1500;
+
+/**
+ * Plafond de features CLASSÉES conservées par tuile (lot L2, ADR-018 §4.4, ordre de grandeur
+ * documenté par l'ADR). Appliqué APRÈS `classifySports()` — les chemins qu'aucun sport ne retient
+ * sont déjà écartés avant ce plafond, jamais comptés dedans. Au-delà, `truncated: true` dans la
+ * réponse de `GET /api/v1/map/trails` : jamais une troncature silencieuse. Levier de réglage du
+ * volume par entrée de cache, dans l'ordre recommandé par l'ADR : `TILE_ZOOM`,
+ * `SIMPLIFY_TOLERANCE_M`, puis cette constante.
+ */
+export const MAX_FEATURES_PER_TILE = 2000;
+
+/**
+ * Tolérance de simplification de géométrie (Douglas–Peucker, lot L2, ADR-018 §4.4) — en mètres,
+ * invisible au zoom d'affichage (`MAP_MIN_ZOOM_FOR_TRAILS = 12`), division substantielle du nombre
+ * de points avant mise en cache (N3). Fait partie des paramètres qui, s'ils changent, appellent un
+ * bump de `OVERPASS_QUERY_VERSION` (`lib/map/overpass-query.ts`) : ils déterminent le contenu de ce
+ * qui est mis en cache brut.
+ */
+export const SIMPLIFY_TOLERANCE_M = 5;
