@@ -7,6 +7,8 @@ import type { DebriefDraft } from "@hybride/domain";
 
 import { getLlmProvider } from "@/lib/coach-llm-provider";
 
+import { writeDebriefLog, type DebriefLogWrite } from "./write-debrief-log";
+
 /**
  * `runDebriefTurnForSession()` — un tour de débrief post-séance, persistance comprise
  * (US-05, Lot L1, ADR-019).
@@ -14,9 +16,10 @@ import { getLlmProvider } from "@/lib/coach-llm-provider";
  * Extrait du Route Handler pour la même raison que les autres orchestrateurs : la route dépend de
  * `requireUser()`/`next/headers`, hors de portée d'un test d'intégration Node.
  *
- * Portée du Lot L1, volontairement bornée : **aucune écriture dans `session_logs`**. Ce module
- * accumule un brouillon et rien d'autre. L'écriture précoce du réalisé — dès que `completion` et
- * `pain` sont obtenus — est le Lot L2.
+ * Écriture précoce (Lot L2, ADR-019 §3) : dès que le trio obligatoire est obtenu, le tour écrit le
+ * réalisé via `writeDebriefLog()`, puis l'enrichit aux tours suivants. L'écriture vient APRÈS la
+ * persistance de l'échange : si elle échoue, la conversation est intacte et le tour suivant la
+ * retente — `writeDebriefLog()` retrouve alors un log inséré mais pas encore lié.
  */
 
 export class DebriefSessionNotFoundError extends Error {}
@@ -29,17 +32,28 @@ export interface DebriefTurnOutcome extends DebriefTurnResult {
   debriefSessionId: string;
   turnCount: number;
   reachedTurnLimit: boolean;
+  /** L'écriture de CE tour, `null` si rien n'a été écrit. Porte `painProtocol` : un renvoi vers un
+   *  professionnel de santé (AC9) doit être affiché dans la conversation, pas seulement stocké. */
+  logWrite: DebriefLogWrite | null;
+  /** Le log de la séance, écrit à ce tour ou avant. `null` tant que le trio n'est pas obtenu. */
+  sessionLogId: string | null;
 }
 
+/**
+ * `rls` : client de l'utilisateur, par lequel passe l'écriture du réalisé (consentement santé
+ * revérifié par RLS). `admin` : tout le reste — lecture de la séance, tables du débrief.
+ * `now` : date locale de l'utilisateur, pour le pipeline de signaux (`todayInTimezone()`).
+ */
 export async function runDebriefTurnForSession(
+  rls: SupabaseClient<Database>,
   admin: SupabaseClient<Database>,
-  args: { userId: string; plannedSessionId: string; userMessage: string },
+  args: { userId: string; plannedSessionId: string; userMessage: string; now: string },
 ): Promise<DebriefTurnOutcome> {
-  const { userId, plannedSessionId, userMessage } = args;
+  const { userId, plannedSessionId, userMessage, now } = args;
 
   const { data: planned, error: plannedError } = await admin
     .from("planned_sessions")
-    .select("id, session_type, duration_min, sports(code, label_fr)")
+    .select("id, session_type, duration_min, scheduled_date, sports(code, label_fr)")
     .eq("id", plannedSessionId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -50,7 +64,7 @@ export async function runDebriefTurnForSession(
   // `debrief_sessions_planned_session_id_key`, qui reste l'autorité en cas de course.
   const { data: existing, error: existingError } = await admin
     .from("debrief_sessions")
-    .select("id, draft, turn_count")
+    .select("id, draft, turn_count, session_log_id")
     .eq("planned_session_id", plannedSessionId)
     .maybeSingle();
   if (existingError) throw new Error(`runDebriefTurnForSession: debrief_sessions (lecture) — ${existingError.message}`);
@@ -58,6 +72,7 @@ export async function runDebriefTurnForSession(
   let debriefSessionId = existing?.id ?? null;
   let draft = (existing?.draft ?? {}) as DebriefDraft;
   let turnCount = existing?.turn_count ?? 0;
+  const linkedLogId = existing?.session_log_id ?? null;
 
   if (!debriefSessionId) {
     const { data: created, error: createError } = await admin
@@ -83,19 +98,31 @@ export async function runDebriefTurnForSession(
       reformulationCount: 0,
       reachedReformulationLimit: false,
       canClose: false,
+      logWrite: null,
+      sessionLogId: linkedLogId,
     };
   }
 
   const { data: historyRows, error: historyError } = await admin
     .from("debrief_messages")
-    .select("role, content")
+    .select("role, content, is_reformulation")
     .eq("session_id", debriefSessionId)
     .order("created_at", { ascending: true });
   if (historyError) throw new Error(`runDebriefTurnForSession: debrief_messages (lecture) — ${historyError.message}`);
 
   const history = (historyRows ?? [])
-    .filter((row): row is { role: "coach" | "user"; content: string } => row.role === "coach" || row.role === "user")
+    .filter((row): row is typeof row & { role: "coach" | "user" } => row.role === "coach" || row.role === "user")
     .map((row) => ({ role: row.role, content: row.content }));
+
+  // Reformulations CONSÉCUTIVES du coach en fin de fil : c'est ce compteur qui déclenche la bascule
+  // en question fermée (`MAX_DEBRIEF_REFORMULATIONS`). Le recalculer depuis le journal évite une
+  // colonne de plus, et une réponse comprise le remet naturellement à zéro.
+  let reformulationCount = 0;
+  for (const row of [...(historyRows ?? [])].reverse()) {
+    if (row.role !== "coach") continue;
+    if (!row.is_reformulation) break;
+    reformulationCount += 1;
+  }
 
   const { error: userMsgError } = await admin
     .from("debrief_messages")
@@ -126,7 +153,7 @@ export async function runDebriefTurnForSession(
       // `actualDurationMin` sont déjà connus du plan (ADR-015 §1).
       isOffPlan: false,
     },
-    reformulationCount: 0,
+    reformulationCount,
     sportReferential: (sportRows ?? []).map((row) => ({ code: row.code, labelFr: row.label_fr })),
   });
   draft = turn.draft;
@@ -157,5 +184,24 @@ export async function runDebriefTurnForSession(
     .eq("id", debriefSessionId);
   if (updateError) throw new Error(`runDebriefTurnForSession: debrief_sessions (mise à jour) — ${updateError.message}`);
 
-  return { ...turn, draft, debriefSessionId, turnCount, reachedTurnLimit: false };
+  const logWrite = await writeDebriefLog(rls, admin, {
+    userId,
+    now,
+    debriefSessionId,
+    plannedSessionId,
+    scheduledDate: planned.scheduled_date,
+    linkedLogId,
+    draft,
+    missingMandatory: turn.missingMandatory,
+  });
+
+  return {
+    ...turn,
+    draft,
+    debriefSessionId,
+    turnCount,
+    reachedTurnLimit: false,
+    logWrite,
+    sessionLogId: logWrite?.logId ?? linkedLogId,
+  };
 }

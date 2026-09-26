@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { regeneratePlan } from "@/lib/orchestration/regenerate-plan";
 import { runDebriefTurnForSession, DebriefSessionNotFoundError } from "@/lib/orchestration/run-debrief-turn";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
-import { createTestUser, deleteTestUser, seedAthleteAndObjective, serviceRoleClient, type TestUser } from "./support/test-clients";
+import { createTestUser, deleteTestUser, grantHealthConsents, seedAthleteAndObjective, serviceRoleClient, type TestUser } from "./support/test-clients";
 
 /**
  * US-05, Lot L1 (ADR-019) — socle conversationnel du débrief post-séance.
@@ -11,7 +11,8 @@ import { createTestUser, deleteTestUser, seedAthleteAndObjective, serviceRoleCli
  * Les quatre livrables vérifiables du lot, un par test :
  *   ① une conversation complète produit un brouillon conforme au schéma ;
  *   ② une extraction hors énumération est ÉCARTÉE, le tour requalifié en reformulation ;
- *   ③ AUCUNE écriture dans `session_logs` — l'écriture précoce est le Lot L2 ;
+ *   ③ AUCUNE écriture dans `session_logs` — borne levée au Lot L2, qui écrit dès le trio
+ *     obtenu : ce test vérifie désormais l'inverse, voir `debrief-ecriture.test.ts` ;
  *   ④ deux conversations pour la même séance sont impossibles.
  */
 const admin = serviceRoleClient();
@@ -26,8 +27,11 @@ async function seedAvailability(userId: string) {
 }
 
 /** Un utilisateur avec un plan généré, et l'identifiant d'une séance à débriefer. */
-async function seedUserWithSession(label: string): Promise<{ user: TestUser; plannedSessionId: string }> {
+async function seedUserWithSession(label: string): Promise<{ user: TestUser; plannedSessionId: string; now: string }> {
   const user = await createTestUser(label);
+  // Depuis le Lot L2, un tour peut écrire le réalisé par le client RLS de l'utilisateur : le
+  // consentement santé doit réellement être en base.
+  await grantHealthConsents(admin, user.id);
   const { objectiveId } = await seedAthleteAndObjective(admin, user.id);
   await seedAvailability(user.id);
 
@@ -43,7 +47,7 @@ async function seedUserWithSession(label: string): Promise<{ user: TestUser; pla
     .limit(1);
   if (error) throw new Error(`[test] planned_sessions : ${error.message}`);
   expect(sessions?.length).toBeGreaterThan(0);
-  return { user, plannedSessionId: sessions![0]!.id };
+  return { user, plannedSessionId: sessions![0]!.id, now };
 }
 
 describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", () => {
@@ -53,34 +57,36 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
     for (const user of users) await deleteTestUser(user.id);
   });
 
-  it("une conversation complète accumule un brouillon conforme, et rien n'est écrit dans session_logs", async () => {
-    const { user, plannedSessionId } = await seedUserWithSession("debrief-complet");
+  it("une conversation complète accumule un brouillon conforme, et un seul log le reflète", async () => {
+    const { user, plannedSessionId, now } = await seedUserWithSession("debrief-complet");
     users.push(user);
 
-    const tour1 = await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait" });
+    const tour1 = await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait", now });
     expect(tour1.draft.completion).toBe("done");
     // `pain` reste à obtenir : le coach ne peut pas clore.
     expect(tour1.missingMandatory).toContain("pain");
     expect(tour1.canClose).toBe(false);
 
-    const tour2 = await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Aucune douleur" });
+    const tour2 = await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Aucune douleur", now });
     expect(tour2.draft.pain).toBe("none");
     expect(tour2.missingMandatory).toEqual([]);
     // Les deux signaux recherchés sont demandés ensemble, jamais l'un après l'autre (ADR-019 §6).
     expect(tour2.missingDesired).toEqual(["rpe", "freshness"]);
 
-    const tour3 = await runDebriefTurnForSession(admin, {
+    const tour3 = await runDebriefTurnForSession(user.client, admin, {
       userId: user.id,
       plannedSessionId,
+      now,
       userMessage: "C'était 7 sur 10, et la forme 4",
     });
     expect(tour3.draft.rpe).toBe(7);
     expect(tour3.draft.freshness).toBe(4);
     expect(tour3.canClose).toBe(true);
 
-    // ③ Le lot L1 s'arrête au brouillon : aucune ligne de réalisé, même conversation terminée.
-    const { data: logs } = await admin.from("session_logs").select("id").eq("user_id", user.id);
-    expect(logs ?? []).toHaveLength(0);
+    // ③ Inversé au Lot L2 : le trio obtenu au tour 2 a produit UN log, enrichi au tour 3.
+    const { data: logs } = await admin.from("session_logs").select("id, rpe, freshness").eq("user_id", user.id);
+    expect(logs ?? []).toHaveLength(1);
+    expect(logs![0]).toMatchObject({ rpe: 7, freshness: 4 });
 
     // La conversation est marquée close, et le brouillon est bien persisté.
     const { data: debrief } = await admin
@@ -90,22 +96,23 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
       .single();
     expect(debrief?.status).toBe("completed");
     expect(debrief?.turn_count).toBe(3);
-    expect(debrief?.session_log_id).toBeNull();
+    expect(debrief?.session_log_id).toBe(logs![0]!.id);
     expect(debrief?.draft).toMatchObject({ completion: "done", pain: "none", rpe: 7, freshness: 4 });
   });
 
   it("une zone corporelle hors référentiel est écartée, et le tour devient une reformulation", async () => {
-    const { user, plannedSessionId } = await seedUserWithSession("debrief-zone-invalide");
+    const { user, plannedSessionId, now } = await seedUserWithSession("debrief-zone-invalide");
     users.push(user);
 
-    await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait" });
+    await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait", now });
 
     // Le mock reproduit ici le mode d'échec réel d'un modèle : une zone latéralisée qu'il ne sait
     // pas mapper sort en `genou_droit`, là où le contrat n'accepte que `knee`. C'est exactement
     // l'incident `course_a_pied` du 2026-09-18, transposé à une donnée de santé.
-    const tour = await runDebriefTurnForSession(admin, {
+    const tour = await runDebriefTurnForSession(user.client, admin, {
       userId: user.id,
       plannedSessionId,
+      now,
       userMessage: "J'ai une douleur au genou droit",
     });
 
@@ -130,13 +137,14 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
   });
 
   it("une zone reconnue entre bien dans le brouillon, avec son code du contrat", async () => {
-    const { user, plannedSessionId } = await seedUserWithSession("debrief-zone-valide");
+    const { user, plannedSessionId, now } = await seedUserWithSession("debrief-zone-valide");
     users.push(user);
 
-    await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait" });
-    const tour = await runDebriefTurnForSession(admin, {
+    await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait", now });
+    const tour = await runDebriefTurnForSession(user.client, admin, {
       userId: user.id,
       plannedSessionId,
+      now,
       userMessage: "Une gêne au mollet",
     });
 
@@ -146,11 +154,11 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
   });
 
   it("deux conversations pour la même séance sont impossibles — les tours alimentent la même", async () => {
-    const { user, plannedSessionId } = await seedUserWithSession("debrief-unicite");
+    const { user, plannedSessionId, now } = await seedUserWithSession("debrief-unicite");
     users.push(user);
 
-    const premier = await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait" });
-    const second = await runDebriefTurnForSession(admin, { userId: user.id, plannedSessionId, userMessage: "Aucune douleur" });
+    const premier = await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Oui c'est fait", now });
+    const second = await runDebriefTurnForSession(user.client, admin, { userId: user.id, plannedSessionId, userMessage: "Aucune douleur", now });
     expect(second.debriefSessionId).toBe(premier.debriefSessionId);
 
     const { count } = await admin
@@ -167,13 +175,13 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
   });
 
   it("une séance qui n'appartient pas à l'utilisateur est introuvable", async () => {
-    const { user, plannedSessionId } = await seedUserWithSession("debrief-proprietaire");
+    const { user, plannedSessionId, now } = await seedUserWithSession("debrief-proprietaire");
     users.push(user);
     const autre = await createTestUser("debrief-intrus");
     users.push(autre);
 
     await expect(
-      runDebriefTurnForSession(admin, { userId: autre.id, plannedSessionId, userMessage: "Oui c'est fait" }),
+      runDebriefTurnForSession(autre.client, admin, { userId: autre.id, plannedSessionId, userMessage: "Oui c'est fait", now }),
     ).rejects.toBeInstanceOf(DebriefSessionNotFoundError);
   });
 });
