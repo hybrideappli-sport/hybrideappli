@@ -5,6 +5,7 @@
 - **Décideur** : `architect`, sur quatre arbitrages du fondateur du 2026-09-25
 - **Portée** : Feature — recueil des signaux post-séance. **Première étape seulement** : ni l'onboarding, ni la tab bar, ni le planning ne sont touchés.
 - **Dépend de** : ADR-002 (séparation moteur / LLM — le LLM ne calcule jamais), ADR-010 §3 (données de santé, rétention), ADR-011 (file de jobs, triple canal de notification)
+- **Amendement du 2026-09-26** : le point ⛔ de validation du prompt est **décalé après L3**, et rien d'US-05 ne part en production avant lui. Voir **§ Amendement du 2026-09-26** en fin de document.
 - **Ne touche pas** : ADR-007 (aucun paramètre de sécurité nouveau), ADR-016, ADR-017 — le débrief écrit du **réalisé**, jamais du plan
 
 ---
@@ -155,3 +156,45 @@ Les trois premiers mesurent du remplissage. Le quatrième mesure un effet. **Si 
 
 1. **Que fait le coach d'une séance jamais débriefée, même après relance ?** Aujourd'hui : rien, et la charge monte. Faut-il un `not_done` automatique après N jours, comme `closeOutScheduleIncidents()` le fait pour les imprévus ? Ce serait un **ajustement de charge déclenché par le temps**, ce que l'ADR-017 a explicitement refusé pour la clôture d'imprévu. À arbitrer séparément.
 2. **Seuils `rpe >= 8` et `freshness <= 2` en dur.** Ils vivent dans `guardrail-helpers.ts` l.23 **et** dans `run-session-log-signal-pipeline.ts` l.27 — dupliqués, non versionnés, contrairement aux bornes de sécurité d'ADR-007. Hors périmètre ici, mais le chantier les rend plus visibles.
+
+---
+
+## Amendement du 2026-09-26 — le point ⛔ de validation du prompt est décalé
+
+> **Décision du fondateur, 2026-09-26.** L2 et L3 avancent sur le mock déterministe. La validation du prompt sur le vrai modèle, prévue entre L1 et L2, est reportée. En contrepartie, **aucun lot d'US-05 ne part en production avant qu'elle ait eu lieu.**
+
+### Pourquoi
+
+Le point ⛔ supposait un accès au vrai Mistral. Il n'y en a pas aujourd'hui :
+
+- le compte Mistral est sur le plan Free, dont la clé renvoie `429` à chaque appel, y compris au premier, et sur 8 minutes de relances espacées ;
+- **la production n'a pas de `MISTRAL_API_KEY`** : les variables d'environnement de `hybrideappli-web` n'en contiennent aucune (constat du 2026-09-26). Le vrai modèle n'est donc joignable nulle part.
+
+Payer l'abonnement pour la seule validation n'a pas été retenu, et aucune alternative ne valide le **même** modèle. Un Ollama local ne tient qu'un modèle d'environ 7B sur la machine de développement, et un autre fournisseur rouvrirait l'ADR-010. Attendre bloquerait L2 et L3, dont la mécanique ne dépend pas de la qualité du prompt.
+
+### Le risque assumé
+
+Ce que le mock ne dit pas, c'est **si le vrai modèle remplit le brouillon correctement**. Les tests de L2 et L3 prouvent que la mécanique est juste **pour des extractions correctes**. Ils ne disent rien du taux d'extractions correctes en conditions réelles.
+
+Le point ⛔ était placé avant L2 parce que L2 **écrit dans `session_logs`** : à partir de là, une erreur de prompt ne coûte plus une conversation ratée, elle produit du réalisé faux. Or ce réalisé déclenche la baisse de charge de 20 % (`rpe`, `freshness`, douleur) et le protocole douleur. Un `pain` manqué laisse monter la charge d'un athlète blessé ; un `rpe` sur-extrait baisse sans raison le plan d'un athlète en forme.
+
+Les défenses qui restent actives sans le vrai modèle :
+
+- toute valeur hors énumération (zone, discipline, type de séance) rejette le patch entier (§5, et `c9b41b9` pour `sportCode` / `sessionType`) ;
+- `pain ≠ none` sans zone est refusé deux fois, par Zod et par la contrainte SQL `pain_zone_required` ;
+- rien ne protège en revanche contre une valeur **permise mais fausse** : `pain = none` quand l'utilisateur a parlé d'une gêne, `rpe = 9` quand il a dit « tranquille ». C'est précisément ce que la validation devait juger, et c'est le risque qui reste ouvert.
+
+### La condition : rien en production avant la validation
+
+Concrètement, jusqu'à la validation :
+
+1. **Aucune branche d'US-05 n'est fusionnée dans `main`**, qui déploie en production. Les lots s'empilent : L2 part de la branche L1, L3 de la branche L2.
+2. **Aucune migration d'US-05 n'est appliquée sur `hybrideclub`**, à commencer par `0030_debrief_sessions`.
+3. Les déploiements *Preview* de Vercel partagent les variables Supabase de production (« Production and Preview »). Un aperçu de ces branches parle donc à la base de production. Sans la migration `0030`, il échoue sur les routes de débrief sans rien écrire, mais **il ne doit pas servir à tester le débrief**.
+
+### Ce qui lèvera la condition
+
+Une clé Mistral opérationnelle, qui est de toute façon nécessaire à la production : sans elle, `getLlmProvider()` refuse de démarrer, ce qui casse l'onboarding, la régénération du plan et la revue hebdomadaire. Le banc de huit scénarios écrit le 2026-09-26 (nominal, zone latéralisée, séance partielle, non faite, réponses floues, refus de `rpe`/`freshness`, hors plan, sport absent du référentiel) se relance alors en une commande. **Le point ⛔ garde le même contenu, seule sa place change : il doit être franchi avant la première fusion d'US-05 dans `main`.**
+
+**Ordre révisé** : L0 → L1 → L2 → L3 → ⛔ validation du prompt → fusion dans `main` → L4 → ⛔ mesure.
+
