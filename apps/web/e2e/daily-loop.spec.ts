@@ -17,6 +17,10 @@ test("boucle quotidienne — saisie post-séance déclenche un ajustement imméd
   await page.waitForURL("**/aujourdhui");
 
   await expect(page.getByTestId("session-detail")).toBeVisible();
+  // US-05 L3 (ADR-019 §1) : le débrief en conversation est désormais le chemin par défaut de la
+  // séance planifiée ; ce scénario porte sur le FORMULAIRE, qui reste à un clic.
+  await expect(page.getByTestId("debrief-chat")).toBeVisible();
+  await page.getByTestId("debrief-use-form").click();
   await expect(page.getByTestId("daily-log-form")).toBeVisible();
 
   await page.getByLabel("Séance réalisée ?").selectOption("done");

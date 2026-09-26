@@ -23,8 +23,22 @@ test("paywall — 4ᵉ accès de la semaine redirige vers l'abonnement, ton non 
     await expect(page.getByTestId("paywall-upgrade-link")).toHaveAttribute("href", "/abonnement");
 
     // Séance/Repas du jour est bloqué au même titre (AC13, même quota).
+    // US-05 L3, ADR-019 §8 — bloqué, on garde le formulaire : pas de conversation, et donc AUCUN
+    // appel au débrief (ni au modèle derrière lui) au chargement de l'écran.
+    const debriefCalls: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/v1/debrief/")) debriefCalls.push(request.url());
+    });
     await page.goto("/aujourdhui");
     await expect(page.getByTestId("paywall-blocked")).toBeVisible();
+    await expect(page.getByTestId("daily-log-form")).toBeVisible();
+    await expect(page.getByTestId("debrief-chat")).toHaveCount(0);
+    expect(debriefCalls).toEqual([]);
+
+    // La route elle-même refuse AVANT tout travail : un client qui l'appellerait directement ne
+    // déclenche pas d'appel au modèle. L'identifiant de séance importe peu, le refus le précède.
+    const debriefResponse = await page.request.post(`/api/v1/debrief/${crypto.randomUUID()}/messages`, { data: { content: "Oui c'est fait" } });
+    expect(debriefResponse.status()).toBe(402);
 
     // AC13/ADR-008 §5 — « la saisie reste accessible » : `POST /api/v1/session-logs` ne consomme
     // JAMAIS d'accès libre et reste utilisable même quota épuisé (contrairement à la LECTURE de

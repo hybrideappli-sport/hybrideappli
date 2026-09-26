@@ -3,31 +3,47 @@ import { z } from "zod";
 
 import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
+import { DebriefChoiceSchema } from "@/lib/debrief/closed-questions";
+import type { DebriefTurnResponse } from "@/lib/debrief/types";
+import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { hasActiveConsent } from "@/lib/orchestration/check-consents";
-import { DebriefSessionNotFoundError, runDebriefTurnForSession } from "@/lib/orchestration/run-debrief-turn";
+import {
+  applyDebriefChoiceForSession,
+  DebriefLlmUnavailableError,
+  DebriefSessionNotFoundError,
+  runDebriefTurnForSession,
+  type DebriefTurnOutcome,
+} from "@/lib/orchestration/run-debrief-turn";
 import { NoActivePlanError, SessionLogPersistenceError } from "@/lib/orchestration/run-session-log-signal-pipeline";
 import { todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { DebriefLogValidationError } from "@/lib/orchestration/write-debrief-log";
 
 export const dynamic = "force-dynamic";
 
-const BodySchema = z.object({ content: z.string().trim().min(1).max(2000) });
+/** Un message libre, compris par le LLM ; OU un choix par chips, qui ne passe pas par lui. */
+const BodySchema = z.union([
+  z.object({ content: z.string().trim().min(1).max(2000) }).strict(),
+  z.object({ choice: DebriefChoiceSchema }).strict(),
+]);
 
 /**
  * `POST /api/v1/debrief/:plannedSessionId/messages` — un tour de débrief post-séance
- * (US-05, Lot L1, ADR-019).
+ * (US-05, ADR-019).
  *
- * Ne consomme PAS d'accès libre, comme `POST /session-logs` : recueillir ce qui s'est passé n'est
- * pas consommer du contenu (ADR-008 §5).
+ * Réponse JSON simple, pas un flux SSE comme `/onboarding/session/:id/messages` : un tour de débrief
+ * tient en deux phrases (prompt §5), et l'indicateur « le coach écrit » couvre l'attente. Tranché au
+ * Lot L3, avec l'écran.
  *
- * Portée du Lot L1 : la réponse est un JSON simple, pas un flux SSE comme
- * `/onboarding/session/:id/messages`. Le streaming est une question d'écran, tranchée au Lot L3
- * quand l'UI existera — l'imposer ici compliquerait une route que seuls des tests appellent.
+ * Consentement santé vérifié AVANT le tour, même contrat que `POST /session-logs` : un tour peut
+ * écrire le réalisé (Lot L2), et `debrief_messages`, présumé porter de la donnée de santé, s'écrit en
+ * `service_role`, donc hors de portée des policies.
  *
- * Lot L2 : un tour peut écrire le réalisé (écriture précoce, ADR-019 §3). D'où le même contrat de
- * consentement que `POST /session-logs`, vérifié AVANT le tour. Il protège aussi l'échange
- * lui-même : `debrief_messages` est présumé porter de la donnée de santé (`contains_health_data`
- * vaut `true` par défaut), et il est écrit en `service_role`, donc hors de portée des policies.
+ * Paywall (ADR-019 §8) : la conversation n'existe que sur `/aujourdhui` débloqué. Un utilisateur
+ * bloqué garde le formulaire, et cette route le refuse AVANT tout appel LLM. `requireEntitlement()`
+ * est idempotent par jour : l'écran `/aujourdhui` a déjà consommé l'accès du jour, cet appel n'en
+ * consomme pas un second.
+ *
+ * Échec du fournisseur LLM ⟹ `503 LLM_UNAVAILABLE` : l'écran bascule sur le formulaire.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ plannedSessionId: string }> }) {
   const { supabase, user } = await requireUser();
@@ -50,31 +66,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
   const now = todayInTimezone(profileRow?.timezone ?? "Europe/Paris");
 
   const admin = createSupabaseServiceRoleClient();
+
   try {
-    const turn = await runDebriefTurnForSession(supabase, admin, {
-      userId: user.id,
-      plannedSessionId,
-      userMessage: parsed.data.content,
-      now,
-    });
-    return apiJson({
-      debriefSessionId: turn.debriefSessionId,
-      reply: turn.reply,
-      isReformulation: turn.isReformulation,
-      missingMandatory: turn.missingMandatory,
-      missingDesired: turn.missingDesired,
-      canClose: turn.canClose,
-      reachedTurnLimit: turn.reachedTurnLimit,
-      reachedReformulationLimit: turn.reachedReformulationLimit,
-      sessionLogId: turn.sessionLogId,
-      // Le résultat du pipeline de CE tour : l'écran doit afficher un renvoi médical (AC9) ou
-      // l'explication d'un ajustement au moment où ils se produisent.
-      logWrite: turn.logWrite
-        ? { kind: turn.logWrite.kind, painProtocol: turn.logWrite.result.painProtocol, adjustment: turn.logWrite.result.adjustment }
-        : null,
-    });
+    await requireEntitlement(admin, { userId: user.id, now, surface: "today" });
+  } catch (error) {
+    if (error instanceof PaywallRequiredError) {
+      return apiError(402, "PAYWALL_REQUIRED", "Le débrief avec le coach n'est pas disponible : ta saisie reste possible par le formulaire.");
+    }
+    throw error;
+  }
+
+  let turn: DebriefTurnOutcome;
+  try {
+    turn =
+      "content" in parsed.data
+        ? await runDebriefTurnForSession(supabase, admin, { userId: user.id, plannedSessionId, userMessage: parsed.data.content, now })
+        : await applyDebriefChoiceForSession(supabase, admin, { userId: user.id, plannedSessionId, choice: parsed.data.choice, now });
   } catch (error) {
     if (error instanceof DebriefSessionNotFoundError) return apiError(404, "NOT_FOUND", "Séance introuvable.");
+    if (error instanceof DebriefLlmUnavailableError) {
+      return apiError(503, "LLM_UNAVAILABLE", "Le coach ne peut pas répondre pour le moment.");
+    }
     // L'échange est déjà persisté quand l'écriture échoue : le prochain tour la retentera.
     if (error instanceof SessionLogPersistenceError) {
       if (error.message.toLowerCase().includes("row-level security")) {
@@ -86,4 +98,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     if (error instanceof NoActivePlanError) return apiError(409, "CONFLICT", error.message);
     throw error;
   }
+
+  return apiJson<DebriefTurnResponse>(
+    {
+      debriefSessionId: turn.debriefSessionId,
+      reply: turn.reply,
+      isReformulation: turn.isReformulation,
+      canClose: turn.canClose,
+      reachedTurnLimit: turn.reachedTurnLimit,
+      closedQuestion: turn.closedQuestion,
+      sessionLogId: turn.sessionLogId,
+      // Le résultat du pipeline de CE tour : l'écran doit afficher un renvoi médical (AC9) ou
+      // l'explication d'un ajustement au moment où ils se produisent.
+      logWrite: turn.logWrite ? { kind: turn.logWrite.kind, result: turn.logWrite.result } : null,
+      painZone: turn.draft.painZone ?? null,
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
+

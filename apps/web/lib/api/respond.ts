@@ -22,6 +22,8 @@ export type ApiErrorCode =
   // ADR-018, lot L2 — `GET /api/v1/map/trails`.
   | "OVERPASS_UNAVAILABLE"
   | "MAP_TILES_UNAVAILABLE"
+  // US-05, lot L3 — `POST /debrief/:plannedSessionId/messages` : l'écran bascule sur le formulaire.
+  | "LLM_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export function apiError(status: number, code: ApiErrorCode, message: string, details?: unknown, headers?: HeadersInit) {

@@ -6,11 +6,13 @@ import { createSupabaseServiceRoleClient } from "@hybride/db/server";
 
 import { DegradedModeBanner } from "@/components/account/degraded-mode-banner";
 import { DailyLogForm } from "@/components/today/daily-log-form";
+import { DebriefChat } from "@/components/today/debrief-chat";
 import { MedicalClearanceNotice } from "@/components/today/medical-clearance-notice";
 import { NutritionTargets } from "@/components/today/nutrition-targets";
 import { PainReferralNotice } from "@/components/today/pain-referral-notice";
 import { RestDayEmptyState } from "@/components/today/rest-day-empty-state";
 import { SessionDetail } from "@/components/today/session-detail";
+import { SESSION_TYPE_LABELS_FR } from "@/lib/debrief/closed-questions";
 import { PaywallRequiredError, requireEntitlement } from "@/lib/entitlements";
 import { getActiveRuleset } from "@/lib/orchestration/get-active-ruleset";
 import { isHealthConsentActive } from "@/lib/orchestration/health-consent-status";
@@ -21,25 +23,13 @@ import {
   fetchTodaySessionView,
   getActivePlanVersionId,
 } from "@/lib/orchestration/read-today-plan";
+import { readDebriefForSession } from "@/lib/orchestration/read-debrief-for-session";
 import { fetchSessionLogForCorrection } from "@/lib/orchestration/read-session-log-for-correction";
 import { nowPartsInTimezone, todayInTimezone } from "@/lib/orchestration/today-in-timezone";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Séance et repas du jour — Hybride Club" };
 export const dynamic = "force-dynamic";
-
-const SESSION_TYPE_LABELS: Record<string, string> = {
-  endurance: "Endurance",
-  tempo: "Tempo",
-  interval: "Fractionné",
-  long: "Sortie longue",
-  strength: "Renforcement",
-  power: "Puissance",
-  mobility: "Mobilité",
-  technique: "Technique",
-  cross_training: "Cross-training",
-  rest: "Repos",
-};
 
 /**
  * `TodayPage` — AC4, AC9, AC11 (`08-architecture.md` §6.3-6.4, `04-flow.md`). État vide « jour de
@@ -88,7 +78,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           <>
             <div className="flex flex-col gap-1 rounded-lg bg-surface p-4">
               <p className="text-body-strong font-semibold text-foreground">
-                {SESSION_TYPE_LABELS[correctionTarget.sessionType ?? ""] ?? correctionTarget.sessionType ?? "Séance"}
+                {SESSION_TYPE_LABELS_FR[correctionTarget.sessionType ?? ""] ?? correctionTarget.sessionType ?? "Séance"}
               </p>
               <div className="flex gap-4 text-small text-foreground-subtle">
                 {correctionTarget.sportCode ? <span>{correctionTarget.sportCode.replace(/_/g, " ")}</span> : null}
@@ -160,6 +150,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       ])
     : [null, null];
 
+  // US-05, Lot L3 (ADR-019 §1) — la conversation est le chemin par défaut du débrief de la séance
+  // PLANIFIÉE du jour, et de ce seul cas. Elle reste affichée tant que l'échange est en cours, même
+  // après l'écriture précoce du log, pour recueillir `rpe` / `freshness`. Sans consentement santé,
+  // la route du débrief refuserait le premier message : on garde alors le formulaire, qui porte
+  // déjà le bandeau de mode dégradé.
+  const debrief =
+    session && healthConsentActive
+      ? await readDebriefForSession(admin, { userId: user.id, plannedSessionId: session.id, sessionLogId: session.log?.id ?? null })
+      : null;
+  const debriefActive =
+    session !== null &&
+    healthConsentActive &&
+    (session.log === null || (debrief?.status === "in_progress" && debrief.sessionLogId === session.log.id));
+
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 px-5 py-8">
       <div className="flex items-center justify-between">
@@ -176,14 +180,23 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       {nutrition ? <NutritionTargets nutrition={nutrition} /> : null}
 
       {/* AC3, `11-design-notes.md` §2.2-§2.3 — trois configurations distinctes de la boucle de
-          saisie : (1) une séance est prévue et pas encore loguée → formulaire « planifié » + lien
-          tertiaire hors plan (Cas A) ; (2) rien à rattacher (jour de repos, ou paywall plus haut) →
+          saisie : (1) une séance est prévue et pas encore loguée → débrief en conversation (US-05,
+          ADR-019), le formulaire « planifié » + lien tertiaire hors plan (Cas A) restant à un clic ; (2) rien à rattacher (jour de repos, ou paywall plus haut) →
           bloc hors plan déplié d'emblée, requis (Cas B) ; (3) la séance prévue est déjà loguée →
           message existant CONSERVÉ, complété du même bloc (Cas B) pour permettre une séance
           supplémentaire non prévue le même jour. */}
       {session || nutrition ? (
         session ? (
-          session.log ? (
+          debriefActive ? (
+            <DebriefChat
+              plannedSessionId={debrief?.plannedSessionId ?? session.id}
+              loggedDate={now}
+              sessionLabel={SESSION_TYPE_LABELS_FR[session.sessionType] ?? null}
+              initialMessages={debrief?.messages ?? []}
+              initialClosedQuestion={debrief?.closedQuestion ?? null}
+              initialSessionLogId={debrief?.sessionLogId ?? null}
+            />
+          ) : session.log ? (
             <>
               <div className="rounded-lg bg-surface-raised p-4 text-body text-foreground-muted" data-testid="already-logged">
                 <p>Tu as déjà enregistré ta saisie du jour.</p>
