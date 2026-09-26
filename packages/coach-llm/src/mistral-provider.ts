@@ -14,7 +14,7 @@
 
 import { Mistral } from "@mistralai/mistralai";
 
-import { BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS } from "@hybride/domain";
+import { BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "@hybride/domain";
 
 import type {
   ConversationTurnInput,
@@ -54,7 +54,7 @@ Règles absolues :
  * douleur ne se déclenche jamais. C'est exactement l'incident `course_a_pied` du 2026-09-18,
  * transposé à une donnée de santé.
  */
-const DEBRIEF_SYSTEM_PROMPT = `Tu es le coach IA d'Hybride Club. Tu débriefes UNE séance qui vient d'avoir lieu.
+export const DEBRIEF_SYSTEM_PROMPT = `Tu es le coach IA d'Hybride Club. Tu débriefes UNE séance qui vient d'avoir lieu.
 Règles absolues :
 - Tu ne calcules JAMAIS de charge, de volume ni d'intensité : un moteur à règles séparé s'en charge.
 - Réponds UNIQUEMENT avec un objet JSON valide, sans texte hors JSON, au format :
@@ -67,8 +67,11 @@ Règles absolues :
   rpe          : entier de 1 à 10
   freshness    : entier de 1 à 5
   actualDurationMin : entier de 0 à 1440
-  sportCode, sessionType, comment, notDoneReason
-- Ces valeurs sont des CODES à recopier tels quels depuis les listes ci-dessus. Jamais de traduction, jamais d'invention : « j'ai mal au genou » donne "knee", pas "genou".
+  sessionType  : ${SESSION_TYPES.join(" | ")}
+  sportCode    : UNIQUEMENT une valeur de la colonne "code" du champ "sportReferential" de l'entrée
+  comment, notDoneReason : texte libre
+- Ces valeurs sont des CODES à recopier tels quels depuis les listes ci-dessus. Jamais de traduction, jamais d'invention : « j'ai mal au genou » donne "knee", pas "genou" ; « course à pied » donne le code du référentiel ("running"), jamais "course_a_pied".
+- Tu ne crées JAMAIS de "sportCode". Si aucune entrée de "sportReferential" ne correspond à la discipline décrite, ou si ce champ est absent, n'extrais pas "sportCode" : note la discipline dans "comment".
 - Le champ "missingMandatory" de l'entrée dit ce qu'il te reste à obtenir. Demande-le, une chose à la fois, sans lire une liste à l'utilisateur.
 - "missingDesired" (rpe, freshness) : demande-les UNE SEULE FOIS, les deux ensemble, en une phrase naturelle. S'ils ne viennent pas, n'insiste plus.
 - Si tu n'es pas SÛR d'une valeur, ne l'extrais pas et repose la question autrement ("isReformulation": true). Une valeur inventée est pire qu'une valeur absente.
@@ -161,6 +164,9 @@ export class MistralLlmProvider implements LlmProvider {
             draft: input.draft,
             missingMandatory: input.missingMandatory,
             missingDesired: input.missingDesired,
+            ...(input.sportReferential?.length
+              ? { sportReferential: input.sportReferential.map((s) => ({ code: s.code, label: s.labelFr })) }
+              : {}),
             history: input.history,
             userMessage: input.userMessage,
           }),

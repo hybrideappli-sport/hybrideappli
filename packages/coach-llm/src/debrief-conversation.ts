@@ -22,7 +22,7 @@ import {
   type DebriefDraftPatch,
 } from "@hybride/domain";
 
-import type { ConversationHistoryEntry, DebriefTurnInput, LlmProvider } from "./llm-provider";
+import type { ConversationHistoryEntry, DebriefTurnInput, LlmProvider, SportReferentialEntry } from "./llm-provider";
 
 /** Même borne que l'onboarding (`04-flow.md`) : après 2 incompréhensions sur la même question, on
  *  bascule en question fermée plutôt que de reformuler indéfiniment. */
@@ -34,6 +34,8 @@ export interface DebriefTurnRequest {
   userMessage: string;
   session: DebriefTurnInput["session"];
   reformulationCount: number;
+  /** Voir `DebriefTurnInput.sportReferential` : seule source des `sportCode` acceptés. */
+  sportReferential?: SportReferentialEntry[];
 }
 
 export interface DebriefTurnResult {
@@ -63,13 +65,19 @@ export async function runDebriefTurn(provider: LlmProvider, request: DebriefTurn
     session: request.session,
     missingMandatory: mandatoryBefore,
     missingDesired: desiredBefore,
+    sportReferential: request.sportReferential,
   });
 
   let extractionPatch: DebriefDraftPatch | null = null;
   let extractionRejected = false;
   if (output.extraction) {
     const parsed = DebriefDraftPatchSchema.safeParse(output.extraction);
-    if (parsed.success) {
+    // Le schéma ne vérifie que la FORME d'un `sportCode` : le référentiel vit en base, pas dans le
+    // domaine. L'appartenance se vérifie donc ici, et un code hors référentiel rejette le patch
+    // entier, exactement comme une zone hors `BODY_ZONES`. Un débrief ne crée jamais de
+    // discipline — `course_a_pied` à côté de `running` est l'incident du 2026-09-18.
+    const knownSportCodes = new Set((request.sportReferential ?? []).map((entry) => entry.code));
+    if (parsed.success && (parsed.data.sportCode === undefined || knownSportCodes.has(parsed.data.sportCode))) {
       extractionPatch = parsed.data;
     } else {
       // Sortie non conforme au contrat : rien n'entre dans le brouillon. Le tour devient une

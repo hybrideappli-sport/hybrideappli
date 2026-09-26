@@ -100,6 +100,13 @@ export interface DebriefTurnInput {
   missingMandatory: readonly string[];
   /** `rpe` / `freshness` restants — demandés, jamais bloquants. */
   missingDesired: readonly string[];
+  /**
+   * Référentiel des disciplines connues, énuméré au modèle comme les autres valeurs permises
+   * (ADR-019 §5). Contrairement à l'onboarding, un débrief ne CRÉE jamais de discipline : un
+   * `sportCode` absent de cette liste est rejeté par `runDebriefTurn()`. Liste vide ou absente ⟹
+   * aucun `sportCode` ne peut être accepté.
+   */
+  sportReferential?: SportReferentialEntry[];
 }
 
 export interface LlmProvider {

@@ -102,6 +102,13 @@ export async function runDebriefTurnForSession(
     .insert({ session_id: debriefSessionId, user_id: userId, role: "user", content: userMessage });
   if (userMsgError) throw new Error(`runDebriefTurnForSession: debrief_messages (message utilisateur) — ${userMsgError.message}`);
 
+  // Référentiel des disciplines, énuméré au modèle (ADR-019 §5). Client ADMIN, pas le client RLS :
+  // cet orchestrateur sera appelé depuis un job au Lot L4, hors de toute requête. En cas d'échec
+  // de lecture, le tour continue sans référentiel — aucun `sportCode` ne sera alors accepté, ce
+  // qui est sûr : la discipline d'une séance planifiée est déjà connue du plan.
+  const { data: sportRows, error: sportsError } = await admin.from("sports").select("code, label_fr").order("code");
+  if (sportsError) console.error("[debrief] référentiel sports illisible, tour dégradé :", sportsError.message);
+
   const provider = getLlmProvider();
   const startedAt = Date.now();
   const turn = await runDebriefTurn(provider, {
@@ -120,6 +127,7 @@ export async function runDebriefTurnForSession(
       isOffPlan: false,
     },
     reformulationCount: 0,
+    sportReferential: (sportRows ?? []).map((row) => ({ code: row.code, labelFr: row.label_fr })),
   });
   draft = turn.draft;
   turnCount += 1;
