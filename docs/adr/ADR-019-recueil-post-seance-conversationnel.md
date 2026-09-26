@@ -5,7 +5,7 @@
 - **Décideur** : `architect`, sur quatre arbitrages du fondateur du 2026-09-25
 - **Portée** : Feature — recueil des signaux post-séance. **Première étape seulement** : ni l'onboarding, ni la tab bar, ni le planning ne sont touchés.
 - **Dépend de** : ADR-002 (séparation moteur / LLM — le LLM ne calcule jamais), ADR-010 §3 (données de santé, rétention), ADR-011 (file de jobs, triple canal de notification)
-- **Amendement du 2026-09-26** : le point ⛔ de validation du prompt est **décalé après L3**, et rien d'US-05 ne part en production avant lui. Le cas hors plan est **retiré** du Lot L2. Voir **§ Amendement du 2026-09-26** en fin de document.
+- **Amendement du 2026-09-26** : le point ⛔ de validation du prompt est **décalé après L3**, et rien d'US-05 ne part en production avant lui. Le cas hors plan est **retiré** du Lot L2. Le coach recueille aussi les **deux signaux nutrition**, et le formulaire reste le chemin d'une séance hors plan à côté du chat. Voir **§ Amendement du 2026-09-26** en fin de document.
 - **Ne touche pas** : ADR-007 (aucun paramètre de sécurité nouveau), ADR-016, ADR-017 — le débrief écrit du **réalisé**, jamais du plan
 
 ---
@@ -205,4 +205,23 @@ Une clé Mistral opérationnelle, qui est de toute façon nécessaire à la prod
 Le découpage l'attribuait à L2, mais le reste de l'ADR ne le permet pas : §1 limite la conversation à la **séance planifiée du jour**, et `debrief_sessions.planned_session_id` est `not null unique` (§2, migration `0030`). Une conversation hors plan n'aurait aucune ligne où vivre sans rouvrir le schéma.
 
 Cela confirme le partage décrit en §Conséquences : la conversation remplace **un seul** des modes de `DailyLogForm`, et le formulaire garde les trois autres. `missingOffPlan()` et `DebriefTurnInput.session.isOffPlan` restent dans le code, sans appelant qui les active. Ils coûtent peu et n'engagent rien.
+
+### La nutrition entre dans la conversation, le hors plan reste au formulaire
+
+> **Décisions du fondateur, 2026-09-26**, prises à l'issue du Lot L3. Le formulaire de la séance planifiée faisait trois choses : recueillir les signaux de la séance, recueillir les **deux signaux nutrition** (adhérence, énergie), et permettre d'**ajouter une séance hors plan**. La conversation livrée en L3 ne faisait que la première. Les deux autres n'étaient plus accessibles que par « Je préfère le formulaire ».
+
+**1. Le coach pose les deux questions nutrition dans la conversation.** Deux questions courtes, qui s'y prêtent.
+
+Ce que la décision implique, et qui n'est pas encore implémenté :
+
+- **Une fois par jour, pas une fois par séance.** `nutrition_checkins` porte `unique (user_id, date)` : l'alimentation qualifie une journée, là où `rpe` et `freshness` qualifient une séance (§2). Avec deux séances le même jour, seul le débrief qui trouve la journée sans check-in pose les questions.
+- **Jamais bloquantes, une seule insistance**, comme `rpe` et `freshness` (§6). Elles ne retardent donc jamais l'écriture précoce du réalisé (§3).
+- **Les deux ou rien.** `adherence` et `energy` sont `not null` : contrairement à `rpe`, on ne peut pas écrire la moitié d'un check-in. L'écriture passe par `POST /nutrition-checkins`, le même chemin que le formulaire.
+- **Énumérés au prompt** (§5) : les trois niveaux d'`ADHERENCE_LEVELS`, et `energy` de 1 à 5. `energy` alimente le diagnostic de surcharge (AC6). Une valeur inventée y aurait le même effet qu'un `rpe` inventé sur la charge.
+- **En question fermée** comme les autres après deux incompréhensions : l'adhérence en trois chips, l'énergie en cinq.
+- Un **jour de repos** n'a pas de débrief : son check-in nutrition reste au formulaire.
+
+**2. Une séance hors plan reste saisie par le formulaire**, dans la continuité du retrait décidé pour L2. Conséquence pour l'écran : l'entrée « ajouter une séance hors plan » doit rester **accessible à côté du chat**, pendant et après la conversation. En L3, elle ne passe que par « Je préfère le formulaire », et ce lien disparaît dès que la conversation a écrit le log. Le cas d'une séance planifiée suivie d'une séance hors plan le même jour n'a alors plus de chemin.
+
+Les deux points sont à traiter **avant le point ⛔**, sur la branche L3 : la validation du prompt doit porter sur le prompt complet, questions nutrition comprises.
 
