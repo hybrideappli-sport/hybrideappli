@@ -5,7 +5,7 @@
 - **Décideur** : `architect`, sur quatre arbitrages du fondateur du 2026-09-25
 - **Portée** : Feature — recueil des signaux post-séance. **Première étape seulement** : ni l'onboarding, ni la tab bar, ni le planning ne sont touchés.
 - **Dépend de** : ADR-002 (séparation moteur / LLM — le LLM ne calcule jamais), ADR-010 §3 (données de santé, rétention), ADR-011 (file de jobs, triple canal de notification)
-- **Amendement du 2026-09-26** : le point ⛔ de validation du prompt est **décalé après L3**, et rien d'US-05 ne part en production avant lui. Voir **§ Amendement du 2026-09-26** en fin de document.
+- **Amendement du 2026-09-26** : le point ⛔ de validation du prompt est **décalé après L3**, et rien d'US-05 ne part en production avant lui. Le cas hors plan est **retiré** du Lot L2. Voir **§ Amendement du 2026-09-26** en fin de document.
 - **Ne touche pas** : ADR-007 (aucun paramètre de sécurité nouveau), ADR-016, ADR-017 — le débrief écrit du **réalisé**, jamais du plan
 
 ---
@@ -116,7 +116,7 @@ Les trois premiers mesurent du remplissage. Le quatrième mesure un effet. **Si 
 | **L0 — Référence** | Exécution de `docs/mesures/recueil-post-seance.sql` sur `hybrideclub` | Quatre taux consignés avec leur date | **Fondateur** (accès prod) |
 | **L1 — Socle conversation** | Migration `debrief_sessions` / `debrief_messages` (RLS `own`, `contains_health_data`, unicité sur `planned_session_id`) ; `DebriefDraftPatchSchema` ; `runDebriefTurn()` ; prompt à énumérations ; mock déterministe ; `POST /api/v1/debrief/:plannedSessionId/messages` | ① une conversation complète produit un brouillon conforme ; ② une extraction hors énumération est **écartée** et le tour requalifié ; ③ **aucune écriture dans `session_logs`** ; ④ deux conversations pour la même séance impossibles | — |
 | **⛔** | **Validation humaine** — qualité du prompt sur le vrai Mistral, pas le mock. Rien n'est encore écrit en base métier : c'est le moment prévu pour se tromper sans coût. | | |
-| **L2 — Écriture précoce et signaux** | Trio ⟹ `POST /session-logs` ; `rpe`/`freshness` ⟹ `PATCH` ; branchement sur `runSessionLogSignalPipeline()` ; idempotence de reprise ; cas hors plan | ① conversation interrompue après le trio ⟹ log valide ; ② `rpe = 9` ⟹ trace `progression.negative_signal_reduction`, charge −20 % ; ③ reprise ⟹ `PATCH`, jamais un second log ; ④ `pain ≠ none` sans zone refusé par Zod **et** par `pain_zone_required` | L1 |
+| **L2 — Écriture précoce et signaux** | Trio ⟹ `POST /session-logs` ; `rpe`/`freshness` ⟹ `PATCH` ; branchement sur `runSessionLogSignalPipeline()` ; idempotence de reprise ~~; cas hors plan~~ — retiré le 2026-09-26, voir fin de document | ① conversation interrompue après le trio ⟹ log valide ; ② `rpe = 9` ⟹ trace `progression.negative_signal_reduction`, charge −20 % ; ③ reprise ⟹ `PATCH`, jamais un second log ; ④ `pain ≠ none` sans zone refusé par Zod **et** par `pain_zone_required` | L1 |
 | **L3 — Écran et repli** | UI de chat sur `/aujourdhui` ; questions fermées après 2 reformulations ; une seule relance `rpe`/`freshness` ; repli explicite vers `DailyLogForm` | ① e2e conversation → log → plan ajusté ; ② LLM en échec ⟹ formulaire, saisie possible ; ③ 2 incompréhensions ⟹ chips ; ④ paywall bloqué : formulaire, **aucun appel LLM** | L2 |
 | **L4 — Relance automatique** | Job `session_debrief` à 20 h locale ; **groupage à l'envoi** ; ouverture spontanée sur `/aujourdhui` | ① deux séances ⟹ **une** notification, **deux** conversations ; ② séance déjà loggée ⟹ aucune relance ; ③ badge `in_app` même si Push et Brevo échouent ; ④ aucun doublon sur deux passages | L3 |
 | **⛔** | **Validation humaine** — rejouer L0 et comparer. `pct_signal_negatif` décide si le formulaire reste le chemin par défaut. | | |
@@ -190,11 +190,19 @@ Concrètement, jusqu'à la validation :
 
 1. **Aucune branche d'US-05 n'est fusionnée dans `main`**, qui déploie en production. Les lots s'empilent : L2 part de la branche L1, L3 de la branche L2.
 2. **Aucune migration d'US-05 n'est appliquée sur `hybrideclub`**, à commencer par `0030_debrief_sessions`.
-3. Les déploiements *Preview* de Vercel partagent les variables Supabase de production (« Production and Preview »). Un aperçu de ces branches parle donc à la base de production. Sans la migration `0030`, il échoue sur les routes de débrief sans rien écrire, mais **il ne doit pas servir à tester le débrief**.
+3. Les déploiements *Preview* de Vercel partagent les variables Supabase de production (« Production and Preview »). Un aperçu de ces branches parle donc à la base de production. Sans la migration `0030`, il échoue sur les routes de débrief sans rien écrire, mais **il ne doit pas servir à tester le débrief**. Le problème dépasse US-05 : il est consigné comme dette générale, `08-architecture.md` §12, item 23.
 
 ### Ce qui lèvera la condition
 
 Une clé Mistral opérationnelle, qui est de toute façon nécessaire à la production : sans elle, `getLlmProvider()` refuse de démarrer, ce qui casse l'onboarding, la régénération du plan et la revue hebdomadaire. Le banc de huit scénarios écrit le 2026-09-26 (nominal, zone latéralisée, séance partielle, non faite, réponses floues, refus de `rpe`/`freshness`, hors plan, sport absent du référentiel) se relance alors en une commande. **Le point ⛔ garde le même contenu, seule sa place change : il doit être franchi avant la première fusion d'US-05 dans `main`.**
 
 **Ordre révisé** : L0 → L1 → L2 → L3 → ⛔ validation du prompt → fusion dans `main` → L4 → ⛔ mesure.
+
+### Le cas hors plan est retiré du Lot L2
+
+> **Décision du fondateur, 2026-09-26.** Une séance hors plan reste saisie par le formulaire, comme la correction d'un log passé et la branche paywall bloqué.
+
+Le découpage l'attribuait à L2, mais le reste de l'ADR ne le permet pas : §1 limite la conversation à la **séance planifiée du jour**, et `debrief_sessions.planned_session_id` est `not null unique` (§2, migration `0030`). Une conversation hors plan n'aurait aucune ligne où vivre sans rouvrir le schéma.
+
+Cela confirme le partage décrit en §Conséquences : la conversation remplace **un seul** des modes de `DailyLogForm`, et le formulaire garde les trois autres. `missingOffPlan()` et `DebriefTurnInput.session.isOffPlan` restent dans le code, sans appelant qui les active. Ils coûtent peu et n'engagent rien.
 
