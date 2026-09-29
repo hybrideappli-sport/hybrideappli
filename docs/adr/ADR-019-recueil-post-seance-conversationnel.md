@@ -225,3 +225,22 @@ Ce que la décision implique, et qui n'est pas encore implémenté :
 
 Les deux points sont à traiter **avant le point ⛔**, sur la branche L3 : la validation du prompt doit porter sur le prompt complet, questions nutrition comprises.
 
+### Bug de production : chaque correction d'un log négatif réduisait de nouveau la charge
+
+> **Constaté le 2026-09-29**, sur les captures d'écran du débrief. **Qualifié par le fondateur de bug de production**, pas de défaut d'US-05 : il existe depuis la création de `PATCH /session-logs/:id` (`636193d`, 2026-08-18, parcours de correction F3). **Corrigé directement sur `main`**, sans attendre le point ⛔ : la correction ne dépend d'aucun code d'US-05.
+
+**Le défaut.** `runSessionLogSignalPipeline()` décidait sur les seuls signaux **finaux** du log. Tout `PATCH` sur un log déjà négatif (`rpe >= 8`, `freshness <= 2` ou `pain ≠ none`) relançait donc une régénération `negative_signal`. La baisse de 20 % s'appliquait alors de nouveau, sur la version **déjà réduite**. Le protocole douleur était rejoué lui aussi : épisode, run, trace et explication réécrits à chaque correction.
+
+Mesuré à l'écran : une douleur au genou fait passer la cible de 189 à 151. Puis un effort à 7/10 et une forme à 3/5, qui ne sont **pas** des signaux négatifs, la font passer de 151 à 121, soit −36 % pour une seule séance. Chaque correction supplémentaire aurait ajouté 20 %.
+
+**Pourquoi US-05 l'a révélé.** Le formulaire de correction était peu emprunté. Le débrief, lui, écrit tôt (§3) puis **enrichit** le même log : le chemin fautif serait devenu le parcours nominal de toute séance avec douleur.
+
+**La correction** (`decideSignalEffects()`). Le pipeline reçoit les signaux **avant** l'écriture (`previousSignals`, `null` pour une saisie initiale) :
+
+- un log porte **au plus une** baisse `negative_signal`, au moment où il **devient** négatif ;
+- le protocole douleur n'est rejoué que si ses entrées changent (`pain`, `painZone`, `painAtRest`).
+
+Quatre tests d'intégration (`session-log-single-reduction.test.ts`) : la capture 8 rejouée par le chemin du formulaire et de la correction, le `PATCH` d'un log déjà négatif, un `PATCH` qui rend le log négatif (la baisse s'applique toujours), et une escalade vers `acute` (zone bloquée et renvoi toujours émis). Avec l'ancienne règle, les deux premiers échouent. Sur la branche L3, le même test rejoue aussi la capture 8 à travers le débrief.
+
+**Ce qui reste ouvert.** Une escalade du protocole douleur par correction (`light` → `acute`) régénère le plan avec le déclencheur `pain_protocol`. Or `computeWeeklyLoadTarget` applique aussi la baisse de 20 % à ce déclencheur : un log qui escalade en porte donc deux. La régénération est nécessaire pour bloquer la zone. Seule la seconde baisse est discutable, et la supprimer demanderait de distinguer, dans le moteur, « bloquer une zone » de « réduire la charge ». À arbitrer séparément.
+
