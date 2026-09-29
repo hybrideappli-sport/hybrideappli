@@ -227,3 +227,24 @@ Les deux points sont à traiter **avant le point ⛔**, sur la branche L3 : la v
 
 **Implémenté le 2026-09-29, branche L3.** Le check-in passe par `applyNutritionCheckin()`, extrait de `POST /nutrition-checkins` et partagé avec le formulaire. Le prompt énumère `adherence` et `energy`, et ne les demande qu'après `rpe` / `freshness`. En questions fermées, chaque question groupée (`effort`, puis `nutrition`) n'est posée qu'une fois, et « Passer » nomme celle qu'il écarte. L'entrée « Ajouter une séance hors plan » reste sous le chat, log écrit ou non. Le banc Mistral inclut désormais une réponse nutrition.
 
+### Bug de production : chaque correction d'un log négatif réduisait de nouveau la charge
+
+> **Constaté le 2026-09-29**, sur les captures d'écran du débrief. **Qualifié par le fondateur de bug de production**, pas de défaut d'US-05 : il existe depuis la création de `PATCH /session-logs/:id` (`636193d`, 2026-08-18, parcours de correction F3).
+
+**Le défaut.** `runSessionLogSignalPipeline()` décidait sur les seuls signaux **finaux** du log. Tout `PATCH` sur un log déjà négatif (`rpe >= 8`, `freshness <= 2` ou `pain ≠ none`) relançait donc une régénération `negative_signal`. La baisse de 20 % s'appliquait alors de nouveau, sur la version **déjà réduite**. Le protocole douleur était rejoué lui aussi : épisode, run, trace et explication réécrits à chaque correction.
+
+Mesuré à l'écran : une douleur au genou fait passer la cible de 189 à 151. Puis un effort à 7/10 et une forme à 3/5, qui ne sont **pas** des signaux négatifs, la font passer de 151 à 121, soit −36 % pour une seule séance. Chaque correction supplémentaire aurait ajouté 20 %.
+
+**Pourquoi US-05 l'a révélé.** Le formulaire de correction était peu emprunté. Le débrief, lui, écrit tôt (§3) puis **enrichit** le même log : le chemin fautif devenait le parcours nominal de toute séance avec douleur.
+
+**La correction** (`decideSignalEffects()`, commit de ce jour, branche L3). Le pipeline reçoit les signaux **avant** l'écriture (`previousSignals`, `null` pour une saisie initiale) :
+
+- un log porte **au plus une** baisse `negative_signal`, au moment où il **devient** négatif ;
+- le protocole douleur n'est rejoué que si ses entrées changent (`pain`, `painZone`, `painAtRest`).
+
+Quatre tests d'intégration (`session-log-single-reduction.test.ts`) : la capture 8 rejouée, le chemin `PATCH` seul, un `PATCH` qui rend le log négatif (la baisse s'applique toujours), et une escalade vers `acute` (zone bloquée et renvoi toujours émis). Avec l'ancienne règle, les deux premiers échouent. Un test de L3 attendait une baisse au moment où l'on donne l'effort sur un log déjà douloureux : il avait **figé le bug**, et il est corrigé.
+
+**Ce qui reste ouvert.** Une escalade du protocole douleur par correction (`light` → `acute`) régénère le plan avec le déclencheur `pain_protocol`. Or `computeWeeklyLoadTarget` applique aussi la baisse de 20 % à ce déclencheur : un log qui escalade en porte donc deux. La régénération est nécessaire pour bloquer la zone. Seule la seconde baisse est discutable, et la supprimer demanderait de distinguer, dans le moteur, « bloquer une zone » de « réduire la charge ». À arbitrer séparément.
+
+**Ce que la correction ne fait pas encore.** Elle vit sur la branche L3, qui n'est pas fusionnée avant le point ⛔. **La production garde donc le bug** tant que L3 n'est pas dans `main`, ou tant que ce commit n'y est pas porté seul. La correction ne dépend d'aucune table ni d'aucun code d'US-05.
+

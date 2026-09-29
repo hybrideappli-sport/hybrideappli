@@ -88,7 +88,14 @@ export function DebriefChat({ plannedSessionId, loggedDate, sessionLabel, initia
       setMessages((prev) => [...prev, { id: `coach-${Date.now()}`, role: "coach", content: data.reply, isReformulation: data.isReformulation }]);
       setClosedQuestion(data.closedQuestion);
       setSessionLogId(data.sessionLogId);
-      if (data.logWrite) setLastWrite({ result: data.logWrite.result, painZone: data.painZone });
+      // Un enrichissement qui n'ajuste rien (un log porte au plus une baisse) ne doit pas remplacer
+      // le retour de l'écriture qui, elle, a ajusté : « aucun ajustement » serait faux pour la séance.
+      const write = data.logWrite;
+      if (write) {
+        setLastWrite((previous) =>
+          !previous || write.result.adjustment.applied || write.result.painProtocol.referral ? { result: write.result, painZone: data.painZone } : previous,
+        );
+      }
       if (data.canClose || data.reachedTurnLimit) setClosed(true);
     } catch (err) {
       // Une panne réseau vaut une panne du coach : sans réponse, le formulaire est le seul chemin.

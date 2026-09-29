@@ -29,9 +29,12 @@ export async function applySessionLogCorrection(
 ): Promise<UpdateSessionLogResponse> {
   const { userId, now, logId, input } = args;
 
+  // Les signaux AVANT correction : le pipeline ne déclenche que ce que la correction fait
+  // APPARAÎTRE (`decideSignalEffects()`). Sans eux, chaque correction d'un log déjà négatif
+  // réappliquait une baisse de 20 % sur un plan déjà réduit.
   const { data: existing, error: existingError } = await admin
     .from("session_logs")
-    .select("id, user_id")
+    .select("id, user_id, rpe, freshness, pain, pain_zone, pain_at_rest")
     .eq("id", logId)
     .maybeSingle();
   if (existingError) throw new Error(`applySessionLogCorrection: lecture session_logs — ${existingError.message}`);
@@ -59,7 +62,11 @@ export async function applySessionLogCorrection(
   // Les signaux transmis au pipeline (protocole douleur, asymétrie de charge) reflètent l'état FINAL
   // en base — pas seulement le corps du `PATCH` — pour rester corrects même sur une mise à jour
   // partielle (ex. seul `completion` fourni, `pain` déjà posé par une saisie précédente).
-  const { data: finalRow, error: finalRowError } = await admin.from("session_logs").select("rpe, freshness, pain, pain_zone").eq("id", logId).single();
+  const { data: finalRow, error: finalRowError } = await admin
+    .from("session_logs")
+    .select("rpe, freshness, pain, pain_zone, pain_at_rest")
+    .eq("id", logId)
+    .single();
   if (finalRowError) throw new Error(`applySessionLogCorrection: relecture session_logs — ${finalRowError.message}`);
 
   const pipelineResult = await runSessionLogSignalPipeline(admin, {
@@ -67,7 +74,14 @@ export async function applySessionLogCorrection(
     now,
     logId,
     reconciliationMode: "replay-if-excluded",
-    signals: { rpe: finalRow.rpe, freshness: finalRow.freshness, pain: finalRow.pain, painZone: finalRow.pain_zone },
+    signals: { rpe: finalRow.rpe, freshness: finalRow.freshness, pain: finalRow.pain, painZone: finalRow.pain_zone, painAtRest: finalRow.pain_at_rest },
+    previousSignals: {
+      rpe: existing.rpe,
+      freshness: existing.freshness,
+      pain: existing.pain,
+      painZone: existing.pain_zone,
+      painAtRest: existing.pain_at_rest,
+    },
   });
 
   return { logId, ...pipelineResult };

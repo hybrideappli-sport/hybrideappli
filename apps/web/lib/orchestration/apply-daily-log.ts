@@ -65,7 +65,14 @@ export async function applyDailyLog(
     now,
     logId: insertedLog.id,
     reconciliationMode: "match",
-    signals: { rpe: input.rpe ?? null, freshness: input.freshness ?? null, pain: input.pain, painZone: input.painZone ?? null },
+    signals: {
+      rpe: input.rpe ?? null,
+      freshness: input.freshness ?? null,
+      pain: input.pain,
+      painZone: input.painZone ?? null,
+      painAtRest: input.painAtRest ?? false,
+    },
+    previousSignals: null,
   });
 
   return { logId: insertedLog.id, ...pipelineResult };

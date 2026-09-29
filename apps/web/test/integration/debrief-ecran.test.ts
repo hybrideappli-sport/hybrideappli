@@ -102,13 +102,17 @@ describe("débrief post-séance — ce que l'écran attend du serveur (US-05 L3)
 
     const c3 = await applyDebriefChoiceForSession(user.client, admin, { ...base, choice: { painZone: "knee" } });
     expect(c3.logWrite?.kind).toBe("created");
+    // La douleur rend le log négatif : c'est ICI, et une seule fois, que la charge baisse.
+    expect(c3.logWrite?.result.adjustment.direction).toBe("decrease");
     // Puis `rpe` et `freshness` ENSEMBLE, en une seule question qu'on peut passer (ADR-019 §6).
     expect(c3.closedQuestion?.groups.map((g) => g.field)).toEqual(["rpe", "freshness"]);
     expect(c3.closedQuestion?.skippable).toBe(true);
 
     const c4 = await applyDebriefChoiceForSession(user.client, admin, { ...base, choice: { rpe: 9, freshness: 2 } });
     expect(c4.logWrite?.kind).toBe("updated");
-    expect(c4.logWrite?.result.adjustment.direction).toBe("decrease");
+    // Le log était déjà négatif : l'enrichissement ne réduit pas une seconde fois (bug de production
+    // corrigé le 2026-09-29 — cette assertion l'avait d'abord figé en attendant une baisse ici).
+    expect(c4.logWrite?.result.adjustment.applied).toBe(false);
     // Puis la journée : `adherence` et `energy` ensemble, les deux ou rien.
     expect(c4.closedQuestion?.id).toBe("nutrition");
     expect(c4.closedQuestion?.groups.map((g) => g.field)).toEqual(["adherence", "energy"]);
