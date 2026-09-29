@@ -21,7 +21,7 @@
 
 **Vérifier** : Vercel → `hybrideappli-web` → Settings → Environment Variables, filtre *Production*. Relevé du 2026-09-26 : **quatre variables seulement** (`NEXT_PUBLIC_SITE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`), aucune partagée.
 
-Il n'existe **pas** de `.env.example` dans le dépôt, alors que `lib/map/tiles-config.ts` y renvoie. Ce tableau est aujourd'hui la seule liste complète. Il a été dressé en recensant `process.env.*` dans `apps/web` et `packages/*`.
+**Raccourci** : `GET /api/v1/health/readiness` fait ce contrôle en un appel (voir §8). La liste de référence est `apps/web/.env.example`, dérivée de `lib/health/readiness.ts`. Un test échoue si le code lit une variable qui n'y figure pas.
 
 ### Socle
 
@@ -97,7 +97,7 @@ Optionnelles, avec défaut : `STRAVA_WEBHOOK_RATE_LIMIT_MAX`, `STRAVA_WEBHOOK_RA
 
 **La migration de consentement attend une décision** : publier les textes provisoires tels quels, qui portent la mention « Contenu provisoire — à faire valider juridiquement », ou publier une nouvelle version juridiquement validée (`08-architecture.md` §12, item 10).
 
-**Vérifier** (éditeur SQL Supabase, projet `hybrideclub`) :
+**Vérifier** : `GET /api/v1/health/readiness` contrôle le ruleset actif, les cinq documents courants et le référentiel des sports. Pour le détail, dans l'éditeur SQL Supabase du projet `hybrideclub` :
 
 ```sql
 -- Migrations appliquées : la dernière doit être la plus récente de supabase/migrations/.
@@ -183,14 +183,32 @@ Un parcours minimal, sur un **compte de test dédié** en production, dans cet o
 7. **`/compte`** : réaccorder le consentement, `consent_documents`.
 8. **`/abonnement`** : le Payment Element se monte (Stripe), sans aller jusqu'au paiement.
 
+Avant ce parcours, un appel suffit à éliminer les causes de configuration :
+
+```bash
+curl -s -H "Authorization: Bearer $CRON_SECRET" https://<domaine>/api/v1/health/readiness
+```
+
+`200` et `"ready": true` : la configuration est complète. `503` : la réponse liste ce qui manque. Si `CRON_SECRET` elle-même manque, la route répond ce seul constat, sans authentification.
+
 Puis Vercel → *Logs*, filtrer sur `error` : aucune ligne `[coach-llm]`, `[cron]`, `[strava]` ni `getActiveRuleset`.
 
 ---
 
 ## 8. Pour ne pas redécouvrir ces écarts un par un
 
-Pistes, **non implémentées** :
+**Fait le 2026-09-29 :**
 
-- **Un `.env.example` à jour**, versionné : la liste de la §1, sans valeurs. Il est déjà référencé par `lib/map/tiles-config.ts` et n'existe pas.
-- **Une route de santé** (`/api/v1/health/readiness`, protégée par `CRON_SECRET`) qui vérifie en un appel la présence des variables de la §1 et l'état de la base de la §2 : ruleset actif, documents courants. Elle renverrait la liste de ce qui manque au lieu d'un premier `500` en production.
-- **Un test d'architecture** qui échoue si `seed.sql` active une ligne sans migration de production correspondante ni mention dans la §2.
+- **`apps/web/.env.example`** : toutes les variables lues par le code, sans valeurs, avec l'effet de leur absence.
+- **`GET /api/v1/health/readiness`**, protégée par `CRON_SECRET` (`lib/health/readiness.ts`). En un appel, elle contrôle :
+  - la présence des variables de la §1 ;
+  - quelques défauts de forme : clé Stripe de test, `NEXT_PUBLIC_SITE_URL` vers `localhost`, `COACH_LLM_PROVIDER` définie ;
+  - l'état de la base de la §2.
+
+  Elle ne renvoie **jamais** une valeur. Les fonctionnalités dégradées et la carte en pause sont signalées sans rendre l'environnement « pas prêt ».
+- **Deux gardes contre la dérive** (`readiness.test.ts`) : le code de production ne lit aucune variable absente de la liste, et `.env.example` liste exactement cette liste.
+
+**Reste à faire :**
+
+- Un test d'architecture qui échoue si `seed.sql` active une ligne sans migration de production correspondante ni mention dans la §2.
+- La vérification des migrations appliquées : `supabase_migrations` n'est pas exposé par l'API Supabase, et la route ne peut donc pas le lire. Il faut passer par `npx supabase migration list --linked`.

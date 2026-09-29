@@ -24,7 +24,7 @@ export function getMapTilesConfig(): MapTilesConfig {
   if (!baseStyleUrl) {
     const message =
       "getMapTilesConfig: MAP_TILES_STYLE_URL manquante — impossible d'afficher la carte (ADR-018 §2, §8). " +
-      "Voir .env.local.example.";
+      "Voir .env.example.";
     console.error(`[map] ${message}`);
     throw new MissingMapTilesConfigurationError(message);
   }
