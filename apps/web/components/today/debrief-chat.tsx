@@ -54,6 +54,7 @@ export function DebriefChat({ plannedSessionId, loggedDate, sessionLabel, initia
   const [error, setError] = useState<string | null>(null);
   // Repli sur le formulaire : à la demande de l'utilisateur, ou quand le coach ne répond pas.
   const [fallback, setFallback] = useState<null | "chosen" | "llm-unavailable">(null);
+  const [offPlanOpen, setOffPlanOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export function DebriefChat({ plannedSessionId, loggedDate, sessionLabel, initia
           {pending ? <CoachTypingIndicator /> : null}
         </div>
 
-        {closedQuestion && !pending ? <ClosedQuestionPicker question={closedQuestion} onAnswer={(choice) => void send({ choice }, describeChoice(choice))} /> : null}
+        {closedQuestion && !pending ? <ClosedQuestionPicker key={closedQuestion.id} question={closedQuestion} onAnswer={(choice) => void send({ choice }, describeChoice(choice))} /> : null}
 
         {error ? (
           <p role="alert" className="text-small text-danger">
@@ -153,14 +154,28 @@ export function DebriefChat({ plannedSessionId, loggedDate, sessionLabel, initia
           Je préfère le formulaire
         </Button>
       )}
+
+      {/* Amendement ADR-019 du 2026-09-26 — une séance hors plan reste au formulaire, et son entrée
+          reste accessible à côté du chat, pendant ET après la conversation : « Je préfère le
+          formulaire » disparaît dès que le log est écrit, ce chemin-là non. */}
+      {offPlanOpen ? (
+        <DailyLogForm mode="offplan-only" plannedSessionId={null} loggedDate={loggedDate} />
+      ) : (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOffPlanOpen(true)} data-testid="debrief-add-offplan">
+          Ajouter une séance hors plan
+        </Button>
+      )}
     </section>
   );
 }
 
 /**
  * Question fermée (ADR-019 §6). Un seul groupe obligatoire : un chip est une réponse, envoyée tout
- * de suite. Plusieurs groupes (`rpe` + `freshness`, demandés ensemble) : on choisit, puis on envoie
+ * de suite. Plusieurs groupes (`rpe` + `freshness`, ou `adherence` + `energy`) : on choisit, puis on envoie
  * — ou on passe, puisque ces deux-là ne bloquent jamais.
+ *
+ * Rendu avec `key={question.id}` : une nouvelle question remonte le composant, et une sélection
+ * partielle ne déborde jamais sur la suivante.
  */
 function ClosedQuestionPicker({ question, onAnswer }: { question: ClosedQuestion; onAnswer: (choice: DebriefChoice) => void }) {
   const [selection, setSelection] = useState<Partial<Record<ClosedQuestionField, string | number>>>({});
@@ -212,13 +227,14 @@ function ClosedQuestionPicker({ question, onAnswer }: { question: ClosedQuestion
           <Button
             type="button"
             size="sm"
-            disabled={selectedEntries.length === 0}
+            // `nutrition` : les deux ou rien (`adherence` et `energy` sont `not null` en base).
+            disabled={question.requireAll ? selectedEntries.length < question.groups.length : selectedEntries.length === 0}
             onClick={() => onAnswer(Object.fromEntries(selectedEntries) as DebriefChoice)}
           >
             Envoyer
           </Button>
           {question.skippable ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => onAnswer({ skip: true })}>
+            <Button type="button" size="sm" variant="ghost" onClick={() => onAnswer({ skip: question.id as "effort" | "nutrition" })}>
               Passer
             </Button>
           ) : null}

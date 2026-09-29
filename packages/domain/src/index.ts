@@ -256,7 +256,7 @@ export type {
 // debrief.ts — recueil post-séance conversationnel (US-05, Lot L1, ADR-019)
 // ---------------------------------------------------------------------------
 
-export { DebriefDraftPatchSchema, missingMandatory, missingDesired, missingOffPlan, mergeDebriefDraft } from "./debrief";
+export { DebriefDraftPatchSchema, missingMandatory, missingDesired, missingNutrition, missingOffPlan, mergeDebriefDraft } from "./debrief";
 export type { DebriefDraft, DebriefDraftPatch, DebriefMandatoryField } from "./debrief";
 
 // ---------------------------------------------------------------------------

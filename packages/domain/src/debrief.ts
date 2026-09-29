@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "./enums";
+import { ADHERENCE_LEVELS, BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "./enums";
 import { SportCodeSchema } from "./onboarding";
 
 /**
@@ -37,6 +37,10 @@ export const DebriefDraftPatchSchema = z
     sessionType: z.enum(SESSION_TYPES).optional(),
     comment: z.string().max(1000).optional(),
     notDoneReason: z.string().max(500).optional(),
+    // Signaux nutrition de la JOURNÉE (amendement du 2026-09-26) — pas de la séance : ils
+    // s'écrivent dans `nutrition_checkins`, jamais dans `session_logs`.
+    adherence: z.enum(ADHERENCE_LEVELS).optional(),
+    energy: z.number().int().min(1).max(5).optional(),
   })
   .strict();
 
@@ -75,6 +79,20 @@ export function missingDesired(draft: DebriefDraft): ("rpe" | "freshness")[] {
   const missing: ("rpe" | "freshness")[] = [];
   if (draft.rpe === undefined) missing.push("rpe");
   if (draft.freshness === undefined) missing.push("freshness");
+  return missing;
+}
+
+/**
+ * Signaux nutrition encore manquants (amendement ADR-019 du 2026-09-26). Ils qualifient la JOURNÉE :
+ * `nutritionDue` vaut `false` dès que la journée a déjà son check-in (`nutrition_checkins` porte
+ * `unique (user_id, date)`), et le débrief ne les demande alors pas. Comme `rpe` / `freshness`, ils
+ * ne bloquent jamais rien et ne sont demandés qu'une fois.
+ */
+export function missingNutrition(draft: DebriefDraft, nutritionDue: boolean): ("adherence" | "energy")[] {
+  if (!nutritionDue) return [];
+  const missing: ("adherence" | "energy")[] = [];
+  if (draft.adherence === undefined) missing.push("adherence");
+  if (draft.energy === undefined) missing.push("energy");
   return missing;
 }
 

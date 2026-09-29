@@ -17,6 +17,7 @@ import {
   mergeDebriefDraft,
   missingDesired,
   missingMandatory,
+  missingNutrition,
   missingOffPlan,
   type DebriefDraft,
   type DebriefDraftPatch,
@@ -36,6 +37,8 @@ export interface DebriefTurnRequest {
   reformulationCount: number;
   /** Voir `DebriefTurnInput.sportReferential` : seule source des `sportCode` acceptés. */
   sportReferential?: SportReferentialEntry[];
+  /** La journée n'a pas encore de check-in nutrition : le coach pose les deux questions. */
+  nutritionDue: boolean;
 }
 
 export interface DebriefTurnResult {
@@ -48,6 +51,7 @@ export interface DebriefTurnResult {
   /** Vide ⟹ le Lot L2 pourra écrire le `session_log`. */
   missingMandatory: string[];
   missingDesired: string[];
+  missingNutrition: string[];
   reformulationCount: number;
   reachedReformulationLimit: boolean;
   /** Le fournisseur estime la conversation terminée ET plus rien d'obligatoire ne manque. */
@@ -65,6 +69,7 @@ export async function runDebriefTurn(provider: LlmProvider, request: DebriefTurn
     session: request.session,
     missingMandatory: mandatoryBefore,
     missingDesired: desiredBefore,
+    missingNutrition: missingNutrition(request.draft, request.nutritionDue),
     sportReferential: request.sportReferential,
   });
 
@@ -106,6 +111,7 @@ export async function runDebriefTurn(provider: LlmProvider, request: DebriefTurn
     draft,
     missingMandatory: [...mandatoryAfter, ...offPlanMissing],
     missingDesired: missingDesired(draft),
+    missingNutrition: missingNutrition(draft, request.nutritionDue),
     reformulationCount,
     reachedReformulationLimit: reformulationCount >= MAX_DEBRIEF_REFORMULATIONS,
     canClose: output.suggestNextStep && mandatoryAfter.length === 0,

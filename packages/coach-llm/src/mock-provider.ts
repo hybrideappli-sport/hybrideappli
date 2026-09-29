@@ -333,6 +333,16 @@ function extractDebrief(message: string): Record<string, unknown> | null {
   const fr = /forme\s*(?:de\s*)?(\d)|(\d)\s*sur\s*5|fraicheur\s*(\d)/.exec(m);
   if (fr) patch["freshness"] = Number.parseInt(fr[1] ?? fr[2] ?? fr[3] ?? "", 10);
 
+  // Nutrition de la journée : seulement si le message parle d'alimentation, pour ne jamais lire un
+  // « bien » isolé comme une adhérence.
+  if (/mange|aliment/.test(m)) {
+    if (/mal mange|pas top|n'importe|a cote/.test(m)) patch["adherence"] = "low";
+    else if (/moyen|bof/.test(m)) patch["adherence"] = "partial";
+    else if (/bien|nickel|comme prevu/.test(m)) patch["adherence"] = "high";
+  }
+  const energy = /energie\s*(?:de\s*)?(\d)/.exec(m);
+  if (energy) patch["energy"] = Number.parseInt(energy[1] ?? "", 10);
+
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
@@ -343,6 +353,9 @@ const DEBRIEF_QUESTION: Record<string, string> = {
   sportCode: "C'était quelle discipline ?",
   actualDurationMin: "Ça a duré combien de temps ?",
 };
+
+const EFFORT_QUESTION = "C'était dur ? Et tu te sens comment ?";
+const NUTRITION_QUESTION = "Et côté alimentation aujourd'hui, et ton énergie ?";
 
 function handleDebrief(input: DebriefTurnInput): StepOutcome {
   const extraction = extractDebrief(input.userMessage);
@@ -368,9 +381,14 @@ function handleDebrief(input: DebriefTurnInput): StepOutcome {
   // Même raisonnement que pour les obligatoires : ce qui reste APRÈS ce patch. Juger sur l'état
   // d'avant ferait reposer la question alors que l'utilisateur vient d'y répondre.
   const desireRestant = input.missingDesired.filter((champ) => extraction?.[champ] === undefined);
-  if (desireRestant.length > 0) {
-    // Les deux recherchés en UN seul tour, jamais deux relances (ADR-019 §6).
-    return { reply: "C'était dur ? Et tu te sens comment ?", extraction, isReformulation: false, suggestNextStep: false };
+  // Les deux recherchés en UN seul tour, et une seule fois : jamais deux relances (ADR-019 §6).
+  if (desireRestant.length > 0 && !input.history.some((entry) => entry.role === "coach" && entry.content === EFFORT_QUESTION)) {
+    return { reply: EFFORT_QUESTION, extraction, isReformulation: false, suggestNextStep: false };
+  }
+  // Puis la journée, une seule fois elle aussi (amendement ADR-019 du 2026-09-26).
+  const nutritionRestant = input.missingNutrition.filter((champ) => extraction?.[champ] === undefined);
+  if (nutritionRestant.length > 0 && !input.history.some((entry) => entry.role === "coach" && entry.content === NUTRITION_QUESTION)) {
+    return { reply: NUTRITION_QUESTION, extraction, isReformulation: false, suggestNextStep: false };
   }
   return { reply: "Noté, merci. Je m'occupe du reste.", extraction, isReformulation: false, suggestNextStep: true };
 }

@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@hybride/db";
 import { runDebriefTurn, type DebriefTurnResult } from "@hybride/coach-llm";
-import { mergeDebriefDraft, missingDesired, missingMandatory, type DebriefDraft } from "@hybride/domain";
+import { mergeDebriefDraft, missingDesired, missingMandatory, missingNutrition, type DebriefDraft } from "@hybride/domain";
 
 import { getLlmProvider } from "@/lib/coach-llm-provider";
 import {
@@ -16,7 +16,7 @@ import {
   type DebriefChoice,
 } from "@/lib/debrief/closed-questions";
 
-import { writeDebriefLog, type DebriefLogWrite } from "./write-debrief-log";
+import { writeDebriefLog, writeDebriefNutrition, type DebriefLogWrite } from "./write-debrief-log";
 
 /**
  * Orchestration d'un débrief post-séance, persistance comprise (US-05, ADR-019).
@@ -69,6 +69,15 @@ interface DebriefContext {
   draft: DebriefDraft;
   turnCount: number;
   linkedLogId: string | null;
+  /** La journée n'a pas encore de check-in nutrition : le coach pose les deux questions
+   *  (amendement ADR-019 du 2026-09-26). Une fois par jour, pas une fois par séance. */
+  nutritionDue: boolean;
+}
+
+async function isNutritionDue(admin: SupabaseClient<Database>, userId: string, date: string): Promise<boolean> {
+  const { data, error } = await admin.from("nutrition_checkins").select("id").eq("user_id", userId).eq("date", date).maybeSingle();
+  if (error) throw new Error(`debrief: nutrition_checkins (lecture) — ${error.message}`);
+  return data === null;
 }
 
 /** Charge la séance, retrouve ou crée SON débrief (un par séance, ADR-019 §2). À la création, le
@@ -92,8 +101,11 @@ async function loadContext(admin: SupabaseClient<Database>, userId: string, plan
     .maybeSingle();
   if (existingError) throw new Error(`debrief: debrief_sessions (lecture) — ${existingError.message}`);
 
+  const nutritionDue = await isNutritionDue(admin, userId, planned.scheduled_date);
+
   if (existing) {
     return {
+      nutritionDue,
       planned,
       debriefSessionId: existing.id,
       draft: (existing.draft ?? {}) as DebriefDraft,
@@ -117,7 +129,7 @@ async function loadContext(admin: SupabaseClient<Database>, userId: string, plan
   });
   if (openingError) throw new Error(`debrief: debrief_messages (ouverture) — ${openingError.message}`);
 
-  return { planned, debriefSessionId: created.id, draft: {}, turnCount: 0, linkedLogId: null };
+  return { planned, debriefSessionId: created.id, draft: {}, turnCount: 0, linkedLogId: null, nutritionDue };
 }
 
 function turnLimitOutcome(context: DebriefContext): DebriefTurnOutcome {
@@ -131,6 +143,7 @@ function turnLimitOutcome(context: DebriefContext): DebriefTurnOutcome {
     draft: context.draft,
     missingMandatory: [],
     missingDesired: [],
+    missingNutrition: [],
     reformulationCount: 0,
     reachedReformulationLimit: false,
     canClose: false,
@@ -186,6 +199,8 @@ async function persistAndWrite(
     draft: args.draft,
     missingMandatory: missingMandatory(args.draft),
   });
+  // Indépendante du trio : la journée a son propre signal, écrit dès que les deux valeurs sont là.
+  await writeDebriefNutrition(rls, { userId: args.userId, date: context.planned.scheduled_date, draft: args.draft });
   return { logWrite, sessionLogId: logWrite?.logId ?? context.linkedLogId };
 }
 
@@ -261,6 +276,7 @@ export async function runDebriefTurnForSession(
       },
       reformulationCount,
       sportReferential: (sportRows ?? []).map((row) => ({ code: row.code, labelFr: row.label_fr })),
+      nutritionDue: context.nutritionDue,
     });
   } catch (error) {
     console.error("[debrief] fournisseur LLM en échec, repli sur le formulaire :", error);
@@ -298,14 +314,15 @@ export async function runDebriefTurnForSession(
     reachedTurnLimit: false,
     logWrite,
     sessionLogId,
-    closedQuestion: turn.reachedReformulationLimit ? buildClosedQuestion(turn.draft) : null,
+    closedQuestion: turn.reachedReformulationLimit ? buildClosedQuestion(turn.draft, { nutritionDue: context.nutritionDue }) : null,
   };
 }
 
 /**
  * Une réponse par chips (Lot L3, ADR-019 §6). Aucun appel LLM : le choix, déjà validé par
  * `DebriefChoiceSchema`, entre tel quel dans le brouillon, et la réponse du coach est la question
- * fermée suivante. Une fois `rpe` / `freshness` répondus ou passés, l'échange est clos.
+ * fermée suivante. Les deux questions groupées (`effort`, puis `nutrition`) ne sont posées qu'une
+ * fois chacune : répondues ou passées, elles ne reviennent pas, et l'échange se clôt ensuite.
  */
 export async function applyDebriefChoiceForSession(
   rls: SupabaseClient<Database>,
@@ -318,12 +335,19 @@ export async function applyDebriefChoiceForSession(
 
   const patch = "skip" in choice ? {} : choice;
   const draft = mergeDebriefDraft(context.draft, patch);
-  const answeredDesired = "skip" in choice || choice.rpe !== undefined || choice.freshness !== undefined;
   const mandatoryLeft = missingMandatory(draft);
 
-  // Après la question sur `rpe` / `freshness` — répondue ou passée — on ne relance plus : c'était
-  // l'unique insistance. Sinon, la question fermée suivante.
-  const closedQuestion = answeredDesired && mandatoryLeft.length === 0 ? null : buildClosedQuestion(draft);
+  // La question groupée à laquelle ce choix répond — ou qu'il passe. Elle ne revient pas : c'était
+  // son unique insistance.
+  const after =
+    "skip" in choice
+      ? choice.skip
+      : choice.adherence !== undefined || choice.energy !== undefined
+        ? ("nutrition" as const)
+        : choice.rpe !== undefined || choice.freshness !== undefined
+          ? ("effort" as const)
+          : undefined;
+  const closedQuestion = buildClosedQuestion(draft, { nutritionDue: context.nutritionDue, after });
   const close = closedQuestion === null;
   const reply = closedQuestion?.prompt ?? DEBRIEF_CLOSING_REPLY;
 
@@ -355,6 +379,7 @@ export async function applyDebriefChoiceForSession(
     draft,
     missingMandatory: mandatoryLeft,
     missingDesired: missingDesired(draft),
+    missingNutrition: missingNutrition(draft, context.nutritionDue),
     reformulationCount: 0,
     reachedReformulationLimit: false,
     canClose: close,

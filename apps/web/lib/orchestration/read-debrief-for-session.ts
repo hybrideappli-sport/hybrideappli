@@ -37,7 +37,7 @@ export interface DebriefView {
  */
 export async function readDebriefForSession(
   admin: SupabaseClient<Database>,
-  args: { userId: string; plannedSessionId: string; sessionLogId: string | null },
+  args: { userId: string; plannedSessionId: string; sessionLogId: string | null; date: string },
 ): Promise<DebriefView | null> {
   const columns = "id, planned_session_id, status, draft, session_log_id";
   const { data: bySession, error } = await admin
@@ -80,6 +80,14 @@ export async function readDebriefForSession(
     reformulations += 1;
   }
 
+  const { data: checkin, error: checkinError } = await admin
+    .from("nutrition_checkins")
+    .select("id")
+    .eq("user_id", args.userId)
+    .eq("date", args.date)
+    .maybeSingle();
+  if (checkinError) throw new Error(`readDebriefForSession: nutrition_checkins — ${checkinError.message}`);
+
   return {
     plannedSessionId: debrief.planned_session_id,
     status: debrief.status,
@@ -87,7 +95,7 @@ export async function readDebriefForSession(
     messages,
     closedQuestion:
       debrief.status === "in_progress" && reformulations >= MAX_DEBRIEF_REFORMULATIONS
-        ? buildClosedQuestion((debrief.draft ?? {}) as DebriefDraft)
+        ? buildClosedQuestion((debrief.draft ?? {}) as DebriefDraft, { nutritionDue: checkin === null })
         : null,
   };
 }

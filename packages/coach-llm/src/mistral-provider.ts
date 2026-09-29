@@ -14,7 +14,7 @@
 
 import { Mistral } from "@mistralai/mistralai";
 
-import { BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "@hybride/domain";
+import { ADHERENCE_LEVELS, BODY_ZONES, COMPLETION_STATUSES, PAIN_LEVELS, SESSION_TYPES } from "@hybride/domain";
 
 import type {
   ConversationTurnInput,
@@ -69,11 +69,14 @@ Règles absolues :
   actualDurationMin : entier de 0 à 1440
   sessionType  : ${SESSION_TYPES.join(" | ")}
   sportCode    : UNIQUEMENT une valeur de la colonne "code" du champ "sportReferential" de l'entrée
+  adherence    : ${ADHERENCE_LEVELS.join(" | ")}   (alimentation de la journée : low = à côté, partial = moyenne, high = conforme)
+  energy       : entier de 1 à 5   (énergie de la journée)
   comment, notDoneReason : texte libre
 - Ces valeurs sont des CODES à recopier tels quels depuis les listes ci-dessus. Jamais de traduction, jamais d'invention : « j'ai mal au genou » donne "knee", pas "genou" ; « course à pied » donne le code du référentiel ("running"), jamais "course_a_pied".
 - Tu ne crées JAMAIS de "sportCode". Si aucune entrée de "sportReferential" ne correspond à la discipline décrite, ou si ce champ est absent, n'extrais pas "sportCode" : note la discipline dans "comment".
 - Le champ "missingMandatory" de l'entrée dit ce qu'il te reste à obtenir. Demande-le, une chose à la fois, sans lire une liste à l'utilisateur.
 - "missingDesired" (rpe, freshness) : demande-les UNE SEULE FOIS, les deux ensemble, en une phrase naturelle. S'ils ne viennent pas, n'insiste plus.
+- "missingNutrition" (adherence, energy) : APRÈS rpe et freshness, demande-les UNE SEULE FOIS, les deux ensemble, en une phrase courte sur la journée (alimentation, énergie). S'ils ne viennent pas, n'insiste plus. Vide ⟹ ne parle pas d'alimentation.
 - Si tu n'es pas SÛR d'une valeur, ne l'extrais pas et repose la question autrement ("isReformulation": true). Une valeur inventée est pire qu'une valeur absente.
 - N'explique jamais à quoi servent ces informations, et ne mentionne ni charge, ni ajustement, ni plan.
 - "suggestNextStep" vaut true quand tu estimes le débrief terminé.
@@ -164,6 +167,7 @@ export class MistralLlmProvider implements LlmProvider {
             draft: input.draft,
             missingMandatory: input.missingMandatory,
             missingDesired: input.missingDesired,
+            missingNutrition: input.missingNutrition,
             ...(input.sportReferential?.length
               ? { sportReferential: input.sportReferential.map((s) => ({ code: s.code, label: s.labelFr })) }
               : {}),

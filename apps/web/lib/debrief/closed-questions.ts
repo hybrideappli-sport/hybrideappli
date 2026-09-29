@@ -1,11 +1,14 @@
 import { z } from "zod";
 
 import {
+  ADHERENCE_LEVELS,
   BODY_ZONES,
   COMPLETION_STATUSES,
   PAIN_LEVELS,
   missingDesired,
   missingMandatory,
+  missingNutrition,
+  type AdherenceLevel,
   type BodyZone,
   type CompletionStatus,
   type DebriefDraft,
@@ -50,6 +53,9 @@ export const PAIN_LABELS_FR: Record<PainLevel, string> = {
   pain: "Une douleur",
 };
 
+/** Mêmes libellés que `DailyLogForm` : une même réponse ne change pas de nom d'un écran à l'autre. */
+export const ADHERENCE_LABELS_FR: Record<AdherenceLevel, string> = { low: "Faible", partial: "Partielle", high: "Bonne" };
+
 export const BODY_ZONE_LABELS_FR: Record<BodyZone, string> = {
   knee: "Genou",
   ankle: "Cheville",
@@ -67,7 +73,10 @@ export const BODY_ZONE_LABELS_FR: Record<BodyZone, string> = {
   other: "Ailleurs",
 };
 
-export type ClosedQuestionField = "completion" | "pain" | "painZone" | "rpe" | "freshness";
+export type ClosedQuestionField = "completion" | "pain" | "painZone" | "rpe" | "freshness" | "adherence" | "energy";
+
+/** Les obligatoires, un par un ; puis deux questions groupées, chacune posée une seule fois. */
+export type ClosedQuestionId = "completion" | "pain" | "painZone" | "effort" | "nutrition";
 
 export interface ClosedQuestionGroup {
   field: ClosedQuestionField;
@@ -76,10 +85,13 @@ export interface ClosedQuestionGroup {
 }
 
 export interface ClosedQuestion {
+  id: ClosedQuestionId;
   prompt: string;
   groups: ClosedQuestionGroup[];
-  /** `rpe` / `freshness` seulement : jamais bloquants, on peut passer (ADR-019 §6). */
+  /** `effort` et `nutrition` seulement : jamais bloquants, on peut passer (ADR-019 §6). */
   skippable: boolean;
+  /** `nutrition` : les deux ou rien, `adherence` et `energy` étant `not null` en base. */
+  requireAll: boolean;
 }
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -102,6 +114,12 @@ const GROUPS: Record<ClosedQuestionField, ClosedQuestionGroup> = {
   },
   rpe: { field: "rpe", legend: "Effort, de 1 à 10", options: range(1, 10).map((value) => ({ value, label: String(value) })) },
   freshness: { field: "freshness", legend: "Forme, de 1 à 5", options: range(1, 5).map((value) => ({ value, label: String(value) })) },
+  adherence: {
+    field: "adherence",
+    legend: "Alimentation aujourd'hui",
+    options: ADHERENCE_LEVELS.map((value) => ({ value, label: ADHERENCE_LABELS_FR[value] })),
+  },
+  energy: { field: "energy", legend: "Énergie, de 1 à 5", options: range(1, 5).map((value) => ({ value, label: String(value) })) },
 };
 
 const MANDATORY_PROMPTS: Record<"completion" | "pain" | "painZone", string> = {
@@ -112,21 +130,38 @@ const MANDATORY_PROMPTS: Record<"completion" | "pain" | "painZone", string> = {
 
 /**
  * La question fermée qui correspond à l'état du brouillon, ou `null` s'il n'y a plus rien à
- * demander. Obligatoires d'abord, un par un. Puis `rpe` et `freshness` ENSEMBLE, en une seule
- * question qu'on peut passer : c'est l'unique insistance d'ADR-019 §6.
+ * demander. Obligatoires d'abord, un par un. Puis `rpe` et `freshness` ENSEMBLE, puis, si la journée
+ * n'a pas encore son check-in, `adherence` et `energy` ENSEMBLE : chacune de ces deux questions est
+ * posée une seule fois, et on peut la passer (ADR-019 §6, amendement du 2026-09-26).
+ *
+ * `after` : la question groupée à laquelle on vient de répondre ou qu'on vient de passer. Elle ne
+ * revient pas, même si une réponse partielle y laisse un champ vide.
  */
-export function buildClosedQuestion(draft: DebriefDraft): ClosedQuestion | null {
+export function buildClosedQuestion(draft: DebriefDraft, opts: { nutritionDue: boolean; after?: "effort" | "nutrition" }): ClosedQuestion | null {
   const mandatory = missingMandatory(draft)[0];
-  if (mandatory) return { prompt: MANDATORY_PROMPTS[mandatory], groups: [GROUPS[mandatory]], skippable: false };
+  if (mandatory) return { id: mandatory, prompt: MANDATORY_PROMPTS[mandatory], groups: [GROUPS[mandatory]], skippable: false, requireAll: true };
 
-  const desired = missingDesired(draft);
-  if (desired.length === 0) return null;
-  return { prompt: "C'était dur ? Et tu te sens comment ?", groups: desired.map((field) => GROUPS[field]), skippable: true };
+  const effort = missingDesired(draft);
+  if (opts.after === undefined && effort.length > 0) {
+    return { id: "effort", prompt: "C'était dur ? Et tu te sens comment ?", groups: effort.map((field) => GROUPS[field]), skippable: true, requireAll: false };
+  }
+
+  const nutrition = missingNutrition(draft, opts.nutritionDue);
+  if (opts.after !== "nutrition" && nutrition.length > 0) {
+    return {
+      id: "nutrition",
+      prompt: "Et côté alimentation aujourd'hui, et ton énergie ?",
+      groups: nutrition.map((field) => GROUPS[field]),
+      skippable: true,
+      requireAll: true,
+    };
+  }
+  return null;
 }
 
 export const DEBRIEF_CLOSING_REPLY = "Merci, c'est noté.";
 
-/** Un choix par chips : une réponse structurée, OU le refus de répondre à `rpe` / `freshness`. */
+/** Un choix par chips : une réponse structurée, OU le refus de répondre à une question groupée. */
 export const DebriefChoiceSchema = z.union([
   z
     .object({
@@ -135,10 +170,17 @@ export const DebriefChoiceSchema = z.union([
       painZone: z.enum(BODY_ZONES).optional(),
       rpe: z.number().int().min(1).max(10).optional(),
       freshness: z.number().int().min(1).max(5).optional(),
+      adherence: z.enum(ADHERENCE_LEVELS).optional(),
+      energy: z.number().int().min(1).max(5).optional(),
     })
     .strict()
-    .refine((value) => Object.keys(value).length > 0, { message: "Au moins une réponse est requise." }),
-  z.object({ skip: z.literal(true) }).strict(),
+    .refine((value) => Object.keys(value).length > 0, { message: "Au moins une réponse est requise." })
+    // Les deux ou rien : `adherence` et `energy` sont `not null` dans `nutrition_checkins`.
+    .refine((value) => (value.adherence === undefined) === (value.energy === undefined), {
+      message: "L'alimentation et l'énergie se donnent ensemble.",
+    }),
+  // Passer une question groupée — jamais une obligatoire.
+  z.object({ skip: z.enum(["effort", "nutrition"]) }).strict(),
 ]);
 export type DebriefChoice = z.infer<typeof DebriefChoiceSchema>;
 
@@ -151,6 +193,8 @@ export function describeChoice(choice: DebriefChoice): string {
   if (choice.painZone) parts.push(BODY_ZONE_LABELS_FR[choice.painZone]);
   if (choice.rpe !== undefined) parts.push(`Effort ${choice.rpe}/10`);
   if (choice.freshness !== undefined) parts.push(`Forme ${choice.freshness}/5`);
+  if (choice.adherence) parts.push(`Alimentation ${ADHERENCE_LABELS_FR[choice.adherence].toLowerCase()}`);
+  if (choice.energy !== undefined) parts.push(`Énergie ${choice.energy}/5`);
   return parts.join(", ");
 }
 

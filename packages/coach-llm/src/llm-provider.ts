@@ -100,6 +100,9 @@ export interface DebriefTurnInput {
   missingMandatory: readonly string[];
   /** `rpe` / `freshness` restants — demandés, jamais bloquants. */
   missingDesired: readonly string[];
+  /** `adherence` / `energy` restants — signaux de la JOURNÉE, vides si elle a déjà son check-in.
+   *  Demandés après `rpe` / `freshness`, une seule fois, jamais bloquants. */
+  missingNutrition: readonly string[];
   /**
    * Référentiel des disciplines connues, énuméré au modèle comme les autres valeurs permises
    * (ADR-019 §5). Contrairement à l'onboarding, un débrief ne CRÉE jamais de discipline : un

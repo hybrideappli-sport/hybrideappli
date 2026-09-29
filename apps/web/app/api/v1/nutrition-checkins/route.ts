@@ -2,18 +2,15 @@ import { NutritionCheckinInputSchema, type NutritionCheckinResponse } from "@hyb
 
 import { apiError, apiJson } from "@/lib/api/respond";
 import { requireUser } from "@/lib/api/require-user";
+import { applyNutritionCheckin, NutritionCheckinPersistenceError } from "@/lib/orchestration/apply-nutrition-checkin";
 import { hasActiveConsent } from "@/lib/orchestration/check-consents";
 
 export const dynamic = "force-dynamic";
 
 /**
  * `POST /api/v1/nutrition-checkins` — AC4, AC11 (`08-architecture.md` §6.4). Saisie légère
- * UNIQUEMENT : `adherence` (3 niveaux) + `energy` — jamais de carnet alimentaire détaillé. N'écrit
- * jamais via `.upsert()` : `nutrition_checkins` n'a de `GRANT UPDATE` que sur un sous-ensemble de
- * colonnes (`adherence, energy, comment, nutrition_day_id` — `docs/db-schema.md` §6), et le
- * `ON CONFLICT ... DO UPDATE` généré par `upsert()` référence TOUTES les colonnes du payload
- * (y compris `user_id`/`date`, hors GRANT) — même piège déjà documenté dans
- * `apps/web/lib/orchestration/complete-onboarding.ts` pour `athlete_profiles`.
+ * UNIQUEMENT : `adherence` (3 niveaux) + `energy` — jamais de carnet alimentaire détaillé.
+ * L'écriture est `applyNutritionCheckin()`, partagée avec le débrief (US-05).
  */
 export async function POST(request: Request) {
   const { supabase, user } = await requireUser();
@@ -28,40 +25,15 @@ export async function POST(request: Request) {
     return apiError(403, "CONSENT_REQUIRED", "Le consentement au traitement des données de santé est requis pour cette saisie.");
   }
 
-  const { data: existing, error: existingError } = await supabase
-    .from("nutrition_checkins")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("date", parsed.data.date)
-    .maybeSingle();
-  if (existingError) return apiError(500, "INTERNAL_ERROR", existingError.message);
-
-  if (existing) {
-    const { error } = await supabase
-      .from("nutrition_checkins")
-      .update({ adherence: parsed.data.adherence, energy: parsed.data.energy, comment: parsed.data.comment ?? null })
-      .eq("id", existing.id);
-    if (error) return apiError(500, "INTERNAL_ERROR", error.message);
-    return apiJson<NutritionCheckinResponse>({ checkinId: existing.id });
-  }
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("nutrition_checkins")
-    .insert({
-      user_id: user.id,
-      date: parsed.data.date,
-      adherence: parsed.data.adherence,
-      energy: parsed.data.energy,
-      comment: parsed.data.comment ?? null,
-    })
-    .select("id")
-    .single();
-  if (insertError) {
-    if (insertError.message.toLowerCase().includes("row-level security")) {
-      return apiError(403, "CONSENT_REQUIRED", "Écriture refusée : consentement santé requis.");
+  try {
+    return apiJson<NutritionCheckinResponse>(await applyNutritionCheckin(supabase, { userId: user.id, input: parsed.data }));
+  } catch (error) {
+    if (error instanceof NutritionCheckinPersistenceError) {
+      if (error.message.toLowerCase().includes("row-level security")) {
+        return apiError(403, "CONSENT_REQUIRED", "Écriture refusée : consentement santé requis.");
+      }
+      return apiError(500, "INTERNAL_ERROR", error.message);
     }
-    return apiError(500, "INTERNAL_ERROR", insertError.message);
+    throw error;
   }
-
-  return apiJson<NutritionCheckinResponse>({ checkinId: inserted.id });
 }

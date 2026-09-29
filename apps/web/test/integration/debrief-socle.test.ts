@@ -81,7 +81,19 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
     });
     expect(tour3.draft.rpe).toBe(7);
     expect(tour3.draft.freshness).toBe(4);
-    expect(tour3.canClose).toBe(true);
+    // La journée n'a pas de check-in : le coach pose encore les deux questions nutrition
+    // (amendement ADR-019 du 2026-09-26) avant de clore.
+    expect(tour3.missingNutrition).toEqual(["adherence", "energy"]);
+    expect(tour3.canClose).toBe(false);
+
+    const tour4 = await runDebriefTurnForSession(user.client, admin, {
+      userId: user.id,
+      plannedSessionId,
+      now,
+      userMessage: "J'ai bien mangé, énergie 4",
+    });
+    expect(tour4.missingNutrition).toEqual([]);
+    expect(tour4.canClose).toBe(true);
 
     // ③ Inversé au Lot L2 : le trio obtenu au tour 2 a produit UN log, enrichi au tour 3.
     const { data: logs } = await admin.from("session_logs").select("id, rpe, freshness").eq("user_id", user.id);
@@ -95,7 +107,7 @@ describe("débrief post-séance — socle conversationnel (US-05 L1, ADR-019)", 
       .eq("planned_session_id", plannedSessionId)
       .single();
     expect(debrief?.status).toBe("completed");
-    expect(debrief?.turn_count).toBe(3);
+    expect(debrief?.turn_count).toBe(4);
     expect(debrief?.session_log_id).toBe(logs![0]!.id);
     expect(debrief?.draft).toMatchObject({ completion: "done", pain: "none", rpe: 7, freshness: 4 });
   });

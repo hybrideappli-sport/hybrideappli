@@ -11,6 +11,7 @@ import {
 } from "@hybride/domain";
 
 import { applyDailyLog } from "./apply-daily-log";
+import { applyNutritionCheckin } from "./apply-nutrition-checkin";
 import { applySessionLogCorrection } from "./apply-session-log-correction";
 
 /**
@@ -184,3 +185,33 @@ export async function writeDebriefLog(
 
   return write;
 }
+
+/**
+ * `writeDebriefNutrition()` — les deux signaux nutrition de la JOURNÉE, recueillis par le débrief
+ * (amendement ADR-019 du 2026-09-26), écrits par le même chemin que le formulaire.
+ *
+ * Les deux ou rien : `adherence` et `energy` sont `not null` dans `nutrition_checkins`, et on n'écrit
+ * pas la moitié d'un check-in. Indépendant du trio de la séance : la journée a son propre signal.
+ * N'écrit que si le brouillon dit autre chose que la ligne existante — un tour sans nouveauté
+ * n'écrit rien. Renvoie `true` si une écriture a eu lieu.
+ */
+export async function writeDebriefNutrition(
+  rls: SupabaseClient<Database>,
+  args: { userId: string; date: string; draft: DebriefDraft },
+): Promise<boolean> {
+  const { adherence, energy } = args.draft;
+  if (adherence === undefined || energy === undefined) return false;
+
+  const { data: existing, error } = await rls
+    .from("nutrition_checkins")
+    .select("adherence, energy")
+    .eq("user_id", args.userId)
+    .eq("date", args.date)
+    .maybeSingle();
+  if (error) throw new Error(`writeDebriefNutrition: nutrition_checkins (lecture) — ${error.message}`);
+  if (existing && existing.adherence === adherence && existing.energy === energy) return false;
+
+  await applyNutritionCheckin(rls, { userId: args.userId, input: { date: args.date, adherence, energy } });
+  return true;
+}
+

@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { SESSION_TYPES } from "@hybride/domain";
+import { ADHERENCE_LEVELS, SESSION_TYPES } from "@hybride/domain";
 
 import { runDebriefTurn } from "../debrief-conversation";
 import type { ConversationTurnOutput, DebriefTurnInput, LlmProvider } from "../llm-provider";
@@ -42,12 +42,36 @@ function turn(provider: LlmProvider, sportReferential = REFERENTIAL) {
     session: offPlan,
     reformulationCount: 0,
     sportReferential,
+    nutritionDue: true,
   });
 }
 
 describe("débrief — valeurs permises de sessionType et sportCode", () => {
   it("le prompt énumère chaque type de séance du domaine", () => {
     for (const type of SESSION_TYPES) expect(DEBRIEF_SYSTEM_PROMPT).toContain(type);
+  });
+
+  it("le prompt énumère les niveaux d'adhérence, et une valeur hors liste rejette le patch", async () => {
+    for (const level of ADHERENCE_LEVELS) expect(DEBRIEF_SYSTEM_PROMPT).toContain(level);
+    const result = await turn(stubProvider({ adherence: "bien" }));
+    expect(result.extractionPatch).toBeNull();
+  });
+
+  it("les signaux nutrition ne sont demandés que si la journée n'a pas son check-in", async () => {
+    const provider = stubProvider({ completion: "done" });
+    await turn(provider);
+    expect(provider.lastInput?.missingNutrition).toEqual(["adherence", "energy"]);
+
+    await runDebriefTurn(provider, {
+      history: [],
+      draft: {},
+      userMessage: "ok",
+      session: offPlan,
+      reformulationCount: 0,
+      sportReferential: REFERENTIAL,
+      nutritionDue: false,
+    });
+    expect(provider.lastInput?.missingNutrition).toEqual([]);
   });
 
   it("le référentiel sports est transmis au fournisseur", async () => {

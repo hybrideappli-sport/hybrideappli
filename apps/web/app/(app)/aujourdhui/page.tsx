@@ -157,7 +157,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   // déjà le bandeau de mode dégradé.
   const debrief =
     session && healthConsentActive
-      ? await readDebriefForSession(admin, { userId: user.id, plannedSessionId: session.id, sessionLogId: session.log?.id ?? null })
+      ? await readDebriefForSession(admin, { userId: user.id, plannedSessionId: session.id, sessionLogId: session.log?.id ?? null, date: now })
       : null;
   const debriefActive =
     session !== null &&

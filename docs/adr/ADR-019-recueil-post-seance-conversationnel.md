@@ -212,7 +212,7 @@ Cela confirme le partage décrit en §Conséquences : la conversation remplace *
 
 **1. Le coach pose les deux questions nutrition dans la conversation.** Deux questions courtes, qui s'y prêtent.
 
-Ce que la décision implique, et qui n'est pas encore implémenté :
+Ce que la décision implique — **implémenté sur la branche L3 le 2026-09-29** :
 
 - **Une fois par jour, pas une fois par séance.** `nutrition_checkins` porte `unique (user_id, date)` : l'alimentation qualifie une journée, là où `rpe` et `freshness` qualifient une séance (§2). Avec deux séances le même jour, seul le débrief qui trouve la journée sans check-in pose les questions.
 - **Jamais bloquantes, une seule insistance**, comme `rpe` et `freshness` (§6). Elles ne retardent donc jamais l'écriture précoce du réalisé (§3).
@@ -224,4 +224,6 @@ Ce que la décision implique, et qui n'est pas encore implémenté :
 **2. Une séance hors plan reste saisie par le formulaire**, dans la continuité du retrait décidé pour L2. Conséquence pour l'écran : l'entrée « ajouter une séance hors plan » doit rester **accessible à côté du chat**, pendant et après la conversation. En L3, elle ne passe que par « Je préfère le formulaire », et ce lien disparaît dès que la conversation a écrit le log. Le cas d'une séance planifiée suivie d'une séance hors plan le même jour n'a alors plus de chemin.
 
 Les deux points sont à traiter **avant le point ⛔**, sur la branche L3 : la validation du prompt doit porter sur le prompt complet, questions nutrition comprises.
+
+**Implémenté le 2026-09-29, branche L3.** Le check-in passe par `applyNutritionCheckin()`, extrait de `POST /nutrition-checkins` et partagé avec le formulaire. Le prompt énumère `adherence` et `energy`, et ne les demande qu'après `rpe` / `freshness`. En questions fermées, chaque question groupée (`effort`, puis `nutrition`) n'est posée qu'une fois, et « Passer » nomme celle qu'il écarte. L'entrée « Ajouter une séance hors plan » reste sous le chat, log écrit ou non. Le banc Mistral inclut désormais une réponse nutrition.
 

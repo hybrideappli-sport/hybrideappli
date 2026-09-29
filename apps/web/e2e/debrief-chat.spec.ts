@@ -9,7 +9,7 @@ import { completeOnboardingToDashboard, historyMessageWithSessionToday } from ".
  *
  *   ① conversation → log → plan ajusté ;
  *   ② LLM en échec ⟹ formulaire, saisie possible ;
- *   ③ deux incompréhensions ⟹ chips.
+ *   ③ deux incompréhensions ⟹ chips, nutrition de la journée comprise.
  * Le ④ (paywall bloqué : formulaire, aucun appel LLM) vit dans `paywall.spec.ts`.
  */
 
@@ -39,6 +39,12 @@ test("① débrief en conversation — le log est écrit dès le trio, et un rpe
 
   await say(page, "Franchement dur, 9 sur 10");
   await expect(page.getByTestId("adjustment-applied")).toBeVisible();
+
+  // Le log est écrit : « Je préfère le formulaire » n'a plus lieu d'être, mais une séance hors plan
+  // reste saisissable à côté du chat (amendement ADR-019 du 2026-09-26).
+  await expect(page.getByTestId("debrief-use-form")).toHaveCount(0);
+  await page.getByTestId("debrief-add-offplan").click();
+  await expect(page.getByTestId("daily-log-form")).toBeVisible();
 
   // L'échange survit au rechargement, y compris après l'ajustement qui vient de régénérer le plan
   // (la séance du jour est alors une nouvelle ligne) : la conversation reprend là où elle en était.
@@ -83,8 +89,16 @@ test("③ deux incompréhensions — le coach propose des chips, qui mènent au 
   await closed.getByRole("radiogroup", { name: "Effort, de 1 à 10" }).getByRole("radio", { name: "9", exact: true }).click();
   await closed.getByRole("radiogroup", { name: "Forme, de 1 à 5" }).getByRole("radio", { name: "2", exact: true }).click();
   await closed.getByRole("button", { name: "Envoyer" }).click();
-
   await expect(page.getByTestId("adjustment-applied")).toBeVisible({ timeout: 15_000 });
+
+  // Puis la journée : alimentation et énergie, les deux ou rien.
+  const nutrition = page.getByTestId("debrief-closed-question");
+  await expect(nutrition.getByRole("radiogroup", { name: "Alimentation aujourd'hui" })).toBeVisible();
+  await nutrition.getByRole("radio", { name: "Bonne", exact: true }).click();
+  await expect(nutrition.getByRole("button", { name: "Envoyer" })).toBeDisabled();
+  await nutrition.getByRole("radiogroup", { name: "Énergie, de 1 à 5" }).getByRole("radio", { name: "4", exact: true }).click();
+  await nutrition.getByRole("button", { name: "Envoyer" }).click();
+
   // Échange clos : plus de champ de saisie.
   await expect(page.getByLabel("Ta réponse au coach")).toHaveCount(0);
 });
