@@ -36,6 +36,38 @@ export interface SessionLogSignals {
   freshness: number | null;
   pain: PainLevel;
   painZone: BodyZone | null;
+  painAtRest: boolean;
+}
+
+/**
+ * Ce que ce passage du pipeline doit déclencher, au vu des signaux AVANT et APRÈS l'écriture.
+ *
+ * Bug de production corrigé le 2026-09-29 (amendement ADR-019) : le pipeline décidait sur les
+ * seuls signaux FINAUX du log. Chaque `PATCH /session-logs/:id` sur un log déjà négatif relançait
+ * donc une régénération `negative_signal`, et une nouvelle baisse de 20 % s'appliquait sur la
+ * version DÉJÀ réduite. Une gêne suivie d'un effort à 7/10 faisait passer la cible de 189 à 151,
+ * puis de 151 à 121 — alors que 7/10 n'est pas un signal négatif.
+ *
+ * Règle : un log porte AU PLUS UNE baisse `negative_signal`, au moment où il devient négatif. Le
+ * protocole douleur n'est rejoué que si ses propres entrées changent (`pain`, `painZone`,
+ * `painAtRest`) : une escalade vers `persistent` ou `acute` reste un événement nouveau, qui doit
+ * régénérer le plan pour bloquer la zone.
+ *
+ * `previous === null` : saisie initiale, tout est nouveau.
+ */
+export function decideSignalEffects(
+  previous: SessionLogSignals | null,
+  current: SessionLogSignals,
+): { runPainProtocol: boolean; negativeSignalIsNew: boolean } {
+  const painInputsChanged =
+    previous === null ||
+    previous.pain !== current.pain ||
+    previous.painZone !== current.painZone ||
+    previous.painAtRest !== current.painAtRest;
+  return {
+    runPainProtocol: painInputsChanged,
+    negativeSignalIsNew: isNegativeSignal(current) && (previous === null || !isNegativeSignal(previous)),
+  };
 }
 
 export type ReconciliationMode = "match" | "replay-if-excluded" | "skip";
@@ -64,9 +96,18 @@ export type ReconciliationMode = "match" | "replay-if-excluded" | "skip";
  */
 export async function runSessionLogSignalPipeline(
   admin: SupabaseClient<Database>,
-  args: { userId: string; now: string; logId: string; signals: SessionLogSignals; reconciliationMode: ReconciliationMode },
+  args: {
+    userId: string;
+    now: string;
+    logId: string;
+    signals: SessionLogSignals;
+    /** Signaux du log AVANT cette écriture ; `null` pour une saisie initiale. Voir `decideSignalEffects()`. */
+    previousSignals: SessionLogSignals | null;
+    reconciliationMode: ReconciliationMode;
+  },
 ): Promise<Pick<CreateSessionLogResponse, "adjustment" | "painProtocol" | "nextSession" | "reconciliation">> {
   const { userId, now, logId, signals, reconciliationMode } = args;
+  const effects = decideSignalEffects(args.previousSignals, signals);
 
   // US-02, ADR-015 §1/§2 — point de contact #1 de `08-architecture.md` §13.6 : charge réalisée
   // (chemin d'écriture unique, service_role) PUIS résolution de doublon (AC5).
@@ -110,7 +151,7 @@ export async function runSessionLogSignalPipeline(
   let painProtocolResponse: CreateSessionLogResponse["painProtocol"] = { level: "none", zoneBlocked: false, referral: null };
   let painProtocolTriggersRegeneration = false;
 
-  if (signals.pain !== "none" && signals.painZone) {
+  if (effects.runPainProtocol && signals.pain !== "none" && signals.painZone) {
     const traceFactory = createTraceFactory(ruleset.version);
     const painResult = evaluatePainProtocol(context, ruleset, traceFactory);
     const zoneState = painResult.zoneStates.find((z) => z.zone === signals.painZone);
@@ -228,7 +269,7 @@ export async function runSessionLogSignalPipeline(
   }
 
   // 3) AC4 — ajustement immédiat à la baisse. `pain_protocol` prime sur `negative_signal`.
-  const trigger: PlanTrigger | null = painProtocolTriggersRegeneration ? "pain_protocol" : isNegativeSignal(signals) ? "negative_signal" : null;
+  const trigger: PlanTrigger | null = painProtocolTriggersRegeneration ? "pain_protocol" : effects.negativeSignalIsNew ? "negative_signal" : null;
 
   let adjustment: CreateSessionLogResponse["adjustment"] = { applied: false, direction: "none", planVersionId: null, affectedDates: [], explanation: null };
 
